@@ -1,5 +1,5 @@
 // Service Worker for Kiosk Pro
-const CACHE_NAME = 'kiosk-pro-v2';
+const CACHE_NAME = 'kiosk-pro-v3';
 
 // Assets to precache immediately
 const PRECACHE_URLS = [
@@ -24,10 +24,33 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   // Claim clients immediately so the page is controlled by the SW without reload
   event.waitUntil(clients.claim());
+  // Cleanup old caches
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
 });
 
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  // Navigation Fallback Strategy (SPA Routing)
+  // If the user navigates to a route (like /admin), and the network fails,
+  // serve index.html from cache so React Router can handle it.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => {
+          return caches.match('/index.html');
+        })
+    );
+    return;
+  }
 
   // Strategy: Cache First for Images and Fonts
   // This speeds up the heavy visual assets of the kiosk
