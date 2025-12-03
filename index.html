@@ -1,9 +1,56 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0f172a" />
     <title>Kiosk Pro Showcase</title>
+    
+    <!-- PWA Dynamic Manifest Loader -->
+    <script>
+      (function() {
+        // Determine which persona to load based on URL
+        const isAdmin = window.location.pathname.startsWith('/admin');
+        const iconUrl = isAdmin 
+          ? 'https://i.ibb.co/6cS1j2bV/Gemini-Generated-Image-rj9uixrj9uixrj9u-removebg-preview.png' 
+          : 'https://i.ibb.co/N2ftn5Sq/Gemini-Generated-Image-wwwjlawwwjlawwwj-removebg-preview.png';
+
+        // 1. Inject Manifest
+        const manifest = document.createElement('link');
+        manifest.rel = 'manifest';
+        manifest.href = isAdmin ? '/manifest-admin.json' : '/manifest-kiosk.json';
+        document.head.appendChild(manifest);
+
+        // 2. Inject Apple Touch Icon
+        const appleIcon = document.createElement('link');
+        appleIcon.rel = 'apple-touch-icon';
+        appleIcon.href = iconUrl;
+        document.head.appendChild(appleIcon);
+        
+        // 3. Inject Favicon
+        const favIcon = document.createElement('link');
+        favIcon.rel = 'icon';
+        favIcon.href = iconUrl;
+        document.head.appendChild(favIcon);
+      })();
+    </script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+              console.log('SW Registered: ', registration);
+            })
+            .catch(registrationError => {
+              console.log('SW Registration Failed: ', registrationError);
+            });
+        });
+      }
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>

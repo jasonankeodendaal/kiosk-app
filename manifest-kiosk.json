@@ -1,0 +1,20 @@
+
+{
+  "name": "Kiosk Pro Showcase",
+  "short_name": "Kiosk Pro",
+  "description": "Interactive Retail Showcase for Tablets",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#f1f5f9",
+  "theme_color": "#0f172a",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "https://i.ibb.co/N2ftn5Sq/Gemini-Generated-Image-wwwjlawwwjlawwwj-removebg-preview.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

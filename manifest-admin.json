@@ -1,0 +1,19 @@
+
+{
+  "name": "Kiosk Admin Hub",
+  "short_name": "Admin Hub",
+  "description": "System Control Center for Kiosk Pro",
+  "start_url": "/admin",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "scope": "/admin",
+  "icons": [
+    {
+      "src": "https://i.ibb.co/6cS1j2bV/Gemini-Generated-Image-rj9uixrj9uixrj9u-removebg-preview.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
