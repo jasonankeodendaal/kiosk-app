@@ -1,0 +1,253 @@
+
+import React, { useEffect, useState } from 'react';
+import { Brand, Catalog, HeroConfig, AdConfig, AdItem } from '../types';
+import { Download, BookOpen, Globe } from 'lucide-react';
+
+interface BrandGridProps {
+  brands: Brand[];
+  heroConfig?: HeroConfig;
+  catalog?: Catalog;
+  ads?: AdConfig;
+  onSelectBrand: (brand: Brand) => void;
+  onViewCatalog: () => void;
+  onExport: () => void; 
+}
+
+const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    useEffect(() => {
+        if (!items || items.length <= 1) return;
+        const interval = setInterval(() => {
+            setCurrentIndex((prev) => (prev + 1) % items.length);
+        }, 6000); // 6 Seconds Rotation
+        return () => clearInterval(interval);
+    }, [items]);
+
+    if (!items || items.length === 0) return (
+       // Empty placeholder that maintains layout for the "red box" requirement, but transparent if empty in production
+       <div className={`relative overflow-hidden rounded-xl border border-slate-200/50 bg-slate-50/50 ${className}`}></div>
+    );
+    
+    // Ensure index is valid
+    const index = currentIndex % items.length;
+    const item = items[index];
+
+    return (
+        <div className={`relative overflow-hidden rounded-xl shadow-sm border border-slate-200 bg-white group ${className}`}>
+            <div className="absolute top-2 right-2 z-10 bg-black/10 text-black/50 px-1 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest backdrop-blur-sm">Ad</div>
+            
+            <div key={item.id} className="w-full h-full animate-fade-in bg-slate-50">
+                {item.type === 'video' ? (
+                    <video src={item.url} autoPlay muted loop className="w-full h-full object-cover" />
+                ) : (
+                    <img src={item.url} alt="Advertisement" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                )}
+            </div>
+
+            {/* Dots for carousel */}
+            {items.length > 1 && (
+                <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1 z-10">
+                    {items.map((_, idx) => (
+                        <div 
+                            key={idx} 
+                            className={`w-1.5 h-1.5 rounded-full transition-colors ${idx === index ? 'bg-white' : 'bg-white/50'}`}
+                        ></div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const CatalogStrip = ({ pages, onView }: { pages?: string[], onView: () => void }) => {
+  if (!pages || pages.length === 0) return null;
+  
+  // Create a looped array for seamless marquee effect if needed, but simple scrolling is cleaner for touch
+  return (
+    <div className="w-full bg-slate-100 border-b border-slate-200 relative overflow-hidden h-32 flex items-center group">
+       <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-100 to-transparent z-10 pointer-events-none"></div>
+       <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-100 to-transparent z-10 pointer-events-none"></div>
+       
+       <div className="flex gap-3 px-4 animate-scroll whitespace-nowrap hover:pause">
+          {[...pages, ...pages].map((page, idx) => (
+             <button 
+                key={idx} 
+                onClick={onView} 
+                className="h-24 aspect-[2/3] bg-white shadow-md rounded border border-slate-200 shrink-0 hover:scale-110 transition-transform overflow-hidden relative"
+             >
+                <img src={page} className="w-full h-full object-cover" alt={`Page ${idx}`} />
+             </button>
+          ))}
+       </div>
+       
+       <button 
+         onClick={onView} 
+         className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/10 backdrop-blur-[1px]"
+       >
+          <span className="bg-slate-900 text-white px-4 py-2 rounded-full font-bold text-xs uppercase shadow-xl transform hover:scale-105 transition-transform flex items-center gap-2">
+            <BookOpen size={14} /> View Full Catalog
+          </span>
+       </button>
+       
+       <style>{`
+         .animate-scroll { animation: scroll 40s linear infinite; }
+         .hover\\:pause:hover { animation-play-state: paused; }
+         @keyframes scroll {
+           0% { transform: translateX(0); }
+           100% { transform: translateX(-50%); }
+         }
+       `}</style>
+    </div>
+  )
+}
+
+const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads, onSelectBrand, onViewCatalog, onExport }) => {
+  
+  const handleDownloadPdf = () => {
+    if (catalog?.pdfUrl) {
+        const link = document.createElement('a');
+        link.href = catalog.pdfUrl;
+        link.download = 'store_catalog.pdf';
+        link.click();
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-slate-50 overflow-y-auto animate-fade-in">
+      
+      {/* Hero Section */}
+      <div className="bg-slate-900 text-white p-6 md:p-8 shrink-0 relative overflow-hidden">
+        
+        {/* Dynamic Background Image */}
+        {heroConfig?.backgroundImageUrl && (
+            <div className="absolute inset-0 z-0">
+                <img src={heroConfig.backgroundImageUrl} alt="" className="w-full h-full object-cover opacity-40 blur-sm scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent"></div>
+            </div>
+        )}
+
+        {/* Abstract shapes (Fallback if no image or blended) */}
+        {!heroConfig?.backgroundImageUrl && (
+            <>
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/30 rounded-full blur-[100px] -mr-32 -mt-32"></div>
+                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-yellow-400/10 rounded-full blur-[80px] -ml-20 -mb-20"></div>
+            </>
+        )}
+        
+        <div className="relative z-10 flex justify-between items-end pt-6">
+          <div>
+            {heroConfig?.logoUrl ? (
+                <img src={heroConfig.logoUrl} alt="Brand Logo" className="h-12 w-auto object-contain mb-4 drop-shadow-md" />
+            ) : (
+                <div className="flex items-center gap-2 mb-3">
+                   <span className="bg-yellow-400 text-slate-900 text-[10px] font-extrabold px-2 py-1 rounded uppercase tracking-wider">Showcase</span>
+                </div>
+            )}
+            
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-2 text-white">
+               {heroConfig?.title || "Our Partners"}
+            </h1>
+            <p className="text-slate-300 text-lg font-light max-w-xl">
+               {heroConfig?.subtitle || "Select a brand to explore."}
+            </p>
+
+            {/* Catalog Actions & Website Button */}
+            <div className="flex items-center gap-3 mt-6 flex-wrap">
+                {catalog && catalog.pages.length > 0 && (
+                    <>
+                        <button 
+                            onClick={onViewCatalog}
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg shadow-blue-600/30 transition-all hover:-translate-y-0.5"
+                        >
+                            <BookOpen size={16} /> View Catalog
+                        </button>
+                        <button 
+                            onClick={handleDownloadPdf}
+                            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs backdrop-blur-sm border border-white/20 transition-all"
+                        >
+                            <Download size={16} /> Download PDF
+                        </button>
+                    </>
+                )}
+                {heroConfig?.websiteUrl && (
+                     <a 
+                        href={heroConfig.websiteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 bg-white text-slate-900 px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg transition-all hover:-translate-y-0.5 hover:bg-slate-100"
+                    >
+                        <Globe size={16} /> View Website
+                    </a>
+                )}
+            </div>
+          </div>
+
+          <button 
+            onClick={onExport}
+            className="hidden lg:flex items-center gap-2 text-slate-300 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider border border-slate-700 hover:border-slate-500 hover:bg-slate-800 px-4 py-2 rounded-lg backdrop-blur-sm"
+          >
+            <Download size={16} />
+            <span>Export Data</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Catalog Teaser Strip (New Requirement) */}
+      <CatalogStrip pages={catalog?.pages} onView={onViewCatalog} />
+
+      {/* Main Content Area */}
+      <div className="flex-1 p-4 pt-6 max-w-7xl mx-auto w-full flex flex-col lg:flex-row gap-6">
+        
+        {/* Left Column (Brands + Bottom Ads) */}
+        <div className="flex-1 flex flex-col gap-6">
+            
+            {/* Grid */}
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 w-full">
+              {brands.map((brand, idx) => (
+                <button
+                  key={brand.id}
+                  onClick={() => onSelectBrand(brand)}
+                  className="group flex flex-col items-center justify-center transition-all duration-300 focus:outline-none"
+                >
+                  {/* Logo Area */}
+                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 flex items-center justify-center p-2 transition-transform duration-300 group-hover:scale-110">
+                    <div className="absolute inset-0 bg-blue-500/0 group-hover:bg-blue-500/5 rounded-full blur-xl transition-colors duration-300"></div>
+                    {brand.logoUrl ? (
+                      <img 
+                        src={brand.logoUrl} 
+                        alt={brand.name} 
+                        className="w-full h-full object-contain filter grayscale group-hover:grayscale-0 opacity-70 group-hover:opacity-100 transition-all duration-500"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-200 text-slate-400 group-hover:bg-slate-900 group-hover:text-yellow-400 flex items-center justify-center text-2xl font-black shadow-inner transition-colors duration-300">
+                        {brand.name.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Bottom Ads Area - Using Auto Slide AdUnits */}
+            {ads && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-auto">
+                    {/* Render ads blocks even if empty to maintain layout if requested, though AdUnit handles content */}
+                    <AdUnit items={ads.homeBottomLeft} className="aspect-[2/1] w-full min-h-[150px]" />
+                    <AdUnit items={ads.homeBottomRight} className="aspect-[2/1] w-full min-h-[150px]" />
+                </div>
+            )}
+        </div>
+
+        {/* Right Column (Side Ad) - Only show if content exists or layout demands */}
+        <div className="hidden lg:block w-72 shrink-0">
+             {ads && (
+                 <AdUnit items={ads.homeSideVertical} className="h-full w-full min-h-[400px]" />
+             )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default BrandGrid;
