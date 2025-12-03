@@ -1,13 +1,14 @@
-
 // Service Worker for Kiosk Pro
-const CACHE_NAME = 'kiosk-pro-v1';
+const CACHE_NAME = 'kiosk-pro-v2';
 
 // Assets to precache immediately
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/manifest-kiosk.json',
-  '/manifest-admin.json'
+  '/manifest-admin.json',
+  '/icon-kiosk.svg',
+  '/icon-admin.svg'
 ];
 
 self.addEventListener('install', (event) => {
@@ -79,8 +80,6 @@ self.addEventListener('fetch', (event) => {
           if (cachedResponse) {
             return cachedResponse;
           }
-          // If we are offline and don't have it cached, we could return a custom offline page here
-          // For now, standard browser error or nothing
           return null;
         });
       })

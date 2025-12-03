@@ -1,19 +1,29 @@
-
 {
   "name": "Kiosk Admin Hub",
   "short_name": "Admin Hub",
   "description": "System Control Center for Kiosk Pro",
+  "id": "/admin",
   "start_url": "/admin",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "scope": "/admin",
+  "categories": ["business", "utilities", "management"],
   "icons": [
     {
-      "src": "https://i.ibb.co/6cS1j2bV/Gemini-Generated-Image-rj9uixrj9uixrj9u-removebg-preview.png",
+      "src": "/icon-admin.svg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "https://placehold.co/1280x720/0f172a/white?text=Admin+Dashboard",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
     }
   ]
 }

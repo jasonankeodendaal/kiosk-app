@@ -9,15 +9,15 @@
     <!-- PWA Defaults (Static for Scanners) -->
     <!-- Defaulting to Kiosk Persona so tools like PWABuilder find a valid manifest immediately -->
     <link rel="manifest" href="/manifest-kiosk.json" id="pwa-manifest" />
-    <link rel="icon" href="https://i.ibb.co/N2ftn5Sq/Gemini-Generated-Image-wwwjlawwwjlawwwj-removebg-preview.png" id="pwa-icon" />
-    <link rel="apple-touch-icon" href="https://i.ibb.co/N2ftn5Sq/Gemini-Generated-Image-wwwjlawwwjlawwwj-removebg-preview.png" id="pwa-apple-icon" />
+    <link rel="icon" href="/icon-kiosk.svg" id="pwa-icon" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-kiosk.svg" id="pwa-apple-icon" />
 
     <!-- Dynamic Persona Swapper -->
     <script>
       (function() {
         if (window.location.pathname.startsWith('/admin')) {
           // Admin Persona Assets
-          const adminIcon = 'https://i.ibb.co/6cS1j2bV/Gemini-Generated-Image-rj9uixrj9uixrj9u-removebg-preview.png';
+          const adminIcon = '/icon-admin.svg';
           const adminManifest = '/manifest-admin.json';
           
           // Swap Manifest

@@ -1,20 +1,36 @@
-
 {
   "name": "Kiosk Pro Showcase",
   "short_name": "Kiosk Pro",
   "description": "Interactive Retail Showcase for Tablets",
+  "id": "/",
   "start_url": "/",
   "display": "fullscreen",
+  "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "landscape",
   "background_color": "#f1f5f9",
   "theme_color": "#0f172a",
   "scope": "/",
+  "categories": ["shopping", "retail", "productivity"],
   "icons": [
     {
-      "src": "https://i.ibb.co/N2ftn5Sq/Gemini-Generated-Image-wwwjlawwwjlawwwj-removebg-preview.png",
+      "src": "/icon-kiosk.svg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "https://placehold.co/1280x720/2563eb/white?text=Kiosk+Home+Screen",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "https://placehold.co/720x1280/2563eb/white?text=Mobile+View",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow"
     }
   ]
 }
