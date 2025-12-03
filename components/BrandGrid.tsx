@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Brand, Catalog, HeroConfig, AdConfig, AdItem } from '../types';
-import { Download, BookOpen, Globe } from 'lucide-react';
+import { Download, BookOpen, Globe, ChevronRight } from 'lucide-react';
 
 interface BrandGridProps {
   brands: Brand[];
@@ -63,39 +63,52 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
 const CatalogStrip = ({ pages, onView }: { pages?: string[], onView: () => void }) => {
   if (!pages || pages.length === 0) return null;
   
-  // Create a looped array for seamless marquee effect if needed, but simple scrolling is cleaner for touch
+  // Use horizontal scroll with snap for touch-friendly "swipe" gestures
   return (
-    <div className="w-full bg-slate-100 border-b border-slate-200 relative overflow-hidden h-32 flex items-center group">
-       <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-100 to-transparent z-10 pointer-events-none"></div>
-       <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-100 to-transparent z-10 pointer-events-none"></div>
+    <div className="w-full bg-slate-100 border-b border-slate-200 relative h-36 flex items-center group touch-pan-x">
+       <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-slate-100 to-transparent z-10 pointer-events-none"></div>
+       <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-slate-100 to-transparent z-10 pointer-events-none"></div>
        
-       <div className="flex gap-3 px-4 animate-scroll whitespace-nowrap hover:pause">
-          {[...pages, ...pages].map((page, idx) => (
+       <div className="flex gap-4 px-6 overflow-x-auto w-full h-full items-center no-scrollbar snap-x snap-mandatory py-4">
+          <div className="shrink-0 snap-center flex flex-col justify-center items-start pr-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Catalog</span>
+              <div className="flex items-center gap-1 text-slate-900 font-bold text-xs uppercase whitespace-nowrap">
+                 <BookOpen size={14} className="text-blue-600" />
+                 Preview
+              </div>
+          </div>
+
+          {pages.map((page, idx) => (
              <button 
                 key={idx} 
                 onClick={onView} 
-                className="h-24 aspect-[2/3] bg-white shadow-md rounded border border-slate-200 shrink-0 hover:scale-110 transition-transform overflow-hidden relative"
+                className="h-28 aspect-[2/3] bg-white shadow-sm hover:shadow-md rounded-lg border border-slate-200 shrink-0 transition-transform transform active:scale-95 overflow-hidden relative snap-center"
              >
-                <img src={page} className="w-full h-full object-cover" alt={`Page ${idx}`} />
+                <img src={page} className="w-full h-full object-cover" alt={`Page ${idx + 1}`} />
+                <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[8px] font-bold px-1 rounded backdrop-blur-sm">
+                    {idx + 1}
+                </div>
              </button>
           ))}
+          
+          <button 
+            onClick={onView}
+            className="h-28 aspect-[2/3] bg-white rounded-lg border-2 border-dashed border-slate-300 shrink-0 flex flex-col items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors gap-2 snap-center group/btn"
+          >
+             <div className="w-8 h-8 rounded-full bg-slate-100 group-hover/btn:bg-white flex items-center justify-center shadow-sm transition-colors">
+                <ChevronRight size={16} />
+             </div>
+             <span className="text-[9px] font-bold uppercase tracking-widest">Open</span>
+          </button>
        </div>
        
-       <button 
-         onClick={onView} 
-         className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/10 backdrop-blur-[1px]"
-       >
-          <span className="bg-slate-900 text-white px-4 py-2 rounded-full font-bold text-xs uppercase shadow-xl transform hover:scale-105 transition-transform flex items-center gap-2">
-            <BookOpen size={14} /> View Full Catalog
-          </span>
-       </button>
-       
        <style>{`
-         .animate-scroll { animation: scroll 40s linear infinite; }
-         .hover\\:pause:hover { animation-play-state: paused; }
-         @keyframes scroll {
-           0% { transform: translateX(0); }
-           100% { transform: translateX(-50%); }
+         .no-scrollbar::-webkit-scrollbar {
+           display: none;
+         }
+         .no-scrollbar {
+           -ms-overflow-style: none;
+           scrollbar-width: none;
          }
        `}</style>
     </div>
@@ -193,7 +206,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
         </div>
       </div>
 
-      {/* Catalog Teaser Strip (New Requirement) */}
+      {/* Catalog Teaser Strip (Swiper) */}
       <CatalogStrip pages={catalog?.pages} onView={onViewCatalog} />
 
       {/* Main Content Area */}

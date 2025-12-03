@@ -1,9 +1,25 @@
+
 import { createClient } from '@supabase/supabase-js';
 
-// NOTE: In a real environment, import these from a config file
-// We check for Vite/Vercel environment variables first
-const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'YOUR_SUPABASE_PROJECT_URL';
-const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_PUBLIC_KEY';
+// Helper to safely get env vars without crashing if import.meta or process is undefined
+const getEnv = (key: string, fallback: string) => {
+  try {
+    // Check Vite / Modern Standards
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env[key]) {
+      return (import.meta as any).env[key];
+    }
+    // Check Webpack / Node / Create React App
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      return process.env[key];
+    }
+  } catch (e) {
+    // Ignore errors in strict environments
+  }
+  return fallback;
+};
+
+const SUPABASE_URL = getEnv('VITE_SUPABASE_URL', 'YOUR_SUPABASE_PROJECT_URL');
+const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY', 'YOUR_SUPABASE_ANON_PUBLIC_KEY');
 
 let supabase: any = null;
 

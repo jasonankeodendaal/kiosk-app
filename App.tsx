@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import KioskApp from './components/KioskApp';
 import AdminDashboard from './components/AdminDashboard';
@@ -28,6 +29,7 @@ export default function App() {
         setStoreData(data);
       } catch (e) {
         console.error("Failed to load data", e);
+        // Fallback to empty data or continue so we don't hang on white screen
       } finally {
         setLoading(false);
       }
@@ -48,15 +50,16 @@ export default function App() {
   if (loading) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-900 text-white">
-        <Loader2 className="animate-spin mb-4" size={48} />
+        <Loader2 className="animate-spin mb-4 text-blue-500" size={48} />
         <div className="text-xl font-bold tracking-widest uppercase">System Boot</div>
+        <div className="text-xs text-slate-500 mt-2">Initializing Modules...</div>
       </div>
     );
   }
 
   // --- ROUTE: ADMIN HUB ---
-  // Access via /admin
-  if (currentRoute === '/admin') {
+  // Access via /admin or /admin/
+  if (currentRoute === '/admin' || currentRoute === '/admin/') {
     return (
       <AdminDashboard 
         onExit={() => handleNavigate('/')} 
@@ -67,7 +70,7 @@ export default function App() {
   }
 
   // --- ROUTE: KIOSK FRONT PAGE ---
-  // Access via /
+  // Access via / or fallback for any other route
   return (
     <KioskApp 
       storeData={storeData}
