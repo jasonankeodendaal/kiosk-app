@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { X, Server, Copy, Check, ArrowRight, ExternalLink, ShieldCheck, Database, Key, Settings, Layers, Smartphone, Globe, Cpu, Cloud, ToggleRight } from 'lucide-react';
 
@@ -561,7 +562,7 @@ pm2 startup`}
                                           </div>
                                           <div className="pb-4">
                                               <h4 className="font-bold text-slate-900 text-sm">Import in Vercel</h4>
-                                              <p className="text-xs text-slate-500 mb-2">Go to Vercel Dashboard -> Add New Project -> Select your Repo.</p>
+                                              <p className="text-xs text-slate-500 mb-2">Go to Vercel Dashboard &rarr; Add New Project &rarr; Select your Repo.</p>
                                           </div>
                                       </li>
 
@@ -574,7 +575,7 @@ pm2 startup`}
                                               <h4 className="font-bold text-slate-900 text-sm">Add Environment Variables</h4>
                                               <p className="text-xs text-slate-500 mb-4">
                                                 In the "Environment Variables" section, add these two keys. <br/>
-                                                <span className="opacity-50 italic">Find these values in your Supabase Dashboard -> Settings -> API.</span>
+                                                <span className="opacity-50 italic">Find these values in your Supabase Dashboard &rarr; Settings &rarr; API.</span>
                                               </p>
                                               
                                               <div className="space-y-3">
@@ -744,7 +745,7 @@ insert into public.store_config (id, data) values (1, '{}'::jsonb);`}
                                   </li>
                                   <li className="flex items-start gap-3 text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">
                                      <Copy size={16} className="text-green-600 mt-0.5 shrink-0" />
-                                     <span>Find <strong>Project API keys</strong> -> <code>anon</code> public key. Copy it.</span>
+                                     <span>Find <strong>Project API keys</strong> &rarr; <code>anon</code> public key. Copy it.</span>
                                   </li>
                                </ul>
                            </div>
@@ -766,7 +767,7 @@ insert into public.store_config (id, data) values (1, '{}'::jsonb);`}
                                       <h4 className="font-bold text-slate-900 text-xs uppercase mb-2">Method A: Vercel Hosting (Recommended)</h4>
                                       <p className="text-sm text-slate-600 mb-2">
                                           If hosting on Vercel, just add Environment Variables. <br/>
-                                          <strong>Go to the "Vercel Hosting" tab -> Select Strategy B.</strong>
+                                          <strong>Go to the "Vercel Hosting" tab &rarr; Select Strategy B.</strong>
                                       </p>
                                   </div>
 
