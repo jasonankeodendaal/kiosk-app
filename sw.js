@@ -37,10 +37,13 @@ self.addEventListener('fetch', (event) => {
           return cachedResponse;
         }
         return fetch(event.request).then((response) => {
-          // Don't cache bad responses
-          if (!response || response.status !== 200 || response.type !== 'basic' && response.type !== 'cors' && response.type !== 'opaque') {
+          // Check if we received a valid response.
+          // Note: External images (like from ibb.co) might return an opaque response (status 0).
+          // We must cache them to ensure icons work offline, even if we can't read their status.
+          if (!response || (response.status !== 200 && response.type !== 'opaque')) {
             return response;
           }
+          
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
