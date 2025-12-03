@@ -21,7 +21,7 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
 
-  // 2. Data Synchronization (Simulates Server Fetch)
+  // 2. Data Synchronization
   useEffect(() => {
     const initData = async () => {
       try {
@@ -29,12 +29,19 @@ export default function App() {
         setStoreData(data);
       } catch (e) {
         console.error("Failed to load data", e);
-        // Fallback to empty data or continue so we don't hang on white screen
       } finally {
         setLoading(false);
       }
     };
-    initData();
+    
+    // Safety timeout to prevent infinite loading screen if logic fails
+    const timer = setTimeout(() => {
+        setLoading(false);
+    }, 3000);
+
+    initData().then(() => clearTimeout(timer));
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const handleUpdateData = async (newData: StoreData) => {
@@ -57,9 +64,13 @@ export default function App() {
     );
   }
 
+  // Normalize route to remove trailing slash for comparison
+  const normalizedRoute = currentRoute.endsWith('/') && currentRoute.length > 1 
+    ? currentRoute.slice(0, -1) 
+    : currentRoute;
+
   // --- ROUTE: ADMIN HUB ---
-  // Access via /admin or /admin/
-  if (currentRoute === '/admin' || currentRoute === '/admin/') {
+  if (normalizedRoute === '/admin') {
     return (
       <AdminDashboard 
         onExit={() => handleNavigate('/')} 
@@ -70,7 +81,6 @@ export default function App() {
   }
 
   // --- ROUTE: KIOSK FRONT PAGE ---
-  // Access via / or fallback for any other route
   return (
     <KioskApp 
       storeData={storeData}
