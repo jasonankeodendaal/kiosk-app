@@ -1,14 +1,12 @@
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
   getKioskId, 
   provisionKioskId,
-  getShopName, 
   completeKioskSetup, 
   isKioskConfigured, 
   sendHeartbeat, 
-  initSupabase,
   setCustomKioskId 
 } from '../services/kioskService';
 import BrandGrid from './BrandGrid';
@@ -17,13 +15,12 @@ import ProductList from './ProductList';
 import ProductDetail from './ProductDetail';
 import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
-import SetupGuide from './SetupGuide';
-import { Loader2, Home, ChevronRight, Store, MonitorPlay, MonitorOff, RotateCcw, X, Info, Check } from 'lucide-react';
-import Peer from 'peerjs';
+import { Store, RotateCcw, X, Loader2 } from 'lucide-react';
 
+// UPDATED TIMEOUT: 1 Minute = 60,000 ms
 const IDLE_TIMEOUT = 60000;
-const HEARTBEAT_INTERVAL = 60000;
 
+// --- CREATOR POPUP COMPONENT ---
 export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => (
   <div 
     className={`fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300 ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`} 
@@ -38,25 +35,36 @@ export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
       }}
       onClick={e => e.stopPropagation()}
     >
+      {/* Dark Overlay for Readability */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+      
       <div className="relative z-10 flex flex-col items-center w-full h-full justify-center">
+        {/* Creator Logo - Free View */}
         <div className="w-32 h-32 mb-2 hover:scale-105 transition-transform duration-500">
            <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-2xl" />
         </div>
+        
         <h2 className="text-white font-black text-3xl mb-1 drop-shadow-lg tracking-tight">JSTYP.me</h2>
         <p className="text-white/90 text-sm font-bold mb-4 drop-shadow-md italic max-w-[90%]">"Jason's Solution To Your Problems, Yes me!"</p>
+        
+        {/* New Marketing Text */}
         <p className="text-white text-xs font-bold mb-8 drop-shadow-md text-center px-4 leading-relaxed uppercase tracking-wide bg-black/20 rounded-lg py-2 backdrop-blur-sm border border-white/10">
             Need a website/ APP or a special tool, get in touch today!
         </p>
+        
+        {/* Contact Links - ICONS ONLY (Free View) */}
         <div className="flex items-center justify-center gap-8">
            <a href="https://wa.me/27695989427" target="_blank" rel="noreferrer" className="transition-transform hover:scale-125 duration-300" title="WhatsApp">
               <img src="https://i.ibb.co/Z1YHvjgT/image-removebg-preview-1.png" className="w-12 h-12 object-contain drop-shadow-lg" alt="WhatsApp" />
            </a>
+           
            <a href="mailto:jstypme@gmail.com" className="transition-transform hover:scale-125 duration-300" title="Email">
               <img src="https://i.ibb.co/r2HkbjLj/image-removebg-preview-2.png" className="w-12 h-12 object-contain drop-shadow-lg" alt="Email" />
            </a>
         </div>
       </div>
+
+      {/* Close Button */}
       <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white z-20 bg-black/20 p-1 rounded-full backdrop-blur-sm transition-colors">
          <X size={20} />
       </button>
@@ -64,7 +72,16 @@ export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
   </div>
 );
 
-export const SetupScreen = ({ kioskId, onComplete, onRestoreId }: { kioskId: string, onComplete: (name: string) => void, onRestoreId: (id: string) => void }) => {
+// --- SETUP SCREEN COMPONENT ---
+export const SetupScreen = ({ 
+  kioskId, 
+  onComplete,
+  onRestoreId
+}: { 
+  kioskId: string, 
+  onComplete: (name: string) => void,
+  onRestoreId: (id: string) => void
+}) => {
   const [shopName, setShopName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRestoreMode, setIsRestoreMode] = useState(false);
@@ -75,14 +92,11 @@ export const SetupScreen = ({ kioskId, onComplete, onRestoreId }: { kioskId: str
     if (!shopName.trim()) return;
     if(isRestoreMode && customId.trim()) {
        onRestoreId(customId.trim());
-       await new Promise(r => setTimeout(r, 800));
-       onComplete(shopName);
-    } else if (!isRestoreMode) {
-      setIsSubmitting(true);
-      await new Promise(r => setTimeout(r, 800));
-      onComplete(shopName);
-      setIsSubmitting(false);
     }
+    setIsSubmitting(true);
+    await new Promise(r => setTimeout(r, 800));
+    onComplete(shopName);
+    setIsSubmitting(false);
   };
 
   return (
@@ -106,10 +120,9 @@ export const SetupScreen = ({ kioskId, onComplete, onRestoreId }: { kioskId: str
                <span className="font-mono font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 text-lg block text-center">{kioskId}</span>
              )}
           </div>
-          <div className="mb-6"><label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Shop / Location Name</label><input type="text" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g. Downtown Mall - Entrance 1" className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none text-lg shadow-inner font-medium" required /></div>
-          <button type="submit" disabled={isSubmitting || (isRestoreMode && !customId.trim()) || !shopName.trim()} className="w-full p-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-wide shadow-xl hover:bg-slate-800 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
-            {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
-            {isSubmitting ? 'Initializing...' : 'Complete Setup'}
+          <div className="mb-6"><label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Shop / Location Name</label><input type="text" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g. Downtown Mall - Entrance 1" className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none font-bold text-lg text-slate-900" autoFocus /></div>
+          <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 text-white p-4 rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+             {isSubmitting ? <Loader2 className="animate-spin" /> : 'Complete Setup'}
           </button>
         </form>
       </div>
@@ -117,139 +130,185 @@ export const SetupScreen = ({ kioskId, onComplete, onRestoreId }: { kioskId: str
   );
 };
 
-export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | null; onGoToAdmin: () => void }) => {
-  const [currentView, setCurrentView] = useState<'brands' | 'categories' | 'products' | 'detail'>('brands');
+// --- MAIN KIOSK APP COMPONENT ---
+export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | null, onGoToAdmin: () => void }) => {
+  const [isSetup, setIsSetup] = useState(isKioskConfigured());
+  const [kioskId, setKioskId] = useState(getKioskId());
+  
+  // Navigation State
   const [activeBrand, setActiveBrand] = useState<Brand | null>(null);
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-
-  const [idleTimeout, setIdleTimeout] = useState<number | null>(null);
-  const [showScreensaver, setShowScreensaver] = useState(false);
-  const [showCreatorPopup, setShowCreatorPopup] = useState(false);
-  const [showSetupGuide, setShowSetupGuide] = useState(false);
-
-  const [isKioskRegistered, setIsKioskRegistered] = useState(false);
-  const [kioskIdState, setKioskIdState] = useState<string | null>(null);
-  const [shopNameState, setShopNameState] = useState<string | null>(null);
-  const peerRef = useRef<Peer | null>(null);
-
-  const [currentFlipbookPages, setCurrentFlipbookPages] = useState<string[] | null>(null);
-
-  const allProducts = useMemo(() => {
-    const products: FlatProduct[] = [];
-    storeData?.brands.forEach(brand => {
-      brand.categories.forEach(category => {
-        category.products.forEach(product => {
-          products.push({ ...product, brandName: brand.name, categoryName: category.name });
-        });
-      });
-    });
-    return products;
-  }, [storeData]);
+  const [activeProduct, setActiveProduct] = useState<Product | null>(null);
+  
+  // UX State
+  const [isIdle, setIsIdle] = useState(false);
+  const [showCreator, setShowCreator] = useState(false);
+  const [showFlipbook, setShowFlipbook] = useState(false);
+  const [flipbookPages, setFlipbookPages] = useState<string[]>([]);
+  
+  // Idle Timer
+  const timerRef = useRef<number | null>(null);
 
   const resetIdleTimer = useCallback(() => {
-    if (idleTimeout) clearTimeout(idleTimeout);
-    setShowScreensaver(false);
-    setIdleTimeout(window.setTimeout(() => setShowScreensaver(true), IDLE_TIMEOUT));
-  }, [idleTimeout]);
-
-  useEffect(() => {
-    document.addEventListener('mousemove', resetIdleTimer);
-    document.addEventListener('keydown', resetIdleTimer);
-    document.addEventListener('touchstart', resetIdleTimer);
-    resetIdleTimer();
-
-    return () => {
-      if (idleTimeout) clearTimeout(idleTimeout);
-      document.removeEventListener('mousemove', resetIdleTimer);
-      document.removeEventListener('keydown', resetIdleTimer);
-      document.removeEventListener('touchstart', resetIdleTimer);
-    };
-  }, [resetIdleTimer, idleTimeout]);
-
-  useEffect(() => {
-    const checkRegistration = async () => {
-      initSupabase();
-      const configured = isKioskConfigured();
-      setIsKioskRegistered(configured);
-      if (configured) {
-        setKioskIdState(getKioskId());
-        setShopNameState(getShopName());
-        sendHeartbeat();
-      } else {
-        const newKioskId = await provisionKioskId();
-        setKioskIdState(newKioskId);
-      }
-    };
-    checkRegistration();
-    const heartbeatInterval = setInterval(() => { if (isKioskConfigured()) sendHeartbeat(); }, HEARTBEAT_INTERVAL);
-    return () => clearInterval(heartbeatInterval);
+    setIsIdle(false);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => {
+      setIsIdle(true);
+      // Reset navigation on idle
+      setActiveProduct(null);
+      setActiveCategory(null);
+      setActiveBrand(null);
+      setShowFlipbook(false);
+      setShowCreator(false);
+    }, IDLE_TIMEOUT);
   }, []);
 
   useEffect(() => {
-    if (!isKioskRegistered || !kioskIdState || peerRef.current) return;
-    try {
-      const peerId = `kiosk-pro-${kioskIdState.replace(/[^a-zA-Z0-9-_]/g, '')}`;
-      const peer = new Peer(peerId, { debug: 1 });
-      peer.on('call', (call) => {
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-          .then((stream) => {
-            call.answer(stream);
-            call.on('close', () => stream.getTracks().forEach(track => track.stop()));
-          })
-          .catch(console.error);
-      });
-      peerRef.current = peer;
-    } catch (e) { console.warn("PeerJS failed to init", e); }
-    return () => { if (peerRef.current) { peerRef.current.destroy(); peerRef.current = null; } };
-  }, [isKioskRegistered, kioskIdState]);
-
-  const handleCompleteKioskSetup = async (name: string) => {
-    const success = await completeKioskSetup(name);
-    if (success) { setIsKioskRegistered(true); setShopNameState(name); }
-  };
-
-  const handleBack = () => {
-    if (currentView === 'detail') { setCurrentView('products'); setSelectedProduct(null); }
-    else if (currentView === 'products') { setCurrentView('categories'); setActiveCategory(null); }
-    else if (currentView === 'categories') { setCurrentView('brands'); setActiveBrand(null); }
+    // Events to reset timer
+    window.addEventListener('touchstart', resetIdleTimer);
+    window.addEventListener('click', resetIdleTimer);
+    window.addEventListener('scroll', resetIdleTimer);
+    
     resetIdleTimer();
+    
+    return () => {
+      window.removeEventListener('touchstart', resetIdleTimer);
+      window.removeEventListener('click', resetIdleTimer);
+      window.removeEventListener('scroll', resetIdleTimer);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [resetIdleTimer]);
+
+  // Setup Effect
+  useEffect(() => {
+    if (!kioskId) {
+      provisionKioskId().then(id => setKioskId(id));
+    }
+  }, [kioskId]);
+
+  // Heartbeat
+  useEffect(() => {
+    if (isSetup) {
+      sendHeartbeat();
+      const interval = setInterval(sendHeartbeat, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [isSetup]);
+
+  // Preload Creator Assets
+  useEffect(() => {
+      const preloadImages = [
+        'https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png',
+        'https://i.ibb.co/dsh2c2hp/unnamed.jpg',
+        'https://i.ibb.co/Z1YHvjgT/image-removebg-preview-1.png',
+        'https://i.ibb.co/r2HkbjLj/image-removebg-preview-2.png'
+      ];
+      preloadImages.forEach(src => {
+        const img = new Image();
+        img.src = src;
+      });
+  }, []);
+
+  const handleSetupComplete = (name: string) => {
+    completeKioskSetup(name).then(() => setIsSetup(true));
   };
 
-  if (!storeData) return <div className="h-screen w-screen flex items-center justify-center bg-slate-900 text-white"><Loader2 className="animate-spin mb-4 text-blue-500" size={48} /><p>Loading Data...</p></div>;
-  if (!isKioskRegistered && kioskIdState) return <SetupScreen kioskId={kioskIdState} onComplete={handleCompleteKioskSetup} onRestoreId={(id) => { setCustomKioskId(id); setKioskIdState(id); }} />;
-  if (!kioskIdState) return <div className="h-screen w-screen flex items-center justify-center bg-slate-900 text-white"><Loader2 className="animate-spin" size={48} /></div>;
+  const handleRestore = (id: string) => {
+    setCustomKioskId(id);
+    setKioskId(id);
+    setIsSetup(true); // Assume configured if restoring ID
+  };
+  
+  // Render Logic
+  if (!isSetup && kioskId) {
+    return <SetupScreen kioskId={kioskId} onComplete={handleSetupComplete} onRestoreId={handleRestore} />;
+  }
+  
+  if (!storeData) return null; // Loading handled in App.tsx
 
-  const screensaverProducts = allProducts.map(p => ({ ...p }));
-  const screensaverAds = storeData.ads?.screensaver || [];
-  const globalCatalog = storeData.catalogues?.[0];
+  // Flatten products for Screensaver
+  const allProducts = storeData.brands.flatMap(b => 
+    b.categories.flatMap(c => 
+      c.products.map(p => ({...p, brandName: b.name, categoryName: c.name} as FlatProduct))
+    )
+  );
 
   return (
-    <div className="flex flex-col h-full w-full relative overflow-hidden bg-slate-50">
-      <div className="bg-white border-b border-slate-200 p-4 flex items-center justify-between shrink-0 shadow-sm z-20">
-        <div className="flex items-center gap-4">
-          {storeData.companyLogoUrl && <img src={storeData.companyLogoUrl} alt="Logo" className="h-8 w-auto object-contain" />}
-          <button onClick={() => { setCurrentView('brands'); setActiveBrand(null); }} className="text-slate-500 hover:text-slate-900 flex items-center gap-2 text-sm font-bold uppercase"><Home size={18} /> Home</button>
-          {activeBrand && <><ChevronRight size={16} className="text-slate-300" /><button onClick={() => { setCurrentView('categories'); setActiveCategory(null); }} className="text-slate-500 hover:text-slate-900 text-sm font-bold uppercase">{activeBrand.name}</button></>}
-          {activeCategory && <><ChevronRight size={16} className="text-slate-300" /><span className="text-slate-900 text-sm font-bold uppercase">{activeCategory.name}</span></>}
-        </div>
-        <div className="flex items-center gap-3">
-          {shopNameState && <span className="text-[10px] font-bold uppercase text-slate-400 bg-slate-100 px-2 py-1 rounded-full">{shopNameState}</span>}
-          <button onClick={() => setShowCreatorPopup(true)} className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200"><Info size={16} /></button>
-          <button onClick={onGoToAdmin} className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-slate-700"><MonitorPlay size={16} /></button>
-          <button onClick={() => setShowSetupGuide(true)} className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-500"><MonitorOff size={16} /></button>
-        </div>
-      </div>
-      <div className="flex-1 overflow-hidden relative">
-        {currentView === 'brands' && <BrandGrid brands={storeData.brands} heroConfig={storeData.hero} globalCatalog={globalCatalog} ads={storeData.ads} onSelectBrand={(b) => { setActiveBrand(b); setCurrentView('categories'); }} onViewGlobalCatalog={(p) => setCurrentFlipbookPages(p)} onExport={onGoToAdmin} />}
-        {currentView === 'categories' && activeBrand && <CategoryGrid brand={activeBrand} onSelectCategory={(c) => { setActiveCategory(c); setCurrentView('products'); }} onBack={handleBack} />}
-        {currentView === 'products' && activeCategory && activeBrand && <ProductList category={activeCategory} brand={activeBrand} storeCatalogs={storeData.catalogues || []} onSelectProduct={(p) => { setSelectedProduct(p); setCurrentView('detail'); }} onBack={handleBack} onViewCatalog={(p) => setCurrentFlipbookPages(p)} />}
-        {currentView === 'detail' && selectedProduct && <ProductDetail product={selectedProduct} onBack={handleBack} />}
-      </div>
-      {showScreensaver && <Screensaver products={screensaverProducts} ads={screensaverAds} onWake={() => setShowScreensaver(false)} />}
-      {currentFlipbookPages && <Flipbook pages={currentFlipbookPages} onClose={() => setCurrentFlipbookPages(null)} />}
-      <CreatorPopup isOpen={showCreatorPopup} onClose={() => setShowCreatorPopup(false)} />
-      {showSetupGuide && <SetupGuide onClose={() => setShowSetupGuide(false)} />}
+    <div className="h-full w-full relative bg-slate-100 overflow-hidden">
+       {/* Screensaver Overlay */}
+       {isIdle && (
+         <Screensaver 
+           products={allProducts} 
+           ads={storeData.ads?.screensaver || []} 
+           onWake={resetIdleTimer} 
+         />
+       )}
+
+       {/* Main Navigation Stack */}
+       <div className="h-full w-full flex flex-col">
+          {/* Top Bar / Header could go here or be part of components */}
+          
+          <div className="flex-1 overflow-hidden relative">
+             {!activeBrand ? (
+               <BrandGrid 
+                 brands={storeData.brands} 
+                 heroConfig={storeData.hero}
+                 globalCatalog={storeData.catalogues?.find(c => !c.brandId)} // Pass global catalog
+                 ads={storeData.ads}
+                 onSelectBrand={setActiveBrand}
+                 onViewGlobalCatalog={(pages) => { setFlipbookPages(pages); setShowFlipbook(true); }}
+                 onExport={() => {}} // Remove or implement if needed
+               />
+             ) : !activeCategory ? (
+               <CategoryGrid 
+                 brand={activeBrand} 
+                 onSelectCategory={setActiveCategory} 
+                 onBack={() => setActiveBrand(null)} 
+               />
+             ) : !activeProduct ? (
+               <ProductList 
+                 category={activeCategory} 
+                 brand={activeBrand}
+                 storeCatalogs={storeData.catalogues || []}
+                 onSelectProduct={setActiveProduct} 
+                 onBack={() => setActiveCategory(null)}
+                 onViewCatalog={(pages) => { setFlipbookPages(pages); setShowFlipbook(true); }}
+               />
+             ) : (
+               <ProductDetail 
+                 product={activeProduct} 
+                 onBack={() => setActiveProduct(null)} 
+               />
+             )}
+          </div>
+       </div>
+
+       {/* Floating UI Elements */}
+       
+       {/* Admin Trigger (Invisible - Top Left Corner) */}
+       <button 
+         onClick={onGoToAdmin} 
+         className="absolute top-0 left-0 w-16 h-16 z-50 opacity-0" 
+         title="Admin Access"
+       />
+
+       {/* Creator Popup Trigger */}
+       <div className="absolute bottom-6 left-6 z-[60]">
+          <button 
+            onClick={() => setShowCreator(true)}
+            className="hover:scale-110 transition-transform duration-300 block"
+          >
+             <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" alt="Creator" className="w-12 h-12 object-contain drop-shadow-lg filter brightness-110" />
+          </button>
+       </div>
+       
+       {/* Creator Popup Modal */}
+       <CreatorPopup isOpen={showCreator} onClose={() => setShowCreator(false)} />
+
+       {/* Flipbook Modal */}
+       {showFlipbook && (
+         <Flipbook pages={flipbookPages} onClose={() => setShowFlipbook(false)} />
+       )}
     </div>
   );
 };

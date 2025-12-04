@@ -72,17 +72,18 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
     >
       <div key={currentIndex} className="absolute inset-0 w-full h-full flex items-center justify-center bg-black">
          {/* Full Screen Layer - Free View (No heavy overlay) */}
+         {/* CHANGED: object-cover -> object-contain to shrink to fit */}
          {isAd && content.type === 'video' ? (
              <video 
                src={content.url} 
                autoPlay muted loop 
-               className="w-full h-full object-cover"
+               className="w-full h-full object-contain"
              />
          ) : (
              <img 
                src={isAd ? content.url : content.imageUrl} 
                alt="Screensaver" 
-               className={`w-full h-full object-cover origin-center ${currentAnimation}`}
+               className={`w-full h-full object-contain origin-center ${currentAnimation}`}
              />
          )}
 
@@ -107,32 +108,32 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
       </div>
 
       <style>{`
-        /* Ken Burns: Slow pan/zoom */
+        /* Ken Burns: Slow pan/zoom - Adjusted to be subtle for contained images */
         @keyframes kenBurns {
-          0% { transform: scale(1.1) translate(0,0); opacity: 0; }
+          0% { transform: scale(1.0) translate(0,0); opacity: 0; }
           10% { opacity: 1; }
-          100% { transform: scale(1.25) translate(-2%, -2%); opacity: 1; }
+          100% { transform: scale(1.05) translate(-1%, -1%); opacity: 1; }
         }
 
         /* Zoom In Jump: Quick zoom in then settle */
         @keyframes zoomInJump {
           0% { transform: scale(0.5); opacity: 0; }
-          60% { transform: scale(1.05); opacity: 1; }
+          60% { transform: scale(1.02); opacity: 1; }
           100% { transform: scale(1); opacity: 1; }
         }
 
         /* Pop Rotate: Pop in with slight tilt */
         @keyframes popRotate {
-          0% { transform: scale(0.8) rotate(-5deg); opacity: 0; }
-          50% { transform: scale(1.05) rotate(2deg); opacity: 1; }
+          0% { transform: scale(0.8) rotate(-2deg); opacity: 0; }
+          50% { transform: scale(1.02) rotate(1deg); opacity: 1; }
           100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
 
         /* Fade Drift: Classic fade with lateral movement */
         @keyframes fadeDrift {
-          0% { transform: translateX(5%) scale(1.1); opacity: 0; }
+          0% { transform: translateX(2%) scale(1.0); opacity: 0; }
           20% { opacity: 1; }
-          100% { transform: translateX(-5%) scale(1.1); opacity: 1; }
+          100% { transform: translateX(-2%) scale(1.0); opacity: 1; }
         }
 
         /* Bounce Scale: Subtle bounce effect */
