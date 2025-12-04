@@ -1,6 +1,6 @@
 
 import { StoreData } from "../types";
-import { supabase } from "./kioskService";
+import { supabase, getEnv } from "./kioskService";
 
 const STORAGE_KEY_DATA = 'kiosk_pro_store_data';
 
@@ -52,9 +52,30 @@ const DEFAULT_DATA: StoreData = {
   ]
 };
 
-// 1. Fetch Data (Supabase -> LocalStorage Fallback)
+// 1. Fetch Data (Priority: API/Hub -> Supabase -> Local Cache)
 const generateStoreData = async (): Promise<StoreData> => {
-  // Try Cloud First
+  const apiUrl = getEnv('VITE_API_URL', '');
+
+  // A. Try API / PC Hub (Strategy A)
+  // Auto-detect: If VITE_API_URL is set, OR if we are running without Supabase config (assume local hub)
+  if (apiUrl || !supabase) {
+      try {
+          const endpoint = apiUrl ? `${apiUrl}/api/config` : '/api/config';
+          const res = await fetch(endpoint);
+          if (res.ok) {
+              const remoteData = await res.json();
+              if (remoteData && Object.keys(remoteData).length > 0) {
+                   const merged = { ...DEFAULT_DATA, ...remoteData };
+                   localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(merged));
+                   return merged;
+              }
+          }
+      } catch (e) {
+          console.warn("Hub API fetch failed, trying next strategy...", e);
+      }
+  }
+
+  // B. Try Supabase (Strategy B)
   if (supabase) {
       try {
           const { data, error } = await supabase
@@ -65,35 +86,29 @@ const generateStoreData = async (): Promise<StoreData> => {
           
           if (data && data.data) {
               const rawData = data.data;
-              
-              // FIX: Merge with default structure to prevent crash if JSON is partial or empty ({})
               const mergedData: StoreData = {
                   ...DEFAULT_DATA,
                   ...rawData,
-                  // Explicitly ensure arrays exist, even if DB has them as undefined
                   brands: rawData.brands || [],
                   fleet: rawData.fleet || [],
                   ads: rawData.ads || DEFAULT_DATA.ads,
                   hero: { ...DEFAULT_DATA.hero, ...(rawData.hero || {}) },
                   catalog: { ...DEFAULT_DATA.catalog, ...(rawData.catalog || {}) }
               };
-
-              // Cache it locally
               localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(mergedData));
               return mergedData;
           }
       } catch (e) {
-          console.warn("Supabase fetch failed, falling back to local", e);
+          console.warn("Supabase fetch failed", e);
       }
   }
 
-  // Fallback to Local Storage
+  // C. Fallback to Local Storage (Offline Mode)
   try {
     const stored = localStorage.getItem(STORAGE_KEY_DATA);
     if (stored) {
       return JSON.parse(stored);
     }
-    // Save defaults if nothing exists
     localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(DEFAULT_DATA));
     return DEFAULT_DATA;
   } catch (e) {
@@ -102,24 +117,49 @@ const generateStoreData = async (): Promise<StoreData> => {
   }
 };
 
-// 2. Save Data (Supabase + LocalStorage)
+// 2. Save Data (Strict Cloud First)
 const saveStoreData = async (data: StoreData): Promise<void> => {
-    // Save Locally
-    localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(data));
+    let saved = false;
+    const apiUrl = getEnv('VITE_API_URL', '');
 
-    // Save to Cloud
-    if (supabase) {
+    // A. Try API / PC Hub
+    if (apiUrl || !supabase) {
+        try {
+            const endpoint = apiUrl ? `${apiUrl}/api/update` : '/api/update';
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (res.ok) saved = true;
+        } catch (e) {
+            console.warn("Hub API save failed", e);
+        }
+    }
+
+    // B. Try Supabase
+    if (!saved && supabase) {
         try {
             const { error } = await supabase
                 .from('store_config')
                 .upsert({ id: 1, data: data });
             
             if (error) throw error;
-            console.log("Global Config Saved to Supabase");
+            saved = true;
         } catch (e) {
-            console.error("Failed to save to Supabase", e);
-            alert("Saved locally, but Cloud Sync failed. Check internet connection.");
+            console.warn("Supabase save failed", e);
         }
+    }
+
+    // C. Handle Result
+    if (saved) {
+        // Only update local cache if cloud sync succeeded
+        localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(data));
+        console.log("Data synced to Remote successfully");
+    } else {
+        // Critical Error: Do NOT silently save to local storage if cloud failed.
+        // User requested: "should never upload local" -> imply strict sync requirement.
+        throw new Error("Connection Failed: Could not sync to Server or Database. Changes not saved.");
     }
 };
 

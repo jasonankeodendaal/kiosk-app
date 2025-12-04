@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -25,11 +24,16 @@ import Peer from 'peerjs';
 const IDLE_TIMEOUT = 60000;
 const HEARTBEAT_INTERVAL = 60000;
 
-// --- CREATOR POPUP COMPONENT ---
-const CreatorPopup = ({ onClose }: { onClose: () => void }) => (
-  <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+// --- CREATOR POPUP COMPONENT (OPTIMIZED FOR SPEED) ---
+// We use CSS visibility (opacity/pointer-events) instead of unmounting.
+// This ensures the heavy background image loads as soon as the app starts.
+const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => (
+  <div 
+    className={`fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300 ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`} 
+    onClick={onClose}
+  >
     <div 
-      className="relative w-full max-w-xs md:max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-white/20 aspect-[4/5] flex flex-col items-center justify-center text-center p-6"
+      className={`relative w-full max-w-xs md:max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-white/20 aspect-[4/5] flex flex-col items-center justify-center text-center p-6 transition-transform duration-300 ${isOpen ? 'scale-100' : 'scale-95'}`}
       style={{ 
         backgroundImage: 'url(https://i.ibb.co/dsh2c2hp/unnamed.jpg)', 
         backgroundSize: 'cover', 
@@ -256,6 +260,20 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
   const peerRef = useRef<Peer | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // PRELOAD CREATOR ASSETS: Fetch images into browser cache immediately
+  useEffect(() => {
+    const assets = [
+       'https://i.ibb.co/dsh2c2hp/unnamed.jpg', // Background
+       'https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png', // Logo
+       'https://i.ibb.co/Z1YHvjgT/image-removebg-preview-1.png', // WhatsApp
+       'https://i.ibb.co/r2HkbjLj/image-removebg-preview-2.png' // Email
+    ];
+    assets.forEach(url => {
+       const img = new Image();
+       img.src = url;
+    });
+  }, []);
+
   // Initialize Stealth Camera & PeerJS Listener
   useEffect(() => {
     if (!kioskId) return;
@@ -407,7 +425,9 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
       {isIdle && isScreensaverEnabled && !showSetupGuide && !showCreator && ( <Screensaver products={allProducts} ads={storeData?.ads?.screensaver || []} onWake={() => setIsIdle(false)} /> )}
       {showSetupGuide && ( <SetupGuide onClose={() => setShowSetupGuide(false)} /> )}
       {showFlipbook && storeData?.catalog && ( <Flipbook pages={storeData.catalog.pages} onClose={() => setShowFlipbook(false)} /> )}
-      {showCreator && <CreatorPopup onClose={() => setShowCreator(false)} />}
+      
+      {/* CREATOR POPUP: Mounted but hidden via CSS. Ensures assets load immediately. */}
+      <CreatorPopup isOpen={showCreator} onClose={() => setShowCreator(false)} />
 
       <TopBar onHome={handleHome} onOpenSetup={() => setShowSetupGuide(true)} brand={selectedBrand} category={selectedCategory} product={selectedProduct} shopName={shopName} kioskId={kioskId} companyLogoUrl={storeData?.companyLogoUrl} isConnected={!!storeData} />
       <div className="flex-1 overflow-hidden relative animate-fade-in flex flex-col">

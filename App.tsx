@@ -80,16 +80,19 @@ export default function App() {
   }, []);
 
   const handleUpdateData = async (newData: StoreData) => {
-    // Immediate Local Update for UI snappiness
+    // Optimistic UI Update - Instant feedback for the user
     setStoreData(newData);
     setIsSyncing(true);
     
     try {
-        // Push to Supabase
+        // Strict Cloud Save
         await saveStoreData(newData);
-    } catch (e) {
+    } catch (e: any) {
         console.error("Sync failed", e);
-        alert("Saved locally but failed to sync to cloud. Check connection.");
+        // Alert the user that although the UI updated, the persistence failed
+        alert(`SYNC ERROR: ${e.message || "Failed to connect to server."}`);
+        // Note: In a production app, we might revert storeData here, but for now we keep the optimistic state
+        // so the user can try hitting "Save" again without losing their work.
     } finally {
         setTimeout(() => setIsSyncing(false), 500);
     }

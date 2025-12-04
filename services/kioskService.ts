@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { KioskRegistry } from '../types';
 
 // Helper to safely get env vars without crashing if import.meta or process is undefined
-const getEnv = (key: string, fallback: string) => {
+export const getEnv = (key: string, fallback: string) => {
   try {
     // Check Vite / Modern Standards
     if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env[key]) {
