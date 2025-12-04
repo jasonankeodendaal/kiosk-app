@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { X, Server, Copy, Check, ArrowRight, ExternalLink, ShieldCheck, Database, Key, Settings, Layers, Smartphone, Globe, Cpu, Cloud, ToggleRight, CloudLightning } from 'lucide-react';
 
@@ -8,7 +9,6 @@ interface SetupGuideProps {
 
 const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState<'local' | 'split' | 'vercel' | 'supabase'>('local');
-  const [vercelMode, setVercelMode] = useState<'hybrid' | 'supabase'>('hybrid');
   const [copiedStep, setCopiedStep] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, stepId: string) => {
@@ -109,6 +109,7 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
               <div className="md:hidden flex border-b border-slate-200 overflow-x-auto">
                  <button onClick={() => setActiveTab('local')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'local' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500'}`}>1. Local Hub</button>
                  <button onClick={() => setActiveTab('split')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'split' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-slate-500'}`}>2. Split App</button>
+                 <button onClick={() => setActiveTab('vercel')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'vercel' ? 'text-black border-b-2 border-black' : 'text-slate-500'}`}>Vercel</button>
                  <button onClick={() => setActiveTab('supabase')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'supabase' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500'}`}>Supabase</button>
               </div>
 
@@ -186,7 +187,114 @@ app.listen(3000, () => console.log('HUB SERVER ONLINE: Port 3000'));`}
                 </div>
               )}
 
-              {/* ... (Tab 2 omitted for brevity) ... */}
+              {/* === TAB 2: SPLIT APP === */}
+              {activeTab === 'split' && (
+                <div className="p-8 animate-fade-in">
+                    <div className="mb-10 pb-8 border-b border-slate-100">
+                      <div className="inline-block px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-[10px] font-black uppercase tracking-widest mb-4">Step 2: Build & Structure</div>
+                      <h2 className="text-3xl font-black text-slate-900 mb-4">The Split Architecture</h2>
+                      <p className="text-slate-600 leading-relaxed text-lg mb-4">
+                         Separating the frontend (UI) from the backend (Server) ensures the kiosk runs smoothly even if you move hosting providers.
+                      </p>
+                    </div>
+
+                    <div className="space-y-8">
+                        <div>
+                             <h3 className="font-bold text-slate-900 text-lg mb-2">1. Project Structure</h3>
+                             <p className="text-sm text-slate-600 mb-4">Organize your folders like this to make the split work:</p>
+                             <CodeBlock 
+                                id="folder-structure"
+                                code={`/my-kiosk-project
+  /dist           <-- Built frontend code (Auto-generated)
+  /src            <-- React source code
+  /server         <-- The Node.js backend
+     index.js
+     db.json      <-- Your local database
+  package.json
+  vite.config.ts`}
+                             />
+                        </div>
+
+                        <div>
+                            <h3 className="font-bold text-slate-900 text-lg mb-2">2. Building the Frontend</h3>
+                            <p className="text-sm text-slate-600 mb-4">
+                                Before running the server, you must compile the React code into standard HTML/JS.
+                            </p>
+                            <CodeBlock 
+                                id="build-cmd"
+                                label="Terminal"
+                                code={`npm run build`}
+                            />
+                            <p className="text-xs text-slate-500 mt-2">This command uses Vite to create the <code>dist</code> folder.</p>
+                        </div>
+                        
+                        <div>
+                            <h3 className="font-bold text-slate-900 text-lg mb-2">3. Running the Combo</h3>
+                            <p className="text-sm text-slate-600 mb-4">
+                                Once built, start your custom Node server to host everything locally.
+                            </p>
+                            <CodeBlock 
+                                id="run-server"
+                                label="Terminal"
+                                code={`node server/index.js`}
+                            />
+                            <div className="bg-green-50 text-green-800 p-4 rounded-lg text-sm mt-4">
+                                <strong>Success!</strong> You can now access your kiosk at <code>http://localhost:3000</code>.
+                                Other tablets on the same WiFi can access it via your PC's IP Address (e.g., <code>http://192.168.1.5:3000</code>).
+                            </div>
+                        </div>
+                    </div>
+                </div>
+              )}
+
+              {/* === TAB 3: VERCEL === */}
+              {activeTab === 'vercel' && (
+                <div className="p-8 animate-fade-in">
+                    <div className="mb-10 pb-8 border-b border-slate-100">
+                      <div className="inline-block px-3 py-1 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest mb-4">Step 3: Cloud Hosting</div>
+                      <h2 className="text-3xl font-black text-slate-900 mb-4">Deploying to Vercel</h2>
+                      <p className="text-slate-600 leading-relaxed text-lg mb-4">
+                         Vercel is the easiest way to put your kiosk online for free. It handles SSL (HTTPS) and global CDN distribution automatically.
+                      </p>
+                    </div>
+
+                    <div className="space-y-8">
+                        <div>
+                            <h3 className="font-bold text-slate-900 text-lg mb-2">1. Install Vercel CLI</h3>
+                            <CodeBlock 
+                                id="vercel-install"
+                                label="Terminal"
+                                code={`npm i -g vercel`}
+                            />
+                        </div>
+
+                        <div>
+                            <h3 className="font-bold text-slate-900 text-lg mb-2">2. Login & Deploy</h3>
+                            <p className="text-sm text-slate-600 mb-2">Run these commands in your project root folder:</p>
+                            <CodeBlock 
+                                id="vercel-deploy"
+                                label="Terminal"
+                                code={`vercel login
+vercel --prod`}
+                            />
+                            <p className="text-xs text-slate-500 mt-2">Follow the prompts. Accept defaults for most questions.</p>
+                        </div>
+
+                        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl">
+                            <h3 className="font-bold text-yellow-900 text-sm uppercase mb-2">Important: Environment Variables</h3>
+                            <p className="text-sm text-yellow-800 mb-2">
+                                If you are using Supabase, you must add your keys to Vercel.
+                            </p>
+                            <ol className="list-decimal pl-5 text-sm text-yellow-800 space-y-1">
+                                <li>Go to your Vercel Dashboard -> Project -> Settings.</li>
+                                <li>Click <strong>Environment Variables</strong>.</li>
+                                <li>Add <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>.</li>
+                                <li>Redeploy for changes to take effect.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+              )}
 
               {/* === TAB 4: SUPABASE === */}
               {activeTab === 'supabase' && (
@@ -197,7 +305,7 @@ app.listen(3000, () => console.log('HUB SERVER ONLINE: Port 3000'));`}
                     </div>
 
                     <div className="space-y-8">
-                        {/* Storage Bucket Setup - NEW */}
+                        {/* Storage Bucket Setup */}
                         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
                              <div className="flex items-center gap-3 mb-4">
                                  <CloudLightning size={24} className="text-blue-600" />

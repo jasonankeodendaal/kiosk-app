@@ -1,8 +1,8 @@
 
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Brand, Catalogue, HeroConfig, AdConfig, AdItem } from '../types';
-import { BookOpen, Globe, ChevronRight, MonitorPlay, MonitorStop } from 'lucide-react';
+import { BookOpen, Globe, ChevronRight, MonitorPlay, MonitorStop, X, Grid } from 'lucide-react';
 
 interface BrandGridProps {
   brands: Brand[];
@@ -16,33 +16,77 @@ interface BrandGridProps {
   onToggleScreensaver: () => void;
 }
 
+// Improved AdUnit with separate logic for Images vs Videos
 const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const timeoutRef = useRef<number | null>(null);
+
+    // If items change, reset to 0
+    useEffect(() => {
+        setCurrentIndex(0);
+    }, [items?.length]);
+
+    const activeItem = items && items.length > 0 ? items[currentIndex % items.length] : null;
 
     useEffect(() => {
-        if (!items || items.length <= 1) return;
-        const interval = setInterval(() => {
-            setCurrentIndex((prev) => (prev + 1) % items.length);
-        }, 6000);
-        return () => clearInterval(interval);
-    }, [items]);
+        if (!activeItem) return;
+        if (items && items.length <= 1) return; // No rotation needed if 0 or 1 item
+
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+
+        if (activeItem.type === 'image') {
+            // Display Image for 6 seconds then switch
+            timeoutRef.current = window.setTimeout(() => {
+                setCurrentIndex(prev => (prev + 1) % items!.length);
+            }, 6000);
+        } else {
+            // For Video, we rely on onEnded (see JSX), but add a safety timeout
+            timeoutRef.current = window.setTimeout(() => {
+                setCurrentIndex(prev => (prev + 1) % items!.length);
+            }, 120000); // 2 min safety
+        }
+
+        return () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
+    }, [currentIndex, activeItem, items]);
 
     if (!items || items.length === 0) return (
        <div className={`relative overflow-hidden rounded-xl border border-slate-200/50 bg-slate-50/50 ${className}`}></div>
     );
-    
-    const index = currentIndex % items.length;
-    const item = items[index];
+
+    const handleVideoEnded = () => {
+        if (items.length > 1) {
+            setCurrentIndex(prev => (prev + 1) % items.length);
+        } else if (videoRef.current) {
+            // Loop single video
+            videoRef.current.currentTime = 0;
+            videoRef.current.play();
+        }
+    };
 
     return (
         <div className={`relative overflow-hidden rounded-xl shadow-sm border border-slate-200 bg-white group ${className}`}>
             <div className="absolute top-2 right-2 z-10 bg-black/10 text-black/50 px-1 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest backdrop-blur-sm">Ad</div>
             
-            <div key={item.id} className="w-full h-full animate-fade-in bg-slate-50">
-                {item.type === 'video' ? (
-                    <video src={item.url} autoPlay muted loop className="w-full h-full object-cover" />
+            <div key={`${activeItem!.id}-${currentIndex}`} className="w-full h-full animate-fade-in bg-slate-50">
+                {activeItem!.type === 'video' ? (
+                    <video 
+                        ref={videoRef}
+                        src={activeItem!.url} 
+                        autoPlay 
+                        muted 
+                        playsInline
+                        className="w-full h-full object-cover"
+                        onEnded={handleVideoEnded}
+                    />
                 ) : (
-                    <img src={item.url} alt="Advertisement" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                    <img 
+                        src={activeItem!.url} 
+                        alt="Advertisement" 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                    />
                 )}
             </div>
 
@@ -51,7 +95,7 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
                     {items.map((_, idx) => (
                         <div 
                             key={idx} 
-                            className={`w-1.5 h-1.5 rounded-full transition-colors ${idx === index ? 'bg-white' : 'bg-white/50'}`}
+                            className={`w-1.5 h-1.5 rounded-full transition-colors ${idx === (currentIndex % items.length) ? 'bg-white' : 'bg-white/50'}`}
                         ></div>
                     ))}
                 </div>
@@ -61,9 +105,14 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
 };
 
 const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, ads, onSelectBrand, onViewGlobalCatalog, onExport, screensaverEnabled, onToggleScreensaver }) => {
+  const [showAllBrands, setShowAllBrands] = useState(false);
   
   const globalPamphlets = allCatalogs?.filter(c => !c.brandId) || [];
   const mainPamphlet = globalPamphlets[0]; 
+
+  // Limit visible brands to first 5
+  const visibleBrands = brands.slice(0, 5);
+  const hasMoreBrands = brands.length > 5;
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
@@ -85,10 +134,8 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
         </button>
       </div>
 
-      {/* Hero Section - Compact Mobile Layout */}
+      {/* Hero Section */}
       <div className="bg-slate-900 text-white relative overflow-hidden shrink-0 min-h-[20vh] md:min-h-[40vh] flex flex-col">
-        
-        {/* Dynamic Background Image */}
         {heroConfig?.backgroundImageUrl ? (
             <div className="absolute inset-0 z-0">
                 <img src={heroConfig.backgroundImageUrl} alt="" className="w-full h-full object-cover opacity-40 blur-sm scale-105" />
@@ -98,15 +145,11 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
              <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-900 to-slate-800"></div>
         )}
 
-        {/* Hero Content Grid - Forces Side-by-Side on Mobile */}
         <div className="relative z-10 flex-1 flex flex-row items-center justify-center p-2 md:p-8 gap-2 md:gap-8 max-w-7xl mx-auto w-full">
-            
-            {/* Left: Text Content - Narrower on Mobile */}
             <div className="flex-1 flex flex-col justify-center text-left space-y-0.5 md:space-y-4 max-w-[55%] md:max-w-2xl shrink-0 h-full">
                 {heroConfig?.logoUrl && (
                     <img src={heroConfig.logoUrl} alt="Logo" className="h-6 md:h-16 object-contain mb-0.5 md:mb-2 mr-auto drop-shadow-md" />
                 )}
-                
                 <div>
                    <h1 className="text-lg md:text-5xl font-black tracking-tight leading-none md:leading-tight mb-0.5">
                       {heroConfig?.title || "Welcome"}
@@ -143,26 +186,20 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                 </div>
             </div>
 
-            {/* Right: Floating 3D Pamphlet - Scaled down for mobile to fit side-by-side */}
             {mainPamphlet && mainPamphlet.pages && mainPamphlet.pages.length > 0 && (
                 <div className="perspective-1000 shrink-0 w-[40%] md:w-[280px] max-w-[140px] md:max-w-none flex items-center justify-center">
                     <div 
                         className="relative w-full aspect-[2/3] cursor-pointer animate-float"
                         onClick={() => onViewGlobalCatalog(mainPamphlet.pages, mainPamphlet.title, mainPamphlet.startDate, mainPamphlet.endDate)}
                         role="button"
-                        aria-label={`Open main catalogue: ${mainPamphlet.title}`}
                     >
-                        {/* Book Body */}
                         <div className="book-container absolute inset-0 bg-white rounded-r-sm md:rounded-r-lg shadow-2xl">
                              <img 
                                 src={mainPamphlet.pages[0]} 
                                 className="w-full h-full object-cover rounded-r-sm md:rounded-r-lg book-cover border-l-2 md:border-l-4 border-slate-200"
                                 alt={`${mainPamphlet.title} Cover`}
                              />
-                             {/* Spine effect */}
                              <div className="absolute top-0 bottom-0 left-0 w-0.5 md:w-1 bg-gradient-to-r from-slate-300 to-slate-100"></div>
-                             
-                             {/* Label */}
                              <div className="absolute bottom-1 md:bottom-4 left-0 right-0 text-center bg-black/60 backdrop-blur-md text-white py-0.5 md:py-1.5">
                                 <span className="text-[6px] md:text-xs font-black uppercase tracking-widest block truncate px-1">{mainPamphlet.title}</span>
                              </div>
@@ -173,7 +210,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
         </div>
       </div>
 
-      {/* Pamphlet Strip (Below Hero) */}
+      {/* Pamphlet Strip */}
       {globalPamphlets.length > 0 && (
             <div className="bg-slate-100 border-b border-slate-200 p-2 md:p-4">
                  <div className="max-w-7xl mx-auto">
@@ -208,10 +245,10 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
             </div>
       )}
 
-      {/* "All Brands" heading moved here - between Pamphlet Strip and Brand Icons */}
+      {/* Featured Brands */}
       <div className="w-full bg-slate-50 py-4 text-center">
             <h2 className="text-lg md:text-3xl font-black text-slate-800 uppercase tracking-widest inline-block border-b-2 border-slate-200 px-6 pb-1">
-                All Brands
+                Featured Brands
             </h2>
       </div>
 
@@ -221,17 +258,14 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
         {/* Left Column (Brands + Bottom Ads) */}
         <div className="flex-1 flex flex-col gap-8">
             
-            {/* Grid - 4 Columns on Mobile for smaller icons (Free View) */}
+            {/* Grid - 4 Columns on Mobile */}
             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-6 gap-2 md:gap-8 w-full">
-              {brands.map((brand) => (
+              {visibleBrands.map((brand) => (
                 <button
                   key={brand.id}
                   onClick={() => onSelectBrand(brand)}
                   className="group flex flex-col items-center justify-start gap-2 p-2 hover:bg-slate-100 rounded-xl transition-all duration-300"
-                  aria-label={`Select brand: ${brand.name}`}
                 >
-                  
-                  {/* Logo Area - Removed Box/Shadow/Border */}
                   <div className="relative w-12 h-12 md:w-20 md:h-20 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
                     {brand.logoUrl ? (
                       <img 
@@ -245,15 +279,29 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                       </div>
                     )}
                   </div>
-                  
                   <span className="text-[8px] md:text-xs font-bold text-slate-500 group-hover:text-blue-900 uppercase tracking-wide text-center leading-tight line-clamp-2">
                       {brand.name}
                   </span>
                 </button>
               ))}
+
+              {/* VIEW ALL BUTTON */}
+              {hasMoreBrands && (
+                <button
+                  onClick={() => setShowAllBrands(true)}
+                  className="group flex flex-col items-center justify-start gap-2 p-2 hover:bg-slate-100 rounded-xl transition-all duration-300"
+                >
+                   <div className="relative w-12 h-12 md:w-20 md:h-20 flex items-center justify-center transition-transform duration-300 group-hover:scale-110 rounded-full bg-slate-200 group-hover:bg-blue-600 text-slate-400 group-hover:text-white">
+                       <Grid size={24} />
+                   </div>
+                   <span className="text-[8px] md:text-xs font-bold text-slate-500 group-hover:text-blue-900 uppercase tracking-wide text-center leading-tight">
+                      View All
+                  </span>
+                </button>
+              )}
             </div>
 
-            {/* Bottom Ads Area - Fixed to 2 columns on mobile */}
+            {/* Bottom Ads Area */}
             {ads && (
                 <div className="grid grid-cols-2 gap-4 mt-auto w-full">
                     <AdUnit items={ads.homeBottomLeft} className="aspect-[2/1] w-full" />
@@ -262,13 +310,62 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
             )}
         </div>
 
-        {/* Right Column (Side Ad) - Hidden on Mobile */}
+        {/* Right Column (Side Ad) */}
         <div className="hidden lg:block w-72 shrink-0">
              {ads && (
                  <AdUnit items={ads.homeSideVertical} className="h-full w-full min-h-[500px]" />
              )}
         </div>
       </div>
+
+      {/* ALL BRANDS MODAL */}
+      {showAllBrands && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/95 backdrop-blur-md p-4 md:p-12 animate-fade-in flex flex-col">
+            <div className="flex justify-between items-center mb-8 shrink-0">
+                <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+                   <Grid className="text-blue-500" /> All Brands
+                </h2>
+                <button 
+                  onClick={() => setShowAllBrands(false)}
+                  className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors backdrop-blur-sm"
+                >
+                   <X size={24} />
+                </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-6">
+                 {brands.map((brand) => (
+                    <button
+                      key={brand.id}
+                      onClick={() => {
+                          setShowAllBrands(false);
+                          onSelectBrand(brand);
+                      }}
+                      className="group flex flex-col items-center justify-start gap-3 p-4 bg-white/5 hover:bg-white/10 rounded-xl transition-all duration-300 border border-white/5 hover:border-white/20"
+                    >
+                      <div className="relative w-16 h-16 md:w-24 md:h-24 flex items-center justify-center">
+                        {brand.logoUrl ? (
+                          <img 
+                            src={brand.logoUrl} 
+                            alt={brand.name} 
+                            className="w-full h-full object-contain filter grayscale brightness-200 contrast-125 opacity-70 group-hover:grayscale-0 group-hover:brightness-100 group-hover:opacity-100 transition-all duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full rounded-full bg-white/10 text-white/50 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center text-2xl font-black transition-colors duration-300">
+                            {brand.name.charAt(0)}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[10px] md:text-sm font-bold text-slate-400 group-hover:text-white uppercase tracking-wide text-center leading-tight">
+                          {brand.name}
+                      </span>
+                    </button>
+                  ))}
+               </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 };
