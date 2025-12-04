@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { Category, Product, Brand, Catalogue } from '../types';
 import { ChevronLeft, ArrowRight, MonitorPlay, MonitorStop, Search, X, Tag, Package } from 'lucide-react';
@@ -64,7 +62,7 @@ const ProductList: React.FC<ProductListProps> = ({ category, onSelectProduct, on
             </div>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Bar - New Request */}
         <div className="relative w-full">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                 <Search size={20} />
@@ -98,9 +96,6 @@ const ProductList: React.FC<ProductListProps> = ({ category, onSelectProduct, on
             >
               {/* Image Container */}
               <div className="aspect-square bg-white border-b border-slate-50 p-4 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute top-2 right-2 z-10 flex gap-1">
-                   {/* Optional Badges could go here */}
-                </div>
                 {product.imageUrl ? (
                     <img 
                       src={product.imageUrl} 
@@ -115,7 +110,7 @@ const ProductList: React.FC<ProductListProps> = ({ category, onSelectProduct, on
                 )}
               </div>
               
-              {/* Card Footer - Name & SKU Only */}
+              {/* Card Footer - Name & SKU Only (Description Removed per request) */}
               <div className="p-3 md:p-4 flex flex-col flex-1 bg-white">
                 <h3 className="text-xs md:text-sm font-black text-slate-900 mb-2 group-hover:text-blue-700 transition-colors line-clamp-2 leading-tight uppercase">
                   {product.name}

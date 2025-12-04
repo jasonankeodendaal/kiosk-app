@@ -286,7 +286,11 @@ export const uploadFileToStorage = async (file: File): Promise<string | null> =>
             .upload(filePath, file);
 
         if (error) {
-            console.warn(`Storage upload failed. Ensure bucket 'kiosk-media' exists and is Public. Error: ${error.message}`);
+            console.error(`Storage Upload Error: ${error.message}`);
+            // Explicitly warn about missing bucket which is the most common issue
+            if(error.message.includes('bucket not found') || error.message.includes('row-level security')) {
+                console.error("CRITICAL: Bucket 'kiosk-media' missing or permissions wrong. Run SQL from Setup Guide.");
+            }
             return null;
         }
 

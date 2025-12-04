@@ -1,6 +1,4 @@
-
-
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { FlatProduct, AdItem, Catalogue, ScreensaverSettings } from '../types';
 
 interface ScreensaverProps {
@@ -22,11 +20,11 @@ interface PlaylistItem {
 }
 
 const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = [], onWake, settings }) => {
+  const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const timeoutRef = useRef<number | null>(null);
+  const timerRef = useRef<number | null>(null);
 
-  // Default settings fallback
+  // Default config
   const config = settings || {
       idleTimeout: 60,
       imageDuration: 8,
@@ -37,11 +35,11 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
       showCustomAds: true
   };
 
-  // 1. Build Playlist (Memoized to prevent shuffling on every render)
-  const playlist = useMemo<PlaylistItem[]>(() => {
+  // 1. Build & Shuffle Playlist (Once on Mount or when data drastically changes)
+  useEffect(() => {
     const list: PlaylistItem[] = [];
 
-    // Custom Ads
+    // Add Custom Ads
     if (config.showCustomAds) {
         ads.forEach((ad, i) => {
           list.push({
@@ -54,7 +52,7 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
         });
     }
 
-    // Pamphlet Covers
+    // Add Pamphlets
     if (config.showPamphlets) {
         pamphlets.forEach((pamphlet) => {
            if (pamphlet.pages && pamphlet.pages.length > 0) {
@@ -71,7 +69,7 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
         });
     }
 
-    // Products
+    // Add Products
     products.forEach((p) => {
         if (config.showProductImages && p.imageUrl) {
             list.push({
@@ -92,62 +90,67 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
             });
         }
     });
-    
-    // Shuffle
-    return list.sort(() => Math.random() - 0.5); 
-  }, [products, ads, pamphlets, config]);
 
-  // 2. Navigation Logic
-  const handleNext = () => {
-     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-     setCurrentIndex((prev) => (prev + 1) % playlist.length);
+    // Simple Shuffle
+    for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [list[i], list[j]] = [list[j], list[i]];
+    }
+
+    setPlaylist(list);
+    setCurrentIndex(0); // Reset index on new playlist
+  }, [products.length, ads.length, pamphlets.length, config.showProductImages, config.showProductVideos, config.showCustomAds, config.showPamphlets]);
+
+  // Helper to move to next slide
+  const nextSlide = () => {
+      setCurrentIndex((prev) => (prev + 1) % playlist.length);
   };
 
+  // Safer error handling to prevent rapid race condition skipping
+  const handleMediaError = () => {
+      console.warn("Media failed to load:", currentItem?.url);
+      // Delay skip to prevent CPU spinning/rapid flashing if everything fails
+      timerRef.current = window.setTimeout(() => {
+          nextSlide();
+      }, 2000); 
+  };
+
+  // 2. Playback Logic
   const currentItem = playlist[currentIndex];
 
-  // 3. Playback Logic (The Engine)
   useEffect(() => {
-    if (!currentItem) return;
+    if (!currentItem || playlist.length === 0) return;
 
-    // Clear previous timers
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    // Clean up previous timer
+    if (timerRef.current) clearTimeout(timerRef.current);
 
     if (currentItem.type === 'image') {
-        // --- IMAGE LOGIC ---
-        // Display for Configured Duration
-        timeoutRef.current = window.setTimeout(() => {
-            handleNext();
-        }, config.imageDuration * 1000);
+        // IMAGE: Wait for configured duration then next
+        // Default to 8000ms if config value is bad
+        const duration = (config.imageDuration && config.imageDuration > 0) ? config.imageDuration * 1000 : 8000;
+        
+        timerRef.current = window.setTimeout(() => {
+            nextSlide();
+        }, duration);
     } else {
-        // --- VIDEO LOGIC ---
-        // Video handling is primarily done via the <video onEnded> event in the JSX.
-        // However, we set a "Safety Timeout" of 2 minutes in case video stalls or loops incorrectly.
-        timeoutRef.current = window.setTimeout(() => {
-            handleNext();
-        }, 120000); 
-
-        // Force play if needed (React sometimes needs a nudge)
-        if (videoRef.current) {
-            videoRef.current.load();
-            const playPromise = videoRef.current.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    console.warn("Autoplay prevented:", error);
-                    // If autoplay fails (browser policy), skip immediately to avoid black screen
-                    handleNext();
-                });
-            }
-        }
+        // VIDEO:
+        // Main logic is handled by onEnded event in JSX.
+        // But we add a safety fallback (e.g. 3 mins) in case video stalls or loops.
+        timerRef.current = window.setTimeout(() => {
+            console.warn("Video timeout reached, skipping.");
+            nextSlide();
+        }, 180000); 
     }
 
     return () => {
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [currentIndex, currentItem, config.imageDuration]);
+  }, [currentIndex, currentItem, config.imageDuration, playlist.length]);
 
+  // Initial buffer to prevent rapid mount/unmount cycle on empty list
   if (playlist.length === 0) return (
-      <div onClick={onWake} className="fixed inset-0 z-[100] bg-black flex items-center justify-center cursor-pointer">
-          <div className="text-white opacity-50 text-sm font-mono">No Screensaver Content Available</div>
+      <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center cursor-pointer" onClick={onWake}>
+          <div className="text-white opacity-30 text-xs font-mono">...</div>
       </div>
   );
 
@@ -162,33 +165,37 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
       onClick={onWake}
       className="fixed inset-0 z-[100] bg-black cursor-pointer flex items-center justify-center overflow-hidden"
     >
-      {/* Background is PURE BLACK. Content uses object-contain to 'Shrink to Fit' without cropping */}
+      {/* 
+        Key changes for layout:
+        - Fixed inset-0 to cover full screen.
+        - bg-black for bars.
+        - object-contain to 'Shrink to Fit' without cropping.
+      */}
       
       <div key={currentItem.id} className="w-full h-full relative animate-fade-in flex items-center justify-center">
          
          {currentItem.type === 'video' ? (
              <video 
-               ref={videoRef}
                src={currentItem.url} 
                className="w-full h-full object-contain" 
+               // Settings
                muted={config.muteVideos} 
+               autoPlay
                playsInline
-               onEnded={handleNext} // The main trigger for next slide
-               onError={(e) => { 
-                   console.warn("Video Error, skipping:", currentItem.url); 
-                   handleNext(); 
-               }} 
+               // Playback Control
+               onEnded={nextSlide} 
+               onError={handleMediaError} 
              />
          ) : (
              <img 
                src={currentItem.url} 
                alt="Screensaver" 
                className="w-full h-full object-contain" 
-               onError={() => handleNext()}
+               onError={handleMediaError}
              />
          )}
 
-         {/* Overlay Text */}
+         {/* Overlay Info */}
          <div className="absolute bottom-12 right-12 flex flex-col items-end max-w-[80%] pointer-events-none z-20">
             {currentItem.title && (
                 <h1 className="text-4xl md:text-7xl font-black text-white uppercase tracking-tighter drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] text-right mb-2 leading-none">
@@ -211,7 +218,7 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
       </div>
       
       <style>{`
-        .animate-fade-in { animation: fadeIn 1s ease-out forwards; }
+        .animate-fade-in { animation: fadeIn 1.2s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       `}</style>
     </div>

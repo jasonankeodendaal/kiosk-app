@@ -1,5 +1,3 @@
-
-
 import React, { useMemo } from 'react';
 import { Brand, Category, Catalogue } from '../types';
 import { Smartphone, Laptop, Watch, Headphones, Monitor, Tablet, Box, ChevronLeft, ArrowRight, BookOpen, MonitorPlay, MonitorStop, Calendar } from 'lucide-react';
@@ -138,7 +136,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSel
                                 </div>
                             </button>
                             
-                            {/* Info Section - BELOW the thumbnail */}
+                            {/* Info Section - BELOW the thumbnail as requested */}
                             <div className="flex flex-col">
                                 <h4 className="text-[8px] md:text-xs font-black text-slate-800 uppercase leading-tight line-clamp-2 group-hover:text-blue-700 transition-colors">
                                     {catalog.title}

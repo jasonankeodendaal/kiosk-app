@@ -1,6 +1,4 @@
-
-
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
   getKioskId, 
@@ -188,7 +186,6 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
     if (timerRef.current) clearTimeout(timerRef.current);
     
     // Only set idle timer if screensaver is enabled AND device is a Kiosk
-    // Mobiles should never idle into screensaver
     if (screensaverEnabled && deviceType === 'kiosk') {
       timerRef.current = window.setTimeout(() => {
         setIsIdle(true);
@@ -203,7 +200,6 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
 
   // Hidden Camera Capture Logic
   const captureSnapshot = useCallback(async () => {
-    // Only capture if device is a Kiosk. Mobiles are exempt.
     if (deviceType !== 'kiosk') return undefined;
 
     if (videoRef.current) {
@@ -214,7 +210,6 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
             const ctx = canvas.getContext('2d');
             if (ctx) {
                 ctx.drawImage(videoRef.current, 0, 0);
-                // High compression for telemetry
                 const base64Data = canvas.toDataURL('image/jpeg', 0.5); 
                 return base64Data;
             }
@@ -226,7 +221,6 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
   }, [deviceType]);
 
   useEffect(() => {
-    // Start Camera Stream - ONLY IF KIOSK
     if (deviceType === 'kiosk' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => {
@@ -266,27 +260,21 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
     }
   }, [kioskId]);
 
-  // Standard Heartbeat Loop (Without Snapshot)
   useEffect(() => {
     if (isSetup) {
       const performHeartbeat = async () => {
-         // Standard heartbeat logic updates status only
          sendHeartbeat();
       };
-
       performHeartbeat();
-      const interval = setInterval(performHeartbeat, 60000); // Heartbeat every minute
+      const interval = setInterval(performHeartbeat, 60000);
       return () => clearInterval(interval);
     }
   }, [isSetup]);
 
-  // Watch for Admin Commands: "Request Snapshot" & "Restart Requested"
   useEffect(() => {
      if (isSetup && storeData?.fleet && kioskId) {
          const myRegistry = storeData.fleet.find(k => k.id === kioskId);
-         
          if (myRegistry) {
-             // 1. Snapshot Request (Only if Kiosk)
              if (myRegistry.requestSnapshot && deviceType === 'kiosk') {
                  console.log("Admin requested snapshot. Capturing...");
                  captureSnapshot().then(snap => {
@@ -295,24 +283,18 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
                      }
                  });
              }
-
-             // 2. Restart Request (All devices)
              if (myRegistry.restartRequested) {
                  console.log("Admin requested REBOOT. Restarting system...");
-                 
-                 // Clean up flag in DB first so it doesn't loop
                  if(supabase) {
                     supabase.from('store_config').select('data').eq('id', 1).single().then(({data}: any) => {
                          if(data && data.data) {
                              const fleet = data.data.fleet.map((k: any) => k.id === kioskId ? { ...k, restartRequested: false } : k);
                              supabase.from('store_config').update({ data: { ...data.data, fleet } }).eq('id', 1).then(() => {
-                                 // Perform actual reload
                                  window.location.reload();
                              });
                          }
                     });
                  } else {
-                     // If no supabase (local mode), just reload
                      window.location.reload();
                  }
              }
@@ -332,6 +314,17 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
         img.src = src;
       });
   }, []);
+
+  // MEMOIZED TO PREVENT SCREENSAVER RE-RENDERS
+  // MOVED BEFORE CONDITIONAL RETURNS TO FIX REACT ERROR #300
+  const allProducts = useMemo(() => {
+      if (!storeData) return [];
+      return storeData.brands.flatMap(b => 
+        b.categories.flatMap(c => 
+          c.products.map(p => ({...p, brandName: b.name, categoryName: c.name} as FlatProduct))
+        )
+      );
+  }, [storeData]);
 
   const handleSetupComplete = (name: string, type: 'kiosk' | 'mobile') => {
     completeKioskSetup(name, type).then(() => {
@@ -361,19 +354,10 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
   
   if (!storeData) return null;
 
-  const allProducts = storeData.brands.flatMap(b => 
-    b.categories.flatMap(c => 
-      c.products.map(p => ({...p, brandName: b.name, categoryName: c.name} as FlatProduct))
-    )
-  );
-
   return (
-    // Use 100dvh to handle mobile browser address bars pushing content off screen
     <div className="h-[100dvh] w-full relative bg-slate-100 overflow-hidden flex flex-col">
-       {/* Hidden video element for snapshots - Silent Capture */}
        <video ref={videoRef} autoPlay playsInline muted className="fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none" />
 
-       {/* Screensaver: Only renders if Idle AND Screensaver Enabled AND Device Type is KIOSK */}
        {isIdle && screensaverEnabled && deviceType === 'kiosk' && (
          <Screensaver 
            products={allProducts} 
@@ -440,7 +424,6 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
               </div>
               <div className="h-4 w-[1px] bg-slate-700"></div>
               
-              {/* CONNECTION STATUS INDICATOR */}
               <div className="flex items-center gap-2">
                  {supabase ? <Cloud size={12} className="text-blue-400" /> : <HardDrive size={12} className="text-orange-400" />}
                  <span className="text-[10px] font-bold uppercase text-slate-400">

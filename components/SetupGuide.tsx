@@ -312,14 +312,8 @@ vercel --prod`}
                                  <h3 className="text-lg font-black text-blue-900 uppercase">1. Optimize Uploads (Storage Bucket)</h3>
                              </div>
                              <p className="text-sm text-slate-700 mb-4">
-                                 To prevent sync errors with large videos/files, enable Supabase Storage:
+                                 Your error "File too large" happens because the storage bucket isn't setup. <br/>Run the SQL in Step 4 below to fix this instantly.
                              </p>
-                             <ol className="list-decimal pl-5 space-y-2 text-sm text-slate-800 font-bold">
-                                 <li>Go to <strong>Storage</strong> in your Supabase Dashboard.</li>
-                                 <li>Create a new bucket named: <code className="bg-white px-2 py-1 rounded border border-blue-200 text-blue-700">kiosk-media</code></li>
-                                 <li><strong>Crucial:</strong> Set the bucket to <strong>Public</strong>.</li>
-                                 <li>(Optional) Add a policy to allow inserts/updates for public users if not authenticated, or use service role.</li>
-                             </ol>
                         </div>
 
                         <div>
@@ -369,6 +363,34 @@ alter publication supabase_realtime add table public.store_config;
                                 label=".env"
                                 code={`NEXT_PUBLIC_SUPABASE_URL=your_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key`}
+                            />
+                        </div>
+
+                        <div>
+                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2 text-red-600">4. Storage Bucket SQL (FIX FOR UPLOAD ERRORS)</h3>
+                            <p className="text-sm text-slate-600 mb-4">Run this SQL to create the media bucket and allow uploads.</p>
+                            <CodeBlock 
+                                id="supabase-storage-sql"
+                                label="SQL Editor - Storage Fix"
+                                code={`-- 1. Create the Bucket
+insert into storage.buckets (id, name, public)
+values ('kiosk-media', 'kiosk-media', true)
+on conflict (id) do nothing;
+
+-- 2. Allow Public Access (Read)
+create policy "Public Access"
+on storage.objects for select
+using ( bucket_id = 'kiosk-media' );
+
+-- 3. Allow Public Uploads (Insert)
+create policy "Public Upload"
+on storage.objects for insert
+with check ( bucket_id = 'kiosk-media' );
+
+-- 4. Allow Updates
+create policy "Public Update"
+on storage.objects for update
+using ( bucket_id = 'kiosk-media' );`}
                             />
                         </div>
                     </div>

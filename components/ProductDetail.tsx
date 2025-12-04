@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 import Flipbook from './Flipbook';
@@ -42,7 +40,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
     e.stopPropagation();
     setCurrentMediaIndex((prev) => (prev - 1 + allMedia.length) % allMedia.length);
   };
-
+  
   const handleEnlargedPrev = (e: React.MouseEvent) => {
     e.stopPropagation();
     setEnlargedMediaIndex((prev) => (prev - 1 + allMedia.length) % allMedia.length);
@@ -59,11 +57,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
   };
 
   const openManual = () => {
-      // Prioritize the flipbook experience if pages are available
       if (product.manualImages && product.manualImages.length > 0) {
           setShowManual(true);
       } else if(product.manualUrl) {
-          // Fallback to old behavior if only raw PDF URL exists without converted images
           const pdfWindow = window.open("");
           if (pdfWindow) {
               pdfWindow.document.write(`<iframe width='100%' height='100%' src='${product.manualUrl}'></iframe>`);
@@ -353,7 +349,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                     </h1>
                 </div>
 
-                {/* Description */}
+                {/* Description - REQUIRED PROMINENTLY */}
                 <div className="mb-8">
                     <p className="text-sm text-slate-600 leading-relaxed font-medium">
                        {product.description}
