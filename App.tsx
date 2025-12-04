@@ -5,7 +5,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { generateStoreData, saveStoreData } from './services/geminiService';
 import { initSupabase, supabase } from './services/kioskService';
 import { StoreData } from './types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Cloud } from 'lucide-react';
 
 export default function App() {
   const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
@@ -64,7 +64,7 @@ export default function App() {
                  setStoreData(payload.new.data);
                  // Update local cache
                  localStorage.setItem('kiosk_pro_store_data', JSON.stringify(payload.new.data));
-                 setTimeout(() => setIsSyncing(false), 1000);
+                 setTimeout(() => setIsSyncing(false), 2000);
               }
             }
           )
@@ -91,10 +91,8 @@ export default function App() {
         console.error("Sync failed", e);
         // Alert the user that although the UI updated, the persistence failed
         alert(`SYNC ERROR: ${e.message || "Failed to connect to server."}`);
-        // Note: In a production app, we might revert storeData here, but for now we keep the optimistic state
-        // so the user can try hitting "Save" again without losing their work.
     } finally {
-        setTimeout(() => setIsSyncing(false), 500);
+        setTimeout(() => setIsSyncing(false), 2000);
     }
   };
 
@@ -133,9 +131,12 @@ export default function App() {
   return (
     <>
       {isSyncing && (
-         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-blue-600 text-white px-4 py-2 rounded-full shadow-xl flex items-center gap-2 animate-bounce">
-            <Loader2 className="animate-spin" size={16} />
-            <span className="text-xs font-bold uppercase tracking-widest">Syncing...</span>
+         <div className="fixed bottom-4 right-4 z-[200] bg-slate-900/90 text-white px-4 py-2 rounded-lg shadow-xl flex items-center gap-3 backdrop-blur-md border border-white/10 animate-fade-in transition-all">
+            <Loader2 className="animate-spin text-blue-400" size={16} />
+            <div className="flex flex-col">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">System</span>
+                <span className="text-xs font-bold">Syncing Data...</span>
+            </div>
          </div>
       )}
       <KioskApp 

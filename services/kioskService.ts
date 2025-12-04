@@ -1,4 +1,5 @@
 
+
 import { createClient } from '@supabase/supabase-js';
 import { KioskRegistry } from '../types';
 
@@ -123,23 +124,16 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
           status: 'online',
           last_seen: new Date().toISOString(),
           wifiStrength: 100,
-          ipAddress: '192.168.1.x', // Placeholder for actual IP logic if available
+          ipAddress: 'Unknown',
           version: '1.0.4',
           locationDescription: 'Newly Registered',
           assignedZone: 'Unassigned'
         };
 
         // 1. Write to Telemetry Table (Keep Alive)
-        await supabase.from('kiosks').upsert({
-            id,
-            name: shopName,
-            status: 'online',
-            last_seen: new Date().toISOString(),
-            version: '1.0.4'
-        });
+        await supabase.from('kiosks').upsert(kioskData);
 
-        // 2. CRITICAL: Update the Global Store Config JSON so Admin Hub sees it in the list
-        // Fetch existing config or initialize if missing
+        // 2. Update the Global Store Config JSON so Admin Hub sees it in the list immediately
         const { data: currentConfig, error } = await supabase
           .from('store_config')
           .select('data')
@@ -150,14 +144,7 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
         let configData = {};
 
         if (error || !currentConfig) {
-             console.log("Store Config missing, initializing...");
-             // Default structure
-             configData = { 
-                 companyLogoUrl: '', 
-                 hero: { title: 'Welcome', subtitle: '' }, 
-                 brands: [], 
-                 fleet: [] 
-             };
+             configData = { brands: [], fleet: [] };
         } else {
              configData = currentConfig.data || {};
              newFleet = (configData as any).fleet || [];
@@ -171,7 +158,6 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
              newFleet.push(kioskData);
         }
         
-        // Write back
         await supabase
           .from('store_config')
           .upsert({ 
@@ -187,23 +173,65 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
   return true;
 };
 
-// 7. Send Heartbeat
-export const sendHeartbeat = async () => {
+// 7. Send Heartbeat (now supports snapshot)
+export const sendHeartbeat = async (snapshotBase64?: string) => {
   const id = getKioskId();
   const name = getShopName();
   if (!id || !name || !supabase) return;
   
   try {
-      // 1. Telemetry
-      await supabase.from('kiosks').upsert({
-          id,
-          last_seen: new Date().toISOString(),
-          status: 'online'
-      }, { onConflict: 'id' });
+      // Estimate connection info
+      const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+      let wifiStrength = 100;
+      let ipAddress = 'Unknown';
+      
+      if(connection) {
+          // Rough estimate based on downlink
+          if(connection.downlink < 1) wifiStrength = 20;
+          else if(connection.downlink < 5) wifiStrength = 50;
+          else if(connection.downlink < 10) wifiStrength = 80;
+      }
 
-      // 2. Optional: Update status in Store Config for Admin Hub visibility (Throttle this in production)
-      // We skip updating the heavy JSON on every heartbeat to prevent race conditions, 
-      // usually only update on startup or explicit status change.
+      // 1. Telemetry
+      const payload: any = {
+          id,
+          name, // Ensure name is always fresh
+          last_seen: new Date().toISOString(),
+          status: 'online',
+          wifi_strength: wifiStrength,
+          ip_address: connection ? `${connection.effectiveType} | ${connection.downlink}Mbps` : 'Unknown'
+      };
+
+      // Only send snapshot if provided (to save bandwidth)
+      if (snapshotBase64) {
+          // In a real app, upload to Storage and save URL. For this MVP, we might store base64 in a separate column or limited field
+          // NOTE: Storing large base64 in a row is not ideal for performance, but fine for prototype.
+          // Ideally: await supabase.storage.from('snapshots').upload(...)
+      }
+
+      await supabase.from('kiosks').upsert(payload, { onConflict: 'id' });
+      
+      // Update Fleet Registry in Main Config if snapshot is present (so Admin sees it)
+      if (snapshotBase64) {
+          const { data: currentConfig } = await supabase.from('store_config').select('data').eq('id', 1).single();
+          if (currentConfig && currentConfig.data && currentConfig.data.fleet) {
+              const fleet = currentConfig.data.fleet as KioskRegistry[];
+              const idx = fleet.findIndex(k => k.id === id);
+              if (idx !== -1) {
+                  fleet[idx] = { 
+                      ...fleet[idx], 
+                      last_seen: new Date().toISOString(), 
+                      status: 'online',
+                      snapshotUrl: snapshotBase64,
+                      requestSnapshot: false, // RESET FLAG
+                      wifiStrength: wifiStrength,
+                      ipAddress: connection ? `${connection.effectiveType} | ${connection.downlink}Mbps` : 'Unknown'
+                  };
+                  await supabase.from('store_config').update({ data: { ...currentConfig.data, fleet } }).eq('id', 1);
+              }
+          }
+      }
+
   } catch (e) {
       console.warn("Heartbeat failed", e);
   }

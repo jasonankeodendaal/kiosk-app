@@ -94,6 +94,9 @@ export interface KioskRegistry {
   locationDescription?: string;
   assignedZone?: string;
   notes?: string;
+  snapshotUrl?: string; // Base64 or URL of latest camera snapshot
+  requestSnapshot?: boolean; // Admin triggers this to true, Kiosk resets to false
+  restartRequested?: boolean; // Admin triggers this to true, Kiosk reloads and resets to false
 }
 
 export interface StoreData {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, X, BookOpen, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, BookOpen, Calendar, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
 interface FlipbookProps {
   pages: string[];
@@ -13,6 +13,7 @@ const Flipbook: React.FC<FlipbookProps> = ({ pages, onClose, catalogueTitle, sta
   // Current index refers to the page displayed on the RIGHT side.
   // 0 means cover (single page on right).
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [scale, setScale] = useState(1);
 
   const totalPages = pages.length;
 
@@ -21,6 +22,7 @@ const Flipbook: React.FC<FlipbookProps> = ({ pages, onClose, catalogueTitle, sta
     // Allow going one step beyond the last page to show "End of Catalog"
     if (currentIndex + 2 <= totalPages + 1) { 
       setCurrentIndex(currentIndex + 2);
+      setScale(1); // Reset zoom on turn
     }
   };
 
@@ -28,7 +30,23 @@ const Flipbook: React.FC<FlipbookProps> = ({ pages, onClose, catalogueTitle, sta
     e.stopPropagation();
     if (currentIndex - 2 >= 0) {
       setCurrentIndex(currentIndex - 2);
+      setScale(1); // Reset zoom on turn
     }
+  };
+
+  const handleZoomIn = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setScale(prev => Math.min(prev + 0.5, 3));
+  };
+
+  const handleZoomOut = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setScale(prev => Math.max(prev - 0.5, 1));
+  };
+
+  const handleResetZoom = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setScale(1);
   };
 
   // Logic to determine which images to show
@@ -71,70 +89,86 @@ const Flipbook: React.FC<FlipbookProps> = ({ pages, onClose, catalogueTitle, sta
             </div>
           </div>
         </div>
-        <button 
-          onClick={onClose}
-          className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-colors backdrop-blur-sm border border-white/10"
-          aria-label="Close pamphlet viewer"
-        >
-          <X size={24} />
-        </button>
+        
+        <div className="flex items-center gap-4">
+             {/* Zoom Controls (Desktop Only usually, but useful for tablets) */}
+             <div className="hidden md:flex items-center gap-1 bg-black/40 rounded-lg p-1 backdrop-blur-sm border border-white/10">
+                 <button onClick={handleZoomOut} className="p-2 hover:bg-white/20 rounded text-white" title="Zoom Out"><ZoomOut size={16} /></button>
+                 <span className="text-xs font-mono font-bold w-8 text-center">{Math.round(scale * 100)}%</span>
+                 <button onClick={handleZoomIn} className="p-2 hover:bg-white/20 rounded text-white" title="Zoom In"><ZoomIn size={16} /></button>
+                 <button onClick={handleResetZoom} className="p-2 hover:bg-white/20 rounded text-white border-l border-white/10 ml-1" title="Reset"><RotateCcw size={16} /></button>
+             </div>
+
+             <button 
+              onClick={onClose}
+              className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-colors backdrop-blur-sm border border-white/10"
+              aria-label="Close pamphlet viewer"
+            >
+              <X size={24} />
+            </button>
+        </div>
       </div>
 
-      <div className="relative w-full max-w-6xl aspect-[3/2] flex items-center justify-center mt-12" onClick={(e) => e.stopPropagation()}>
+      <div className="relative w-full max-w-6xl h-full flex items-center justify-center mt-12 overflow-hidden" onClick={(e) => e.stopPropagation()}>
         
         {/* Previous Button */}
         <button 
             disabled={currentIndex === 0}
             onClick={handlePrev}
-            className="absolute left-0 md:-left-16 top-1/2 -translate-y-1/2 bg-white text-slate-900 p-3 md:p-4 rounded-full shadow-2xl disabled:opacity-0 transition-opacity hover:bg-blue-50 z-20 border border-slate-200"
+            className="absolute left-0 md:left-4 top-1/2 -translate-y-1/2 bg-white text-slate-900 p-3 md:p-4 rounded-full shadow-2xl disabled:opacity-0 transition-opacity hover:bg-blue-50 z-50 border border-slate-200"
             aria-label="Previous page"
         >
             <ChevronLeft size={24} className="md:w-8 md:h-8" />
         </button>
 
-        {/* The Book */}
-        <div className="flex w-full h-full bg-white shadow-2xl rounded-sm overflow-hidden relative transform transition-transform duration-500">
-            {/* Spine Shadow */}
-            <div className="absolute left-1/2 top-0 bottom-0 w-8 -ml-4 bg-gradient-to-r from-transparent via-black/20 to-transparent z-10 pointer-events-none"></div>
+        {/* The Book Container for Scaling */}
+        <div 
+            className="flex w-full max-w-6xl aspect-[3/2] transition-transform duration-300 ease-out"
+            style={{ transform: `scale(${scale})` }}
+        >
+            <div className="flex w-full h-full bg-white shadow-2xl rounded-sm overflow-hidden relative">
+                {/* Spine Shadow */}
+                <div className="absolute left-1/2 top-0 bottom-0 w-8 -ml-4 bg-gradient-to-r from-transparent via-black/20 to-transparent z-10 pointer-events-none"></div>
 
-            {/* Left Page */}
-            <div className="flex-1 bg-white relative overflow-hidden flex items-center justify-center border-r border-slate-200 bg-slate-50">
-                {leftPageIdx >= 0 && pages[leftPageIdx] ? (
-                    <img 
-                        src={pages[leftPageIdx]} 
-                        alt={`Page ${leftPageIdx + 1}`} 
-                        className="w-full h-full object-contain"
-                    />
-                ) : (
-                   <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center text-slate-300">
-                       <BookOpen size={48} className="mb-2 opacity-50" />
-                       <span className="font-bold uppercase tracking-widest text-sm">Inside Cover</span>
-                   </div>
-                )}
-                {/* Page Number */}
-                {leftPageIdx >= 0 && (
-                    <div className="absolute bottom-4 left-6 text-slate-400 font-mono text-xs md:text-sm bg-white/80 px-2 py-0.5 rounded backdrop-blur-sm">{leftPageIdx + 1}</div>
-                )}
-            </div>
-
-            {/* Right Page */}
-            <div className="flex-1 bg-white relative overflow-hidden flex items-center justify-center bg-slate-50">
-                {rightPageIdx < totalPages ? (
-                    <img 
-                        src={pages[rightPageIdx]} 
-                        alt={`Page ${rightPageIdx + 1}`} 
-                        className="w-full h-full object-contain"
-                    />
-                ) : (
+                {/* Left Page */}
+                <div className="flex-1 bg-white relative overflow-hidden flex items-center justify-center border-r border-slate-200 bg-slate-50">
+                    {leftPageIdx >= 0 && pages[leftPageIdx] ? (
+                        <img 
+                            src={pages[leftPageIdx]} 
+                            alt={`Page ${leftPageIdx + 1}`} 
+                            className="w-full h-full object-contain"
+                        />
+                    ) : (
                     <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center text-slate-300">
-                       <BookOpen size={48} className="mb-2 opacity-50" />
-                       <span className="font-bold uppercase tracking-widest text-sm">End of Catalog</span>
-                   </div>
-                )}
-                 {/* Page Number */}
-                 {rightPageIdx < totalPages && (
-                    <div className="absolute bottom-4 right-6 text-slate-400 font-mono text-xs md:text-sm bg-white/80 px-2 py-0.5 rounded backdrop-blur-sm">{rightPageIdx + 1}</div>
-                )}
+                        <BookOpen size={48} className="mb-2 opacity-50" />
+                        <span className="font-bold uppercase tracking-widest text-sm">Inside Cover</span>
+                    </div>
+                    )}
+                    {/* Page Number */}
+                    {leftPageIdx >= 0 && (
+                        <div className="absolute bottom-4 left-6 text-slate-400 font-mono text-xs md:text-sm bg-white/80 px-2 py-0.5 rounded backdrop-blur-sm">{leftPageIdx + 1}</div>
+                    )}
+                </div>
+
+                {/* Right Page */}
+                <div className="flex-1 bg-white relative overflow-hidden flex items-center justify-center bg-slate-50">
+                    {rightPageIdx < totalPages ? (
+                        <img 
+                            src={pages[rightPageIdx]} 
+                            alt={`Page ${rightPageIdx + 1}`} 
+                            className="w-full h-full object-contain"
+                        />
+                    ) : (
+                        <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center text-slate-300">
+                        <BookOpen size={48} className="mb-2 opacity-50" />
+                        <span className="font-bold uppercase tracking-widest text-sm">End of Catalog</span>
+                    </div>
+                    )}
+                    {/* Page Number */}
+                    {rightPageIdx < totalPages && (
+                        <div className="absolute bottom-4 right-6 text-slate-400 font-mono text-xs md:text-sm bg-white/80 px-2 py-0.5 rounded backdrop-blur-sm">{rightPageIdx + 1}</div>
+                    )}
+                </div>
             </div>
         </div>
 
@@ -142,7 +176,7 @@ const Flipbook: React.FC<FlipbookProps> = ({ pages, onClose, catalogueTitle, sta
         <button 
             disabled={currentIndex >= totalPages}
             onClick={handleNext}
-            className="absolute right-0 md:-right-16 top-1/2 -translate-y-1/2 bg-white text-slate-900 p-3 md:p-4 rounded-full shadow-2xl disabled:opacity-0 transition-opacity hover:bg-blue-50 z-20 border border-slate-200"
+            className="absolute right-0 md:right-4 top-1/2 -translate-y-1/2 bg-white text-slate-900 p-3 md:p-4 rounded-full shadow-2xl disabled:opacity-0 transition-opacity hover:bg-blue-50 z-50 border border-slate-200"
             aria-label="Next page"
         >
             <ChevronRight size={24} className="md:w-8 md:h-8" />
@@ -151,7 +185,7 @@ const Flipbook: React.FC<FlipbookProps> = ({ pages, onClose, catalogueTitle, sta
       </div>
       
       {/* Overall Page Indicator */}
-      <div className="absolute bottom-6 md:bottom-10 bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-white/90 text-xs md:text-sm font-bold uppercase tracking-widest shadow-lg">
+      <div className="absolute bottom-6 md:bottom-10 bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-white/90 text-xs md:text-sm font-bold uppercase tracking-widest shadow-lg z-50">
           Pages {leftPageIdx >= 0 ? leftPageIdx + 1 : 0} - {rightPageIdx < totalPages ? rightPageIdx + 1 : totalPages} <span className="text-white/40 mx-2">|</span> {totalPages} Total
       </div>
     </div>
