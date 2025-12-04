@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import KioskApp from './components/KioskApp';
-import AdminDashboard from './components/AdminDashboard';
+import { KioskApp } from './components/KioskApp';
+import { AdminDashboard } from './components/AdminDashboard';
 import { generateStoreData, saveStoreData } from './services/geminiService';
 import { initSupabase, supabase } from './services/kioskService';
 import { StoreData } from './types';

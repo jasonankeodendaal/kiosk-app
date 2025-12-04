@@ -1,16 +1,16 @@
 
 import React, { useEffect, useState } from 'react';
-import { Brand, Catalog, HeroConfig, AdConfig, AdItem } from '../types';
+import { Brand, Catalogue, HeroConfig, AdConfig, AdItem } from '../types'; // Import Catalogue
 import { Download, BookOpen, Globe, ChevronRight } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 
 interface BrandGridProps {
   brands: Brand[];
   heroConfig?: HeroConfig;
-  catalog?: Catalog;
+  globalCatalog?: Catalogue; // Changed from 'catalog' to 'globalCatalog' with new type
   ads?: AdConfig;
   onSelectBrand: (brand: Brand) => void;
-  onViewCatalog: () => void;
+  onViewGlobalCatalog: (pages: string[]) => void; // New prop for global catalog view
   onExport: () => void; 
 }
 
@@ -61,6 +61,7 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
     );
 };
 
+// CatalogStrip now receives a single Catalog
 const CatalogStrip = ({ pages, onView }: { pages?: string[], onView: () => void }) => {
   if (!pages || pages.length === 0) return null;
   
@@ -116,23 +117,23 @@ const CatalogStrip = ({ pages, onView }: { pages?: string[], onView: () => void 
   )
 }
 
-const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads, onSelectBrand, onViewCatalog, onExport }) => {
+const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, globalCatalog, ads, onSelectBrand, onViewGlobalCatalog, onExport }) => {
   
   const handleDownloadPdf = async () => {
-    if (catalog?.pdfUrl) {
+    if (globalCatalog?.pdfUrl) {
         // If an original PDF exists, download it
         const link = document.createElement('a');
-        link.href = catalog.pdfUrl;
-        link.download = 'store_catalog.pdf';
+        link.href = globalCatalog.pdfUrl;
+        link.download = `${globalCatalog.title || 'store_catalog'}.pdf`; // Use catalog title if available
         link.click();
-    } else if (catalog?.pages && catalog.pages.length > 0) {
+    } else if (globalCatalog?.pages && globalCatalog.pages.length > 0) {
         // If only images exist (Multi-Image Upload), generate a PDF using jsPDF
         try {
             const doc = new jsPDF();
-            for (let i = 0; i < catalog.pages.length; i++) {
+            for (let i = 0; i < globalCatalog.pages.length; i++) {
                 if (i > 0) doc.addPage();
                 
-                const imgData = catalog.pages[i];
+                const imgData = globalCatalog.pages[i];
                 // Get image dimensions to fit page
                 const img = new Image();
                 img.src = imgData;
@@ -156,7 +157,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
                 
                 doc.addImage(imgData, 'JPEG', x, y, w, h);
             }
-            doc.save('store_catalog.pdf');
+            doc.save(`${globalCatalog.title || 'store_catalog'}.pdf`); // Use catalog title
         } catch (e) {
             console.error("Failed to generate PDF", e);
             alert("Could not generate PDF from images.");
@@ -207,9 +208,9 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
             {/* Catalog Actions & Website Button */}
             <div className="flex flex-wrap items-center gap-4">
                 {/* ALWAYS SHOW CATALOG BUTTON if pages exist */}
-                {catalog && catalog.pages && catalog.pages.length > 0 && (
+                {globalCatalog && globalCatalog.pages && globalCatalog.pages.length > 0 && (
                     <button 
-                        onClick={onViewCatalog}
+                        onClick={() => onViewGlobalCatalog(globalCatalog.pages)}
                         className="flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold uppercase tracking-wider text-sm shadow-xl shadow-blue-600/30 transition-all hover:-translate-y-1 animate-pulse-slow ring-4 ring-blue-600/20"
                     >
                         <BookOpen size={20} /> View Latest Catalog
@@ -218,7 +219,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
                 
                 {/* Download PDF / View Website Buttons */}
                 <div className="flex items-center gap-3">
-                     {catalog && catalog.pages && catalog.pages.length > 0 && (
+                     {globalCatalog && globalCatalog.pages && globalCatalog.pages.length > 0 && (
                          <button 
                             onClick={handleDownloadPdf}
                             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-4 rounded-xl font-bold uppercase tracking-wider text-sm backdrop-blur-sm border border-white/20 transition-all"
@@ -244,7 +245,9 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
       </div>
 
       {/* Catalog Teaser Strip (Swiper) */}
-      <CatalogStrip pages={catalog?.pages} onView={onViewCatalog} />
+      {globalCatalog && globalCatalog.pages && globalCatalog.pages.length > 0 && (
+          <CatalogStrip pages={globalCatalog.pages} onView={() => onViewGlobalCatalog(globalCatalog.pages)} />
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 p-4 pt-6 max-w-7xl mx-auto w-full flex flex-col lg:flex-row gap-6">

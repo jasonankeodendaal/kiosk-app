@@ -5,7 +5,7 @@ import {
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
   Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon
 } from 'lucide-react';
-import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem } from '../types';
+import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue } from '../types'; // Import Catalogue
 import { resetStoreData } from '../services/geminiService';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -337,6 +337,280 @@ const AdManager = ({ ads, onUpdate, onSaveGlobal }: { ads: AdConfig, onUpdate: (
     );
 };
 
+// NEW COMPONENT: AdminCatalogManager
+const AdminCatalogManager = ({ storeData, onUpdateData, onSaveGlobal }: { storeData: StoreData, onUpdateData: (d: StoreData) => void, onSaveGlobal: () => void }) => {
+    const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+    const [editingCatalog, setEditingCatalog] = useState<Catalogue | null>(null);
+    const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+
+    const brands = storeData.brands || [];
+    const catalogues = storeData.catalogues || [];
+    
+    // Filter catalogs based on selected brand or show global/unassigned
+    const filteredCatalogs = selectedBrandId 
+        ? catalogues.filter(c => c.brandId === selectedBrandId) 
+        : catalogues.filter(c => !c.brandId);
+    
+    // Handle PDF upload for the currently editing catalog
+    const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if(!e.target.files?.[0] || !editingCatalog) return;
+        const file = e.target.files[0];
+        setIsProcessingPdf(true);
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdfDoc = await pdfjs.getDocument(arrayBuffer).promise;
+            const totalPages = pdfDoc.numPages;
+            const pageImages: string[] = [];
+            for (let i = 1; i <= totalPages; i++) {
+                const page = await pdfDoc.getPage(i);
+                const viewport = page.getViewport({ scale: 1.5 });
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                if (context) {
+                    await page.render({ canvasContext: context, viewport: viewport }).promise;
+                    pageImages.push(canvas.toDataURL('image/jpeg', 0.8));
+                }
+            }
+            setEditingCatalog(prev => prev ? { ...prev, pdfUrl: URL.createObjectURL(file), pages: pageImages } : null);
+            setIsProcessingPdf(false);
+        } catch (err) { console.error("PDF Process Error", err); alert("Failed to process PDF."); setIsProcessingPdf(false); }
+    };
+
+    // Handle multi-image upload for the currently editing catalog
+    const handleCatalogImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0 || !editingCatalog) return;
+        setIsProcessingPdf(true);
+        const files: File[] = Array.from(e.target.files) as File[];
+        files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        try {
+            const pageImages: string[] = [];
+            for (const file of files) {
+                const reader = new FileReader();
+                const result = await new Promise<string>((resolve) => {
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.readAsDataURL(file);
+                });
+                pageImages.push(result);
+            }
+            setEditingCatalog(prev => prev ? { ...prev, pdfUrl: '', pages: pageImages } : null);
+            setIsProcessingPdf(false);
+        } catch (err) { console.error("Image Process Error", err); alert("Failed to process images."); setIsProcessingPdf(false); }
+    };
+
+    const handleSaveCatalog = () => {
+        if (!editingCatalog) return;
+        const newCatalogues = [...(storeData.catalogues || [])];
+        const index = newCatalogues.findIndex(c => c.id === editingCatalog.id);
+        if (index > -1) {
+            newCatalogues[index] = editingCatalog; // Update existing
+        } else {
+            newCatalogues.push(editingCatalog); // Add new
+        }
+        onUpdateData({ ...storeData, catalogues: newCatalogues });
+        setEditingCatalog(null); // Close modal
+    };
+
+    const handleDeleteCatalog = (id: string) => {
+        if (confirm("Are you sure you want to delete this catalog?")) {
+            onUpdateData({ ...storeData, catalogues: (storeData.catalogues || []).filter(c => c.id !== id) });
+        }
+    };
+    
+    // Sort catalogs by year then month for display
+    const sortedCatalogs = [...filteredCatalogs].sort((a, b) => {
+        if (a.year && b.year && a.year !== b.year) return a.year - b.year;
+        if (a.month && b.month) return a.month - b.month;
+        return 0;
+    });
+
+    return (
+        <div className="max-w-5xl mx-auto animate-fade-in space-y-8 pb-12">
+            <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">Catalogues & Branding</h2>
+                <button onClick={onSaveGlobal} className="bg-blue-600 text-white px-5 py-2 rounded-xl shadow-lg shadow-blue-500/30 flex items-center gap-2 hover:bg-blue-700 transition-all font-bold text-xs uppercase tracking-wide">
+                    <Save size={14} /> Save Changes
+                </button>
+            </div>
+            
+            {/* Global Identity (Company Logo) */}
+            <div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow">
+                <h3 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><Globe size={20} className="text-blue-500" /> Global Identity</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                       <p className="text-xs text-slate-500 font-bold mb-4">Set the main company logo displayed on the kiosk top bar.</p>
+                       <FileUpload label="Company Logo (Top Bar)" currentUrl={storeData.companyLogoUrl} onUpload={(data) => onUpdateData({ ...storeData, companyLogoUrl: data })} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Kiosk Hero Section */}
+            <div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow">
+                <h3 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><Monitor size={20} className="text-blue-500" /> Kiosk Hero Section</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                        <div><label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Hero Title</label><input className="w-full p-3 border border-slate-300 rounded-xl font-bold bg-white text-black shadow-inner" defaultValue={storeData.hero?.title || 'Our Partners'} onChange={(e) => { const newHero = { ...(storeData.hero || { title: '', subtitle: '' }), title: e.target.value }; onUpdateData({ ...storeData, hero: newHero }); }} /></div>
+                        <div><label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Hero Subtitle</label><input className="w-full p-3 border border-slate-300 rounded-xl font-bold bg-white text-black shadow-inner" defaultValue={storeData.hero?.subtitle || 'Select a brand to explore.'} onChange={(e) => { const newHero = { ...(storeData.hero || { title: '', subtitle: '' }), subtitle: e.target.value }; onUpdateData({ ...storeData, hero: newHero }); }} /></div>
+                        <div><label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Website URL</label><input className="w-full p-3 border border-slate-300 rounded-xl font-bold bg-white text-black shadow-inner" placeholder="https://example.com" defaultValue={storeData.hero?.websiteUrl || ''} onChange={(e) => { const newHero = { ...(storeData.hero || { title: '', subtitle: '' }), websiteUrl: e.target.value }; onUpdateData({ ...storeData, hero: newHero }); }} /></div>
+                    </div>
+                    <div className="space-y-4">
+                        <FileUpload label="Hero Background Image" currentUrl={storeData.hero?.backgroundImageUrl} onUpload={(data) => { const newHero = { ...(storeData.hero || { title: '', subtitle: '' }), backgroundImageUrl: data }; onUpdateData({ ...storeData, hero: newHero }); }} />
+                        <FileUpload label="Hero Logo (Brand Overlay)" currentUrl={storeData.hero?.logoUrl} onUpload={(data) => { const newHero = { ...(storeData.hero || { title: '', subtitle: '' }), logoUrl: data }; onUpdateData({ ...storeData, hero: newHero }); }} />
+                    </div>
+                </div>
+            </div>
+
+            {/* Digital Catalogs - NEW SECTION */}
+            <div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow">
+                <h3 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><BookOpen size={20} className="text-blue-500" /> Digital Catalogs</h3>
+                
+                {/* Brand Selector for Catalogs */}
+                <div className="mb-6">
+                    <label className="block text-[10px] font-black uppercase text-slate-500 mb-2">Filter by Brand (for management)</label>
+                    <select
+                        className="w-full p-3 border border-slate-300 rounded-xl font-bold bg-white text-black shadow-inner"
+                        value={selectedBrandId || ''}
+                        onChange={(e) => setSelectedBrandId(e.target.value || null)}
+                    >
+                        <option value="">All Global / Unassigned</option>
+                        {brands.map(brand => (
+                            <option key={brand.id} value={brand.id}>{brand.name}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* List Existing Catalogs */}
+                <div className="space-y-4 mb-6">
+                    {sortedCatalogs.map(catalog => (
+                        <div key={catalog.id} className="flex items-center bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="w-16 h-16 shrink-0 bg-white rounded-lg overflow-hidden border border-slate-100 flex items-center justify-center p-1">
+                                {catalog.pages?.[0] ? <img src={catalog.pages[0]} alt="Cover" className="w-full h-full object-contain" /> : <BookOpen size={24} className="text-slate-300" />}
+                            </div>
+                            <div className="flex-1 ml-4">
+                                <h4 className="font-bold text-slate-900 text-sm">{catalog.title}</h4>
+                                <p className="text-xs text-slate-500">
+                                    {catalog.brandId ? `Brand: ${brands.find(b => b.id === catalog.brandId)?.name || 'Unknown'}` : 'Global'}
+                                    {catalog.year && ` | Year: ${catalog.year}`}
+                                    {catalog.month && ` | Month: ${new Date(0, catalog.month - 1).toLocaleString('en', { month: 'short' })}`}
+                                </p>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                                <button onClick={() => setEditingCatalog({...catalog})} className="p-2 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                                <button onClick={() => handleDeleteCatalog(catalog.id)} className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Add New Catalog Button */}
+                <button 
+                    onClick={() => setEditingCatalog({ id: generateId('cat'), title: '', pages: [], brandId: selectedBrandId || undefined })} 
+                    className="w-full p-4 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center gap-2 text-slate-400 hover:text-blue-600 hover:border-blue-500 hover:bg-blue-50 transition-all group"
+                >
+                    <Plus size={20} className="text-slate-300 group-hover:text-blue-500" />
+                    <span className="font-black text-[10px] uppercase tracking-widest text-slate-400 group-hover:text-blue-600">Add New Catalog</span>
+                </button>
+            </div>
+
+            {/* Edit Catalog Modal */}
+            {editingCatalog && (
+                <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className="bg-white p-8 rounded-3xl w-full max-w-2xl shadow-2xl border border-slate-300 max-h-[90vh] overflow-y-auto animate-fade-in">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-900">{editingCatalog.title ? 'Edit Catalog' : 'New Catalog'}</h3>
+                                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Configure Digital Catalog</p>
+                            </div>
+                            <button onClick={() => setEditingCatalog(null)}><X className="text-slate-400 hover:text-slate-600" /></button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-blue-600 block mb-1">Catalog Title</label>
+                                <input 
+                                    className="w-full p-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" 
+                                    value={editingCatalog.title} 
+                                    onChange={e => setEditingCatalog({...editingCatalog, title: e.target.value})} 
+                                    placeholder="e.g. Summer Collection 2024"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Assign to Brand (Optional)</label>
+                                <select
+                                    className="w-full p-3 border border-slate-300 rounded-xl font-bold bg-white text-black shadow-inner"
+                                    value={editingCatalog.brandId || ''}
+                                    onChange={(e) => setEditingCatalog({...editingCatalog, brandId: e.target.value || undefined})}
+                                >
+                                    <option value="">Global / Unassigned</option>
+                                    {brands.map(brand => (
+                                        <option key={brand.id} value={brand.id}>{brand.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Year (Optional)</label>
+                                    <input 
+                                        type="number" 
+                                        className="w-full p-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" 
+                                        value={editingCatalog.year || ''} 
+                                        onChange={e => setEditingCatalog({...editingCatalog, year: e.target.value ? parseInt(e.target.value) : undefined})} 
+                                        placeholder="e.g. 2024"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Month (Optional)</label>
+                                    <select 
+                                        className="w-full p-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" 
+                                        value={editingCatalog.month || ''} 
+                                        onChange={e => setEditingCatalog({...editingCatalog, month: e.target.value ? parseInt(e.target.value) : undefined})}
+                                    >
+                                        <option value="">None</option>
+                                        {[...Array(12).keys()].map(i => (
+                                            <option key={i + 1} value={i + 1}>{new Date(0, i).toLocaleString('en', { month: 'long' })}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div><h4 className="font-bold text-blue-900 text-sm">Upload Catalog PDF</h4><p className="text-xs text-blue-600 mt-1">Automatically convert PDF to images.</p></div>
+                                    </div>
+                                    <label className={`w-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-blue-300 rounded-xl bg-white hover:bg-blue-50 transition-all cursor-pointer group ${isProcessingPdf ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        <Upload size={32} className="text-blue-300 group-hover:text-blue-500 mb-2 transition-colors" /><span className="font-black text-blue-400 group-hover:text-blue-600 uppercase tracking-widest text-xs">Select PDF File</span><input type="file" className="hidden" accept=".pdf" onChange={handlePdfUpload} />
+                                    </label>
+                                </div>
+                                <div className="bg-purple-50 p-6 rounded-xl border border-purple-100">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div><h4 className="font-bold text-purple-900 text-sm">Upload Multi-Images</h4><p className="text-xs text-purple-600 mt-1">Select multiple JPG/PNG files for the catalog.</p></div>
+                                    </div>
+                                    <label className={`w-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-purple-300 rounded-xl bg-white hover:bg-purple-50 transition-all cursor-pointer group ${isProcessingPdf ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        <ImageIcon size={32} className="text-purple-300 group-hover:text-purple-500 mb-2 transition-colors" /><span className="font-black text-purple-400 group-hover:text-purple-600 uppercase tracking-widest text-xs">Select Images</span><input type="file" className="hidden" accept="image/*" multiple onChange={handleCatalogImagesUpload} />
+                                    </label>
+                                </div>
+                            </div>
+
+                            {editingCatalog.pages && editingCatalog.pages.length > 0 && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-2"><h4 className="font-black text-xs uppercase text-slate-400">Preview ({editingCatalog.pages.length} Pages)</h4><button onClick={() => setEditingCatalog(prev => prev ? { ...prev, pdfUrl: '', pages: [] } : null)} className="text-red-500 text-[10px] font-bold uppercase hover:underline">Remove Pages</button></div>
+                                    <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">{editingCatalog.pages.map((page, idx) => ( <div key={idx} className="aspect-[2/3] bg-slate-100 rounded border border-slate-200 overflow-hidden relative group"><img src={page} alt="" className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">{idx + 1}</div></div> ))}</div>
+                                </div>
+                            )}
+                            {isProcessingPdf && (<div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full shadow-sm mt-4"><div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div><span className="text-[10px] font-black uppercase text-blue-500">Processing...</span></div>)}
+                        </div>
+                        <div className="mt-8 flex justify-end gap-3">
+                            <button onClick={() => setEditingCatalog(null)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors text-xs uppercase">Cancel</button>
+                            <button onClick={handleSaveCatalog} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all text-xs uppercase flex items-center gap-2"><Save size={16} /> Save Catalog</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegistry[], onUpdateFleet: (f: KioskRegistry[]) => void, onSaveGlobal: () => void }) => {
   const [editingKiosk, setEditingKiosk] = useState<KioskRegistry | null>(null);
   const [viewingCamera, setViewingCamera] = useState<KioskRegistry | null>(null);
@@ -622,7 +896,7 @@ const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegi
 }
 
 // --- MAIN LAYOUT ---
-const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void }) => {
+export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void }) => {
   const [session, setSession] = useState(false);
   const [activeTab, setActiveTab] = useState<'inventory' | 'fleet' | 'settings' | 'catalog' | 'ads'>('inventory');
   const [viewLevel, setViewLevel] = useState<'brands' | 'categories' | 'products'>('brands');
@@ -630,7 +904,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<{ type: 'brand'|'category'|'product', data?: any } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
-  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  // Removed isProcessingPdf from here, moved to AdminCatalogManager
   const [isSaving, setIsSaving] = useState(false);
 
   const activeBrand = storeData?.brands.find(b => b.id === activeBrandId);
@@ -644,51 +918,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
       setTimeout(() => setIsSaving(false), 1000);
   };
 
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if(!e.target.files?.[0] || !storeData) return;
-    const file = e.target.files[0];
-    setIsProcessingPdf(true);
-    try {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdfDoc = await pdfjs.getDocument(arrayBuffer).promise;
-        const totalPages = pdfDoc.numPages;
-        const pageImages: string[] = [];
-        for (let i = 1; i <= totalPages; i++) {
-            const page = await pdfDoc.getPage(i);
-            const viewport = page.getViewport({ scale: 1.5 });
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            if (context) {
-                await page.render({ canvasContext: context, viewport: viewport }).promise;
-                pageImages.push(canvas.toDataURL('image/jpeg', 0.8));
-            }
-        }
-        onUpdateData({ ...storeData, catalog: { pdfUrl: URL.createObjectURL(file), pages: pageImages } });
-        setIsProcessingPdf(false);
-    } catch (err) { console.error("PDF Process Error", err); alert("Failed to process PDF."); setIsProcessingPdf(false); }
-  };
-
-  const handleCatalogImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!e.target.files || e.target.files.length === 0 || !storeData) return;
-      setIsProcessingPdf(true);
-      const files: File[] = Array.from(e.target.files) as File[];
-      files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-      try {
-          const pageImages: string[] = [];
-          for (const file of files) {
-              const reader = new FileReader();
-              const result = await new Promise<string>((resolve) => {
-                  reader.onload = () => resolve(reader.result as string);
-                  reader.readAsDataURL(file);
-              });
-              pageImages.push(result);
-          }
-          onUpdateData({ ...storeData, catalog: { pdfUrl: '', pages: pageImages } });
-          setIsProcessingPdf(false);
-      } catch (err) { console.error("Image Process Error", err); alert("Failed to process images."); setIsProcessingPdf(false); }
-  };
+  // Removed handlePdfUpload and handleCatalogImagesUpload from AdminDashboard, moved to AdminCatalogManager
 
   // --- IMPORT LOGIC: ZIP & FOLDER ---
   const processFilesToStoreData = async (fileMap: Map<string, Blob>, rootJson?: StoreData) => {
@@ -716,6 +946,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
       let newData: StoreData = rootJson || { 
           ...storeData, 
           brands: [], 
+          catalogues: [], // Initialize catalogues array
           hero: storeData?.hero || { title: 'Welcome', subtitle: '' }
       } as StoreData;
 
@@ -741,12 +972,32 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
           const parts = cleanPath.split('/').filter(p => p && p !== '.' && p !== '__MACOSX');
           if (parts.length === 0) continue;
 
-          // Special Folder: Catalog
-          if (parts[0].toLowerCase() === 'catalog') {
-               if (parts.length === 2 && parts[1].match(/\.(jpg|jpeg|png|webp)$/i)) {
-                   if (!newData.catalog) newData.catalog = { pages: [] };
+          // Special Folder: Catalogues (NEW)
+          if (parts[0].toLowerCase() === 'catalogues') {
+               if (parts.length >= 3 && parts[1] && parts[2].match(/\.(jpg|jpeg|png|webp)$/i)) {
+                   const catalogTitle = parts[1];
+                   let currentCatalog = newData.catalogues?.find(c => c.title === catalogTitle);
+                   if (!currentCatalog) {
+                       currentCatalog = { id: generateId('cat'), title: catalogTitle, pages: [] };
+                       if (!newData.catalogues) newData.catalogues = [];
+                       newData.catalogues.push(currentCatalog);
+                   }
                    const base64 = await readFileAsBase64(blob);
-                   newData.catalog.pages.push(base64);
+                   currentCatalog.pages.push(base64);
+               }
+               // Also handle a catalog info.json if present
+               if (parts.length === 3 && parts[2].toLowerCase() === 'info.json') {
+                   const catalogTitle = parts[1];
+                   let currentCatalog = newData.catalogues?.find(c => c.title === catalogTitle);
+                   if (!currentCatalog) {
+                       currentCatalog = { id: generateId('cat'), title: catalogTitle, pages: [] };
+                       if (!newData.catalogues) newData.catalogues = [];
+                       newData.catalogues.push(currentCatalog);
+                   }
+                   const text = await blob.text();
+                   const info = JSON.parse(text);
+                   Object.assign(currentCatalog, info); // Merge info
+                   if (!currentCatalog.id) currentCatalog.id = generateId('cat'); // Ensure ID if not in info.json
                }
                continue;
           }
@@ -867,8 +1118,17 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
       newData.brands = Array.from(brandsMap.values());
       
       // Sort Catalog Pages (if any)
-      if (newData.catalog?.pages) {
-          newData.catalog.pages.sort(); // Basic sort, likely need better numeric sort if files are page_1, page_10
+      if (newData.catalogues) {
+          newData.catalogues.forEach(catalog => {
+              if (catalog.pages) {
+                  catalog.pages.sort((a, b) => {
+                      // Assuming "page_001.jpg" format, extract number for sorting
+                      const numA = parseInt(a.match(/_(\d+)\./)?.[1] || '0');
+                      const numB = parseInt(b.match(/_(\d+)\./)?.[1] || '0');
+                      return numA - numB;
+                  });
+              }
+          });
       }
 
       console.log("Reconstructed Store Data:", newData);
@@ -1006,16 +1266,29 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
             });
         });
 
-        // 3. Extract Catalog
-        if (storeData.catalog?.pages && storeData.catalog.pages.length > 0) {
-            const catFolder = zip.folder("catalog");
-            storeData.catalog.pages.forEach((page, idx) => {
-                if (page.startsWith('data:')) {
-                    const blob = dataURItoBlob(page);
-                    // Zero pad for correct sorting: page_001.jpg
-                    const padIdx = (idx + 1).toString().padStart(3, '0');
-                    if (blob) catFolder?.file(`page_${padIdx}.jpg`, blob);
-                }
+        // 3. Extract Catalogues (NEW)
+        if (storeData.catalogues && storeData.catalogues.length > 0) {
+            const allCatalogsFolder = zip.folder("catalogues");
+            storeData.catalogues.forEach((catalog) => {
+                const safeCatalogName = catalog.title.replace(/[^a-z0-9]/gi, '_');
+                const catalogFolder = allCatalogsFolder?.folder(safeCatalogName);
+                
+                catalogFolder?.file("info.json", JSON.stringify({
+                    title: catalog.title,
+                    brandId: catalog.brandId,
+                    year: catalog.year,
+                    month: catalog.month,
+                    pdfUrl: catalog.pdfUrl // If original PDF was URL
+                }, null, 2));
+
+                catalog.pages.forEach((page, idx) => {
+                    if (page.startsWith('data:')) {
+                        const blob = dataURItoBlob(page);
+                        // Zero pad for correct sorting: page_001.jpg
+                        const padIdx = (idx + 1).toString().padStart(3, '0');
+                        if (blob) catalogFolder?.file(`page_${padIdx}.jpg`, blob);
+                    }
+                });
             });
         }
 
@@ -1152,68 +1425,10 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
             )
          )}
          {activeTab === 'ads' && storeData && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><AdManager ads={storeData.ads || { homeBottomLeft: [], homeBottomRight: [], homeSideVertical: [], screensaver: [] }} onUpdate={(newAds) => onUpdateData({ ...storeData, ads: newAds })} onSaveGlobal={handleGlobalSave} /></div> )}
+         {/* Render the new AdminCatalogManager component for the 'catalog' tab */}
          {activeTab === 'catalog' && storeData && (
              <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10">
-                 <div className="max-w-5xl mx-auto animate-fade-in space-y-8 pb-12">
-                     <div className="flex items-center justify-between">
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">Catalog & Branding</h2>
-                     </div>
-                     
-                     <div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow">
-                        <h3 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><Globe size={20} className="text-blue-500" /> Global Identity</h3>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                               <p className="text-xs text-slate-500 font-bold mb-4">Set the main company logo displayed on the kiosk top bar.</p>
-                               <FileUpload label="Company Logo (Top Bar)" currentUrl={storeData.companyLogoUrl} onUpload={(data) => onUpdateData({ ...storeData, companyLogoUrl: data })} />
-                            </div>
-                         </div>
-                     </div>
-                     {/* ... (Rest of Catalog) ... */}
-                     <div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow">
-                        <h3 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><Monitor size={20} className="text-blue-500" /> Kiosk Hero Section</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                                <div><label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Hero Title</label><input className="w-full p-3 border border-slate-300 rounded-xl font-bold bg-white text-black shadow-inner" defaultValue={storeData.hero?.title || 'Our Partners'} onChange={(e) => { const newHero = { ...(storeData.hero || { title: '', subtitle: '' }), title: e.target.value }; onUpdateData({ ...storeData, hero: newHero }); }} /></div>
-                                <div><label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Hero Subtitle</label><input className="w-full p-3 border border-slate-300 rounded-xl font-bold bg-white text-black shadow-inner" defaultValue={storeData.hero?.subtitle || 'Select a brand to explore.'} onChange={(e) => { const newHero = { ...(storeData.hero || { title: '', subtitle: '' }), subtitle: e.target.value }; onUpdateData({ ...storeData, hero: newHero }); }} /></div>
-                                <div><label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Website URL</label><input className="w-full p-3 border border-slate-300 rounded-xl font-bold bg-white text-black shadow-inner" placeholder="https://example.com" defaultValue={storeData.hero?.websiteUrl || ''} onChange={(e) => { const newHero = { ...(storeData.hero || { title: '', subtitle: '' }), websiteUrl: e.target.value }; onUpdateData({ ...storeData, hero: newHero }); }} /></div>
-                            </div>
-                            <div className="space-y-4">
-                                <FileUpload label="Hero Background Image" currentUrl={storeData.hero?.backgroundImageUrl} onUpload={(data) => { const newHero = { ...(storeData.hero || { title: '', subtitle: '' }), backgroundImageUrl: data }; onUpdateData({ ...storeData, hero: newHero }); }} />
-                                <FileUpload label="Hero Logo (Brand Overlay)" currentUrl={storeData.hero?.logoUrl} onUpload={(data) => { const newHero = { ...(storeData.hero || { title: '', subtitle: '' }), logoUrl: data }; onUpdateData({ ...storeData, hero: newHero }); }} />
-                            </div>
-                        </div>
-                     </div>
-
-                     <div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow">
-                        <h3 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><BookOpen size={20} className="text-blue-500" /> Digital Catalog</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div><h4 className="font-bold text-blue-900 text-sm">Upload Catalog PDF</h4><p className="text-xs text-blue-600 mt-1">Automatically convert PDF to images.</p></div>
-                                </div>
-                                <label className={`w-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-blue-300 rounded-xl bg-white hover:bg-blue-50 transition-all cursor-pointer group ${isProcessingPdf ? 'opacity-50 pointer-events-none' : ''}`}>
-                                    <Upload size={32} className="text-blue-300 group-hover:text-blue-500 mb-2 transition-colors" /><span className="font-black text-blue-400 group-hover:text-blue-600 uppercase tracking-widest text-xs">Select PDF File</span><input type="file" className="hidden" accept=".pdf" onChange={handlePdfUpload} />
-                                </label>
-                            </div>
-                            <div className="bg-purple-50 p-6 rounded-xl border border-purple-100">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div><h4 className="font-bold text-purple-900 text-sm">Upload Multi-Images</h4><p className="text-xs text-purple-600 mt-1">Select multiple JPG/PNG files for the catalog.</p></div>
-                                </div>
-                                <label className={`w-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-purple-300 rounded-xl bg-white hover:bg-purple-50 transition-all cursor-pointer group ${isProcessingPdf ? 'opacity-50 pointer-events-none' : ''}`}>
-                                    <ImageIcon size={32} className="text-purple-300 group-hover:text-purple-500 mb-2 transition-colors" /><span className="font-black text-purple-400 group-hover:text-purple-600 uppercase tracking-widest text-xs">Select Images</span><input type="file" className="hidden" accept="image/*" multiple onChange={handleCatalogImagesUpload} />
-                                </label>
-                            </div>
-                        </div>
-
-                        {storeData.catalog?.pages && storeData.catalog.pages.length > 0 && (
-                            <div>
-                                <div className="flex items-center justify-between mb-2"><h4 className="font-black text-xs uppercase text-slate-400">Preview ({storeData.catalog.pages.length} Pages)</h4><button onClick={() => onUpdateData({ ...storeData, catalog: { pdfUrl: '', pages: [] } })} className="text-red-500 text-[10px] font-bold uppercase hover:underline">Remove Catalog</button></div>
-                                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">{storeData.catalog.pages.map((page, idx) => ( <div key={idx} className="aspect-[2/3] bg-slate-100 rounded border border-slate-200 overflow-hidden relative group"><img src={page} alt="" className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">{idx + 1}</div></div> ))}</div>
-                            </div>
-                        )}
-                        {isProcessingPdf && (<div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full shadow-sm mt-4"><div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div><span className="text-[10px] font-black uppercase text-blue-500">Processing...</span></div>)}
-                     </div>
-                 </div>
+                 <AdminCatalogManager storeData={storeData} onUpdateData={onUpdateData} onSaveGlobal={handleGlobalSave} />
              </div>
          )}
          {activeTab === 'fleet' && storeData && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><FleetManager fleet={storeData.fleet || []} onUpdateFleet={(f) => onUpdateData({ ...storeData, fleet: f })} onSaveGlobal={handleGlobalSave} /></div> )}
@@ -1222,5 +1437,3 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
     </div>
   );
 };
-
-export default AdminDashboard;

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
-import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon } from 'lucide-react';
+import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon } from 'lucide-react';
 
 interface ProductDetailProps {
   product: Product;
@@ -9,6 +9,53 @@ interface ProductDetailProps {
 
 const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
   const [activeTab, setActiveTab] = useState<'features' | 'specs' | 'dimensions' | 'terms'>('features');
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0); // For the main media carousel
+  const [showEnlargedMedia, setShowEnlargedMedia] = useState(false);
+  const [enlargedMediaIndex, setEnlargedMediaIndex] = useState(0);
+
+  // Combine all media into a single array for the carousel
+  const allMedia = useMemo(() => {
+    const media: { type: 'image' | 'video', url: string }[] = [];
+    if (product.imageUrl) {
+      media.push({ type: 'image', url: product.imageUrl });
+    }
+    product.galleryUrls?.forEach(url => {
+      media.push({ type: 'image', url });
+    });
+    // Add video last for a consistent image-first browsing experience, but still part of carousel
+    if (product.videoUrl) {
+      media.push({ type: 'video', url: product.videoUrl });
+    }
+    return media;
+  }, [product]);
+
+  const handleNextMedia = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentMediaIndex((prev) => (prev + 1) % allMedia.length);
+  };
+
+  const handlePrevMedia = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentMediaIndex((prev) => (prev - 1 + allMedia.length) % allMedia.length);
+  };
+
+  const handleEnlargeMedia = (index: number) => {
+    setEnlargedMediaIndex(index);
+    setShowEnlargedMedia(true);
+  };
+
+  const handleEnlargedNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEnlargedMediaIndex((prev) => (prev + 1) % allMedia.length);
+  };
+
+  const handleEnlargedPrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEnlargedMediaIndex((prev) => (prev - 1 + allMedia.length) % allMedia.length);
+  };
+
+  const currentMedia = allMedia[currentMediaIndex];
+  const enlargedMedia = allMedia[enlargedMediaIndex];
 
   return (
     <div className="flex flex-col h-full bg-white relative animate-fade-in overflow-hidden">
@@ -28,41 +75,86 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
             </button>
           </div>
 
-          <div className="flex-1 flex items-center justify-center p-2 lg:p-12">
-             <div className="relative w-full max-w-[140px] md:max-w-xs aspect-square group">
-               <div className="absolute inset-0 bg-blue-500 rounded-full blur-[60px] opacity-10 scale-75 group-hover:opacity-20 transition-opacity duration-700"></div>
-               <img 
-                 src={product.imageUrl} 
-                 alt={product.name} 
-                 className="w-full h-full object-contain relative z-10 drop-shadow-xl transition-transform duration-500 group-hover:scale-105"
-               />
-             </div>
+          {/* Media Carousel */}
+          <div className="flex-1 flex items-center justify-center p-2 lg:p-12 relative">
+             {allMedia.length > 0 ? (
+                <div className="relative w-full max-w-[140px] md:max-w-xs aspect-square group">
+                  <div className="absolute inset-0 bg-blue-500 rounded-full blur-[60px] opacity-10 scale-75 group-hover:opacity-20 transition-opacity duration-700"></div>
+                  
+                  {currentMedia.type === 'image' ? (
+                     <img 
+                       src={currentMedia.url} 
+                       alt={product.name} 
+                       className="w-full h-full object-contain relative z-10 drop-shadow-xl transition-transform duration-500 group-hover:scale-105 cursor-pointer"
+                       onClick={() => handleEnlargeMedia(currentMediaIndex)}
+                     />
+                  ) : (
+                     <div className="relative w-full h-full flex items-center justify-center">
+                       <video 
+                         src={currentMedia.url} 
+                         controls={false} // No controls for thumbnail preview
+                         autoPlay 
+                         loop 
+                         muted 
+                         className="w-full h-full object-contain relative z-10 drop-shadow-xl transition-transform duration-500 group-hover:scale-105"
+                       />
+                       <PlayCircle 
+                         size={64} 
+                         className="absolute text-white/80 transition-transform group-hover:scale-110 cursor-pointer" 
+                         onClick={() => handleEnlargeMedia(currentMediaIndex)} // Click to play enlarged
+                       />
+                     </div>
+                  )}
+
+                  {/* Navigation Arrows */}
+                  {allMedia.length > 1 && (
+                     <>
+                        <button 
+                           onClick={handlePrevMedia} 
+                           className="absolute left-0 top-1/2 -translate-y-1/2 bg-white/70 backdrop-blur-sm p-2 rounded-full shadow-md text-slate-700 hover:bg-white transition-colors z-20"
+                        >
+                           <LeftArrow size={16} />
+                        </button>
+                        <button 
+                           onClick={handleNextMedia} 
+                           className="absolute right-0 top-1/2 -translate-y-1/2 bg-white/70 backdrop-blur-sm p-2 rounded-full shadow-md text-slate-700 hover:bg-white transition-colors z-20"
+                        >
+                           <RightArrow size={16} />
+                        </button>
+                     </>
+                  )}
+                </div>
+             ) : (
+                 <div className="w-full max-w-[140px] md:max-w-xs aspect-square flex items-center justify-center bg-slate-100 rounded-lg text-slate-300">
+                     <ImageIcon size={48} />
+                 </div>
+             )}
           </div>
           
+          {/* Media Thumbnails for direct selection */}
           <div className="p-2 lg:p-8 bg-white border-t border-slate-100">
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide justify-center">
-              {/* Video Thumbnail */}
-              {product.videoUrl && (
-                  <div className="w-12 h-12 lg:w-20 lg:h-20 shrink-0 bg-slate-900 rounded-lg overflow-hidden shadow-sm relative group cursor-pointer border border-slate-200">
-                     <video src={product.videoUrl} className="w-full h-full object-cover opacity-60" muted />
-                     <div className="absolute inset-0 flex items-center justify-center">
-                        <PlayCircle className="text-white w-4 h-4 lg:w-6 lg:h-6" />
-                     </div>
-                  </div>
-              )}
-              
-              {/* Main Image Thumb */}
-              <div className="w-12 h-12 lg:w-20 lg:h-20 shrink-0 bg-white rounded-lg overflow-hidden shadow-sm border border-blue-500 p-1 cursor-pointer">
-                 <img src={product.imageUrl} className="w-full h-full object-contain" alt="Main" />
-              </div>
-
-              {/* Gallery Images */}
-              {product.galleryUrls?.map((url, idx) => (
-                 <div key={idx} className="w-12 h-12 lg:w-20 lg:h-20 shrink-0 bg-white rounded-lg overflow-hidden shadow-sm border border-slate-200 p-1 opacity-60 hover:opacity-100 transition-opacity cursor-pointer">
-                    <img src={url} className="w-full h-full object-contain" alt={`Gallery ${idx}`} />
-                 </div>
-              ))}
-            </div>
+            {allMedia.length > 0 ? (
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide justify-center">
+                {allMedia.map((media, idx) => (
+                   <button 
+                      key={idx} 
+                      onClick={() => setCurrentMediaIndex(idx)} 
+                      className={`w-12 h-12 lg:w-20 lg:h-20 shrink-0 bg-white rounded-lg overflow-hidden shadow-sm p-1 transition-all ${idx === currentMediaIndex ? 'border-2 border-blue-500' : 'border border-slate-200 opacity-70 hover:opacity-100'}`}
+                   >
+                      {media.type === 'image' ? (
+                         <img src={media.url} className="w-full h-full object-contain" alt={`Media ${idx}`} />
+                      ) : (
+                         <div className="relative w-full h-full flex items-center justify-center bg-slate-900">
+                            <video src={media.url} className="w-full h-full object-cover opacity-60" muted />
+                            <PlayCircle className="absolute text-white w-4 h-4 lg:w-6 lg:h-6" />
+                         </div>
+                      )}
+                   </button>
+                ))}
+                </div>
+            ) : (
+                <div className="text-center text-slate-400 text-xs py-2">No additional media available.</div>
+            )}
           </div>
         </div>
 
@@ -169,6 +261,52 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
           </div>
         </div>
       </div>
+
+      {/* Enlarged Media Modal */}
+      {showEnlargedMedia && enlargedMedia && (
+        <div className="fixed inset-0 z-[80] bg-black/95 flex items-center justify-center p-4" onClick={() => setShowEnlargedMedia(false)}>
+          <button 
+            onClick={() => setShowEnlargedMedia(false)} 
+            className="absolute top-6 right-6 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors z-50"
+          >
+            <X size={32} />
+          </button>
+          
+          <div className="relative w-full h-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
+            {enlargedMedia.type === 'image' ? (
+                <img 
+                  src={enlargedMedia.url} 
+                  alt={`Enlarged ${product.name}`} 
+                  className="max-w-full max-h-full object-contain animate-fade-in" 
+                />
+            ) : (
+                <video 
+                  src={enlargedMedia.url} 
+                  controls 
+                  autoPlay 
+                  className="max-w-full max-h-full object-contain animate-fade-in" 
+                />
+            )}
+
+            {allMedia.length > 1 && (
+              <>
+                <button 
+                  onClick={handleEnlargedPrev} 
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white p-3 rounded-full shadow-lg transition-colors z-20"
+                >
+                  <LeftArrow size={24} />
+                </button>
+                <button 
+                  onClick={handleEnlargedNext} 
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white p-3 rounded-full shadow-lg transition-colors z-20"
+                >
+                  <RightArrow size={24} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

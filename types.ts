@@ -1,4 +1,5 @@
 
+
 export interface Dimensions {
   width: string;
   height: string;
@@ -43,9 +44,15 @@ export interface HeroConfig {
   websiteUrl?: string;
 }
 
-export interface Catalog {
-  pdfUrl?: string; // The raw PDF data URL
-  pages: string[]; // Array of images generated from the PDF
+// New Catalogue interface for flexible catalog management
+export interface Catalogue {
+  id: string;
+  brandId?: string; // Optional: Links to a specific brand. If not present, it's a global catalog.
+  title: string;
+  year?: number;
+  month?: number; // 1-12 (e.g., 1 for January, 12 for December)
+  pdfUrl?: string; // The raw PDF data URL (if uploaded as PDF)
+  pages: string[]; // Array of images generated from the PDF or uploaded directly
 }
 
 export interface AdItem {
@@ -78,7 +85,7 @@ export interface KioskRegistry {
 export interface StoreData {
   companyLogoUrl?: string; // Global app logo displayed on Home Page TopBar
   hero: HeroConfig;
-  catalog?: Catalog;
+  catalogues?: Catalogue[]; // Changed from singular `catalog` to an array of `catalogues`
   brands: Brand[];
   ads?: AdConfig;
   fleet?: KioskRegistry[]; // Persisted fleet data

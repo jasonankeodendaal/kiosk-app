@@ -14,10 +14,7 @@ const DEFAULT_DATA: StoreData = {
     logoUrl: "",
     websiteUrl: ""
   },
-  catalog: {
-    pdfUrl: "",
-    pages: []
-  },
+  catalogues: [], // Changed from singular catalog to an empty array for new structure
   ads: {
     homeBottomLeft: [],
     homeBottomRight: [],
@@ -94,7 +91,7 @@ const generateStoreData = async (): Promise<StoreData> => {
                   fleet: rawData.fleet || [],
                   ads: rawData.ads || DEFAULT_DATA.ads,
                   hero: { ...DEFAULT_DATA.hero, ...(rawData.hero || {}) },
-                  catalog: { ...DEFAULT_DATA.catalog, ...(rawData.catalog || {}) }
+                  catalogues: rawData.catalogues || [], // Changed to handle array of catalogues
               };
               localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(mergedData));
               return mergedData;

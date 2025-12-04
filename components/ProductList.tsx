@@ -1,14 +1,29 @@
-import React from 'react';
-import { Category, Product } from '../types';
-import { ChevronLeft, ArrowRight } from 'lucide-react';
+
+import React, { useMemo } from 'react';
+import { Category, Product, Brand, Catalogue } from '../types'; // Import Brand and Catalogue
+import { ChevronLeft, ArrowRight, BookOpen } from 'lucide-react';
 
 interface ProductListProps {
   category: Category;
+  brand: Brand; // NEW PROP: Pass the current brand
+  storeCatalogs: Catalogue[]; // NEW PROP: Pass all catalogues from storeData
   onSelectProduct: (product: Product) => void;
   onBack: () => void;
+  onViewCatalog: (pages: string[]) => void; // NEW PROP: Callback to open flipbook with specific pages
 }
 
-const ProductList: React.FC<ProductListProps> = ({ category, onSelectProduct, onBack }) => {
+const ProductList: React.FC<ProductListProps> = ({ category, brand, storeCatalogs, onSelectProduct, onBack, onViewCatalog }) => {
+  // Filter catalogs for the current brand and sort them
+  const brandCatalogs = useMemo(() => {
+      return storeCatalogs
+          .filter(c => c.brandId === brand.id)
+          .sort((a, b) => { // Sort by year, then month
+              if (a.year && b.year && a.year !== b.year) return a.year - b.year;
+              if (a.month && b.month) return a.month - b.month;
+              return 0;
+          });
+  }, [storeCatalogs, brand.id]);
+
   return (
     <div className="flex flex-col h-full bg-slate-50">
       <div className="bg-white border-b border-slate-200 px-8 py-6 shadow-sm sticky top-0 z-20 flex items-center justify-between">
@@ -87,6 +102,37 @@ const ProductList: React.FC<ProductListProps> = ({ category, onSelectProduct, on
             </button>
           ))}
         </div>
+
+        {/* NEW SECTION: Brand Catalogs */}
+        {brandCatalogs.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-slate-200">
+                <h3 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2"><BookOpen size={20} className="text-blue-500" /> Catalogs for {brand.name}</h3>
+                <div className="flex gap-4 px-2 overflow-x-auto w-full items-center no-scrollbar snap-x snap-mandatory py-4">
+                    {brandCatalogs.map((catalog, idx) => (
+                        <button 
+                            key={catalog.id} 
+                            onClick={() => onViewCatalog(catalog.pages)} 
+                            className="h-36 aspect-[2/3] bg-white shadow-md hover:shadow-xl rounded-lg border border-slate-200 shrink-0 transition-transform transform active:scale-95 overflow-hidden relative snap-center group"
+                        >
+                            <img 
+                              src={catalog.pages[0]} 
+                              className="w-full h-full object-cover" 
+                              alt={`${catalog.title} Cover ${idx + 1}`} 
+                            />
+                            <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-2">
+                                <span className="text-white text-sm font-bold text-center leading-tight line-clamp-2">{catalog.title}</span>
+                                <div className="text-blue-200 text-[10px] font-bold mt-1">
+                                    {catalog.year} {catalog.month && `(${new Date(0, catalog.month - 1).toLocaleString('en', { month: 'short' })})`}
+                                </div>
+                            </div>
+                            <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[8px] font-bold px-1 rounded backdrop-blur-sm">
+                                {catalog.pages.length} Pages
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            </div>
+        )}
       </div>
     </div>
   );

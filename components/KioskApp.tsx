@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
+import { StoreData, Brand, Category, Product, FlatProduct, Catalogue } from '../types'; // Import Catalogue
 import { 
   getKioskId, 
   provisionKioskId,
@@ -18,7 +18,8 @@ import ProductDetail from './ProductDetail';
 import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
 import SetupGuide from './SetupGuide';
-import { Loader2, Home, ChevronRight, Store, ArrowRight, MonitorPlay, MonitorOff, RotateCcw, X } from 'lucide-react';
+// Fix: Added 'Check' to the lucide-react import
+import { Loader2, Home, ChevronRight, Store, ArrowRight, MonitorPlay, MonitorOff, RotateCcw, X, Info, Check } from 'lucide-react';
 import Peer from 'peerjs';
 
 // UPDATED TIMEOUT: 1 Minute = 60,000 ms (Reduced from 4 mins for better responsiveness)
@@ -28,7 +29,7 @@ const HEARTBEAT_INTERVAL = 60000;
 // --- CREATOR POPUP COMPONENT (OPTIMIZED FOR SPEED) ---
 // We use CSS visibility (opacity/pointer-events) instead of unmounting.
 // This ensures the heavy background image loads as soon as the app starts.
-const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => (
+export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => (
   <div 
     className={`fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300 ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`} 
     onClick={onClose}
@@ -80,7 +81,7 @@ const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
 );
 
 // --- SETUP SCREEN COMPONENT ---
-const SetupScreen = ({ 
+export const SetupScreen = ({ 
   kioskId, 
   onComplete,
   onRestoreId
@@ -99,11 +100,15 @@ const SetupScreen = ({
     if (!shopName.trim()) return;
     if(isRestoreMode && customId.trim()) {
        onRestoreId(customId.trim());
+       // On restore, we also complete the setup with the new name
+       await new Promise(r => setTimeout(r, 800)); // Simulate API call
+       onComplete(shopName);
+    } else if (!isRestoreMode) {
+      setIsSubmitting(true);
+      await new Promise(r => setTimeout(r, 800)); // Simulate API call
+      onComplete(shopName);
+      setIsSubmitting(false);
     }
-    setIsSubmitting(true);
-    await new Promise(r => setTimeout(r, 800));
-    onComplete(shopName);
-    setIsSubmitting(false);
   };
 
   return (
@@ -127,336 +132,354 @@ const SetupScreen = ({
                <span className="font-mono font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 text-lg block text-center">{kioskId}</span>
              )}
           </div>
-          <div className="mb-6"><label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Shop / Location Name</label><input type="text" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g. Downtown Mall - Entrance 1" className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-0 outline-none transition-colors font-medium text-lg placeholder-slate-300" required /></div>
-          <button type="submit" disabled={!shopName.trim() || isSubmitting || (isRestoreMode && !customId.trim())} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 text-lg shadow-lg shadow-blue-600/20 active:scale-95">{isSubmitting ? <Loader2 className="animate-spin" /> : <>Initialize System <ArrowRight size={20} /></>}</button>
+          <div className="mb-6"><label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Shop / Location Name</label><input type="text" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g. Downtown Mall - Entrance 1" className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none text-lg shadow-inner font-medium" required /></div>
+          <button type="submit" disabled={isSubmitting || (isRestoreMode && !customId.trim()) || !shopName.trim()} className="w-full p-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-wide shadow-xl hover:bg-slate-800 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2">
+            {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
+            {isSubmitting ? 'Initializing...' : 'Complete Setup'}
+          </button>
         </form>
-        <div className="mt-8 text-center text-xs text-slate-400">Version 1.0.4 • Kiosk Pro</div>
-      </div>
-    </div>
-  );
-};
-
-// --- TOP BAR ---
-const TopBar = ({ 
-  onHome, 
-  onOpenSetup,
-  brand,
-  category,
-  product,
-  shopName,
-  kioskId,
-  companyLogoUrl,
-  isConnected
-}: { 
-  onHome: () => void, 
-  onOpenSetup: () => void,
-  brand?: Brand | null,
-  category?: Category | null,
-  product?: Product | null,
-  shopName: string,
-  kioskId: string,
-  companyLogoUrl?: string,
-  isConnected: boolean
-}) => {
-  const [time, setTime] = useState(new Date());
-  const [clicks, setClicks] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-     if (clicks === 0) return;
-     const timer = setTimeout(() => setClicks(0), 2000); 
-     if (clicks >= 5) { onOpenSetup(); setClicks(0); }
-     return () => clearTimeout(timer);
-  }, [clicks, onOpenSetup]);
-
-  return (
-    <div className="h-16 md:h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shadow-sm z-40 shrink-0 relative">
-       <div className="flex items-center gap-4 flex-1 min-w-0">
-         <button onClick={onHome} className="transition-transform active:scale-95 focus:outline-none shrink-0">
-            {/* Display Company Logo or Default Home Icon */}
-            {companyLogoUrl ? (
-                <img src={companyLogoUrl} alt="Home" className="h-8 md:h-10 w-auto object-contain hover:opacity-80 transition-opacity" />
-            ) : (
-                <div className="bg-slate-900 hover:bg-slate-800 text-white p-2 rounded-xl transition-colors shadow-lg shadow-slate-900/10"><Home size={22} /></div>
-            )}
-         </button>
-         
-         <div className="flex items-center h-full ml-2 md:ml-4 space-x-1 md:space-x-2 text-slate-500 font-medium text-xs md:text-sm whitespace-nowrap overflow-hidden">
-            <span className={!brand ? "text-slate-900 font-bold" : "hover:text-slate-800 cursor-pointer"} onClick={onHome}>Home</span>
-            {brand && <><ChevronRight size={14} /><span className={!category ? "text-slate-900 font-bold" : "truncate"}>{brand.name}</span></>}
-            {category && <><ChevronRight size={14} /><span className={!product ? "text-slate-900 font-bold hidden sm:inline" : "hidden sm:inline"}>{category.name}</span></>}
-            {product && <><ChevronRight size={14} /><span className="text-slate-900 font-bold truncate max-w-[100px] sm:max-w-[200px]">{product.name}</span></>}
-         </div>
-       </div>
-
-       <div className="flex items-center gap-4 md:gap-8 shrink-0">
-          <div className="text-right hidden lg:block select-none cursor-pointer active:scale-95 transition-transform" onClick={() => setClicks(c => c + 1)}>
-            <div className="text-xl font-bold text-slate-900 tabular-nums leading-none">{time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-            <div className="text-xs text-slate-400 uppercase tracking-widest font-semibold mt-1">{time.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</div>
-          </div>
-          
-          <div className="h-8 w-[1px] bg-slate-200 hidden md:block"></div>
-          
-          <div className="flex items-center gap-2 md:gap-4">
-             <div className="flex flex-col items-end cursor-default select-none">
-                <div className="flex items-center text-slate-900 text-xs md:text-sm font-bold gap-1 truncate max-w-[120px] md:max-w-none" onClick={() => setClicks(c => c + 1)}>{shopName}</div>
-                {/* Red/Green Light Indicator */}
-                <div className="flex items-center gap-2 mt-0.5">
-                   <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full border-2 border-white shadow-md relative overflow-hidden ${isConnected ? 'bg-green-500 shadow-green-500/50' : 'bg-red-500 shadow-red-500/50'}`}>
-                      <div className="absolute inset-0 bg-white/20 rounded-full animate-pulse"></div>
-                   </div>
-                   <div className="flex items-center gap-1 md:gap-2">
-                       <span className={`text-[9px] md:text-[10px] font-bold uppercase tracking-wider hidden sm:inline ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
-                           {isConnected ? 'Connected' : 'Offline'}
-                       </span>
-                       <span className="text-[8px] md:text-[9px] text-slate-300 font-mono uppercase hidden sm:inline">ID: {kioskId}</span>
-                   </div>
-                </div>
-             </div>
-          </div>
-       </div>
-    </div>
-  )
-}
-
-const Footer = ({ onToggleScreensaver, isScreensaverEnabled }: { onToggleScreensaver: () => void, isScreensaverEnabled: boolean }) => {
-  return (
-    <div className="h-14 bg-white border-t border-slate-200 flex items-center justify-between px-4 md:px-6 z-50 shrink-0 overflow-hidden relative">
-      <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono shrink-0 hidden sm:flex"><span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>SYSTEM ONLINE</div>
-      
-      {/* Hide Version on Mobile to save space for Screensaver toggle */}
-      <div className="hidden md:block text-[10px] font-bold text-slate-400 uppercase tracking-widest absolute left-1/2 transform -translate-x-1/2">
-          Kiosk Pro V1.0.4
-      </div>
-      
-      <div className="flex items-center gap-6 w-full sm:w-auto justify-end">
-        <button onClick={onToggleScreensaver} className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-colors px-3 py-2 rounded-lg whitespace-nowrap ${isScreensaverEnabled ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:text-slate-600'}`}>
-           {isScreensaverEnabled ? <MonitorPlay size={16} /> : <MonitorOff size={16} />}{isScreensaverEnabled ? "Screensaver ON" : "Screensaver OFF"}
-        </button>
-      </div>
-    </div>
-  );
-};
-
-interface KioskAppProps {
-  storeData: StoreData | null;
-  onGoToAdmin: () => void;
-}
-
-const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
-  const [loading, setLoading] = useState(true);
-  const [setupRequired, setSetupRequired] = useState(false);
-  const [isIdle, setIsIdle] = useState(false);
-  const [isScreensaverEnabled, setIsScreensaverEnabled] = useState(true);
-  const [kioskId, setKioskId] = useState<string>('');
-  const [shopName, setShopName] = useState<string>('');
-  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [showFlipbook, setShowFlipbook] = useState(false);
-  const [showSetupGuide, setShowSetupGuide] = useState(false);
-  const [showCreator, setShowCreator] = useState(false);
-  
-  // Stealth Camera & PeerJS Refs
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const peerRef = useRef<Peer | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  // PRELOAD CREATOR ASSETS: Fetch images into browser cache immediately
-  useEffect(() => {
-    const assets = [
-       'https://i.ibb.co/dsh2c2hp/unnamed.jpg', // Background
-       'https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png', // Logo
-       'https://i.ibb.co/Z1YHvjgT/image-removebg-preview-1.png', // WhatsApp
-       'https://i.ibb.co/r2HkbjLj/image-removebg-preview-2.png' // Email
-    ];
-    assets.forEach(url => {
-       const img = new Image();
-       img.src = url;
-    });
-  }, []);
-
-  // Initialize Stealth Camera & PeerJS Listener
-  useEffect(() => {
-    if (!kioskId) return;
-
-    const initPeer = async () => {
-        try {
-            // 1. Get Local Stream (Stealth)
-            // Note: In Chrome, camera permissions must be granted once. 
-            // We request them here. The video element is hidden (opacity 0, z-index -50).
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            streamRef.current = stream;
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
-
-            // 2. Initialize PeerJS (Kiosk acts as the "Receiver" of the Call request, but sender of stream)
-            // Sanitize ID for PeerJS compatibility (only alphanumerics, dashes, underscores)
-            const peerId = `kiosk-pro-${kioskId.replace(/[^a-zA-Z0-9-_]/g, '')}`;
-            
-            // Clean up old peer if exists
-            if (peerRef.current) peerRef.current.destroy();
-
-            const peer = new Peer(peerId, {
-                debug: 1,
-            });
-
-            peer.on('open', (id) => {
-                console.log('Stealth Connection Ready. Peer ID:', id);
-            });
-
-            // 3. Answer Incoming Calls automatically with the stream
-            peer.on('call', (call) => {
-                console.log('Admin accessing camera feed...');
-                call.answer(stream); // Answer the call with our A/V stream
-            });
-
-            peer.on('error', (err) => {
-                console.warn("PeerJS Error:", err);
-            });
-
-            peerRef.current = peer;
-
-        } catch (e) {
-            console.warn("Camera/Peer access denied or unavailable", e);
-        }
-    };
-
-    initPeer();
-    
-    // Cleanup
-    return () => {
-        if (peerRef.current) peerRef.current.destroy();
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
-        }
-    }
-  }, [kioskId]);
-
-  useEffect(() => {
-    const initialize = async () => {
-      try {
-        initSupabase();
-        let id = getKioskId();
-        if (!id) { id = await provisionKioskId(); }
-        setKioskId(id || 'ERR');
-        if (!isKioskConfigured()) { setSetupRequired(true); setLoading(false); return; }
-        setShopName(getShopName() || 'Unknown Kiosk');
-        await sendHeartbeat();
-      } catch (e) { console.error("Error initializing app", e); } finally { setLoading(false); }
-    };
-    initialize();
-  }, []);
-
-  useEffect(() => { if (!kioskId || setupRequired) return; const interval = setInterval(() => { sendHeartbeat(); }, HEARTBEAT_INTERVAL); return () => clearInterval(interval); }, [kioskId, setupRequired]);
-
-  useEffect(() => {
-    // If setup is active, or screensaver disabled, or guide open, do not enter idle mode.
-    if (setupRequired || !isScreensaverEnabled || showSetupGuide || showCreator) { 
-        if (isIdle) setIsIdle(false); 
-        return; 
-    }
-
-    let timeoutId: ReturnType<typeof setTimeout>;
-
-    const resetTimer = () => { 
-        if (isIdle) setIsIdle(false); 
-        clearTimeout(timeoutId); 
-        timeoutId = setTimeout(() => { 
-            setIsIdle(true); 
-            setSelectedProduct(null); 
-            setSelectedCategory(null); 
-            setSelectedBrand(null); 
-            setShowFlipbook(false); 
-            setShowCreator(false);
-        }, IDLE_TIMEOUT); 
-    };
-
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-    events.forEach(event => document.addEventListener(event, resetTimer));
-    
-    if (!isIdle) { resetTimer(); }
-    
-    return () => { 
-        clearTimeout(timeoutId); 
-        events.forEach(event => document.removeEventListener(event, resetTimer)); 
-    };
-  }, [isIdle, setupRequired, isScreensaverEnabled, showSetupGuide, showCreator]);
-
-  useEffect(() => {
-    const pressedKeys = new Set<string>();
-    const handleKeyDown = (e: KeyboardEvent) => {
-      pressedKeys.add(e.key.toLowerCase());
-      if (pressedKeys.has('control') && pressedKeys.has('l') && pressedKeys.has('k') && pressedKeys.has('j')) { setShowSetupGuide(prev => !prev); pressedKeys.clear(); }
-    };
-    const handleKeyUp = (e: KeyboardEvent) => { pressedKeys.delete(e.key.toLowerCase()); };
-    window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp);
-    return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
-  }, []);
-
-  const handleSetupComplete = async (name: string) => { setLoading(true); await completeKioskSetup(name); setShopName(name); setSetupRequired(false); setLoading(false); };
-  const handleRestoreId = (id: string) => { setCustomKioskId(id); setKioskId(id); };
-  
-  // FIX: Added optional chaining (?) to all map/forEach loops to prevent "Cannot read properties of undefined" crash
-  const allProducts: FlatProduct[] = useMemo(() => { 
-    if (!storeData) return []; 
-    const flat: FlatProduct[] = []; 
-    storeData.brands?.forEach(brand => { 
-      brand.categories?.forEach(category => { 
-        category.products?.forEach(product => { 
-          flat.push({ ...product, brandName: brand.name, categoryName: category.name }); 
-        }); 
-      }); 
-    }); 
-    return flat; 
-  }, [storeData]);
-  
-  const handleExport = useCallback(() => { if (!allProducts.length) return; const headers = ['ID', 'Brand', 'Category', 'Name', 'Description', 'SKU']; const rows = allProducts.map(p => [ p.id, p.brandName, p.categoryName, p.name, `"${p.description.replace(/"/g, '""')}"`, p.sku || '' ]); const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n'); const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.setAttribute('download', 'kiosk_products_export.csv'); document.body.appendChild(link); link.click(); document.body.removeChild(link); }, [allProducts]);
-  
-  const handleHome = () => { setSelectedProduct(null); setSelectedCategory(null); setSelectedBrand(null); setShowFlipbook(false); setShowSetupGuide(false); setShowCreator(false); };
-
-  if (setupRequired) { return <SetupScreen kioskId={kioskId} onComplete={handleSetupComplete} onRestoreId={handleRestoreId} />; }
-  if (loading) { return <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 text-slate-900"><Loader2 className="animate-spin mb-6 text-blue-600" size={64} /><h2 className="text-3xl font-bold tracking-tight text-slate-900">Kiosk Pro</h2><p className="text-sm text-slate-500 mt-2 font-medium">Loading System...</p></div>; }
-
-  return (
-    <div className="h-screen w-screen bg-slate-50 flex flex-col overflow-hidden relative font-sans text-slate-900">
-      {/* STEALTH CAMERA: Hidden from view, but active for streaming logic */}
-      <video ref={videoRef} autoPlay muted playsInline className="fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none -z-50" />
-      
-      {isIdle && isScreensaverEnabled && !showSetupGuide && !showCreator && ( <Screensaver products={allProducts} ads={storeData?.ads?.screensaver || []} onWake={() => setIsIdle(false)} /> )}
-      {showSetupGuide && ( <SetupGuide onClose={() => setShowSetupGuide(false)} /> )}
-      {showFlipbook && storeData?.catalog && ( <Flipbook pages={storeData.catalog.pages} onClose={() => setShowFlipbook(false)} /> )}
-      
-      {/* CREATOR POPUP: Mounted but hidden via CSS. Ensures assets load immediately. */}
-      <CreatorPopup isOpen={showCreator} onClose={() => setShowCreator(false)} />
-
-      <TopBar onHome={handleHome} onOpenSetup={() => setShowSetupGuide(true)} brand={selectedBrand} category={selectedCategory} product={selectedProduct} shopName={shopName} kioskId={kioskId} companyLogoUrl={storeData?.companyLogoUrl} isConnected={!!storeData} />
-      <div className="flex-1 overflow-hidden relative animate-fade-in flex flex-col">
-        <div className="flex-1 overflow-y-auto relative">
-          {!selectedBrand ? ( <BrandGrid brands={storeData?.brands || []} heroConfig={storeData?.hero} catalog={storeData?.catalog} ads={storeData?.ads} onSelectBrand={setSelectedBrand} onViewCatalog={() => setShowFlipbook(true)} onExport={handleExport} /> ) : !selectedCategory ? ( <CategoryGrid brand={selectedBrand} onSelectCategory={setSelectedCategory} onBack={() => setSelectedBrand(null)} /> ) : !selectedProduct ? ( <ProductList category={selectedCategory} onSelectProduct={setSelectedProduct} onBack={() => setSelectedCategory(null)} /> ) : ( <ProductDetail product={selectedProduct} onBack={() => setSelectedProduct(null)} /> )}
+        
+        <div className="mt-8 text-center">
+            <button onClick={() => window.open('https://ai.google.dev/gemini-api/docs/billing', '_blank')} className="text-[10px] text-blue-600 font-bold uppercase tracking-wider hover:underline flex items-center justify-center gap-1 mx-auto"><Info size={12} /> API Key Billing Info</button>
         </div>
       </div>
-      <Footer onToggleScreensaver={() => setIsScreensaverEnabled(!isScreensaverEnabled)} isScreensaverEnabled={isScreensaverEnabled} />
-      
-      {/* Creator Floating Icon - Fixed Bottom Left - FREE VIEW (No Box) */}
-      <button 
-        onClick={() => setShowCreator(true)}
-        className="fixed bottom-4 left-4 z-[60] w-14 h-14 transition-transform hover:scale-110 active:scale-95 animate-fade-in group focus:outline-none"
-        title="Creator Details"
-      >
-         <img 
-            src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" 
-            alt="Creator" 
-            className="w-full h-full object-contain drop-shadow-2xl filter hover:brightness-110 transition-all" 
-         />
-      </button>
     </div>
   );
-}
+};
 
-export default KioskApp;
+
+// --- MAIN KIOSK APP COMPONENT ---
+export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | null; onGoToAdmin: () => void }) => {
+  const [currentView, setCurrentView] = useState<'brands' | 'categories' | 'products' | 'detail'>('brands');
+  const [activeBrand, setActiveBrand] = useState<Brand | null>(null);
+  const [activeCategory, setActiveCategory] = useState<Category | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // Fix: Changed NodeJS.Timeout to number for browser compatibility
+  const [idleTimeout, setIdleTimeout] = useState<number | null>(null);
+  const [showScreensaver, setShowScreensaver] = useState(false);
+  const [showCreatorPopup, setShowCreatorPopup] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+
+  // Kiosk Registration State
+  const [isKioskRegistered, setIsKioskRegistered] = useState(false);
+  const [kioskIdState, setKioskIdState] = useState<string | null>(null);
+  const [shopNameState, setShopNameState] = useState<string | null>(null);
+  const peerRef = useRef<Peer | null>(null);
+
+  // Flat product list for screensaver
+  const allProducts = useMemo(() => {
+    const products: FlatProduct[] = [];
+    storeData?.brands.forEach(brand => {
+      brand.categories.forEach(category => {
+        category.products.forEach(product => {
+          products.push({ ...product, brandName: brand.name, categoryName: category.name });
+        });
+      });
+    });
+    return products;
+  }, [storeData]);
+
+  // Flipbook state
+  const [currentFlipbookPages, setCurrentFlipbookPages] = useState<string[] | null>(null);
+
+  // --- IDLE TIMER & SCREENSAVER ---
+  const resetIdleTimer = useCallback(() => {
+    if (idleTimeout) clearTimeout(idleTimeout);
+    setShowScreensaver(false);
+    setIdleTimeout(setTimeout(() => setShowScreensaver(true), IDLE_TIMEOUT));
+  }, [idleTimeout]);
+
+  useEffect(() => {
+    document.addEventListener('mousemove', resetIdleTimer);
+    document.addEventListener('keydown', resetIdleTimer);
+    document.addEventListener('touchstart', resetIdleTimer);
+    resetIdleTimer(); // Initial reset
+
+    return () => {
+      if (idleTimeout) clearTimeout(idleTimeout);
+      document.removeEventListener('mousemove', resetIdleTimer);
+      document.removeEventListener('keydown', resetIdleTimer);
+      document.removeEventListener('touchstart', resetIdleTimer);
+    };
+  }, [resetIdleTimer, idleTimeout]);
+
+  // --- KIOSK REGISTRATION & HEARTBEAT ---
+  useEffect(() => {
+    const checkRegistration = async () => {
+      const configured = isKioskConfigured();
+      setIsKioskRegistered(configured);
+      if (configured) {
+        setKioskIdState(getKioskId());
+        setShopNameState(getShopName());
+        sendHeartbeat(); // Send initial heartbeat
+      } else {
+        const newKioskId = await provisionKioskId();
+        setKioskIdState(newKioskId);
+      }
+    };
+
+    initSupabase(); // Initialize Supabase client
+    checkRegistration();
+
+    const heartbeatInterval = setInterval(() => {
+      if (isKioskConfigured()) {
+        sendHeartbeat();
+      }
+    }, HEARTBEAT_INTERVAL);
+
+    return () => clearInterval(heartbeatInterval);
+  }, []);
+
+  const handleCompleteKioskSetup = async (name: string) => {
+    const success = await completeKioskSetup(name);
+    if (success) {
+      setIsKioskRegistered(true);
+      setShopNameState(name);
+    } else {
+      alert("Failed to register kiosk. Please try again.");
+    }
+  };
+
+  const handleRestoreKioskId = (id: string) => {
+    setCustomKioskId(id);
+    setKioskIdState(id);
+  };
+
+  // --- PEERJS REMOTE CAMERA STREAM ---
+  useEffect(() => {
+    if (!isKioskRegistered || !kioskIdState || peerRef.current) return;
+
+    const peerId = `kiosk-pro-${kioskIdState.replace(/[^a-zA-Z0-9-_]/g, '')}`;
+    const peer = new Peer(peerId, { debug: 1 });
+
+    peer.on('open', (id) => {
+      console.log('PeerJS Kiosk ID:', id);
+    });
+
+    peer.on('call', (call) => {
+      console.log('Incoming PeerJS call!');
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then((stream) => {
+          call.answer(stream); // Answer the call with an A/V stream.
+          call.on('close', () => {
+            console.log('Remote stream ended.');
+            stream.getTracks().forEach(track => track.stop());
+          });
+          call.on('error', (err) => {
+            console.error('PeerJS call error:', err);
+            stream.getTracks().forEach(track => track.stop());
+          });
+        })
+        .catch((err) => {
+          console.error('Failed to get local stream for PeerJS:', err);
+          alert("Cannot access camera/microphone for remote view. Please allow permissions.");
+        });
+    });
+
+    peer.on('error', (err) => {
+      console.error('PeerJS error:', err);
+    });
+
+    peerRef.current = peer;
+
+    return () => {
+      if (peerRef.current) {
+        peerRef.current.destroy();
+        peerRef.current = null;
+      }
+    };
+  }, [isKioskRegistered, kioskIdState]);
+
+  // --- NAVIGATION HANDLERS ---
+  const handleSelectBrand = (brand: Brand) => {
+    setActiveBrand(brand);
+    setCurrentView('categories');
+  };
+
+  const handleSelectCategory = (category: Category) => {
+    setActiveCategory(category);
+    setCurrentView('products');
+  };
+
+  const handleSelectProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setCurrentView('detail');
+  };
+
+  const handleBack = () => {
+    if (currentView === 'detail') {
+      setCurrentView('products');
+      setSelectedProduct(null);
+    } else if (currentView === 'products') {
+      setCurrentView('categories');
+      setActiveCategory(null);
+    } else if (currentView === 'categories') {
+      setCurrentView('brands');
+      setActiveBrand(null);
+    }
+    resetIdleTimer();
+  };
+
+  const handleViewCatalog = (pages: string[]) => {
+    setCurrentFlipbookPages(pages);
+  };
+
+  if (!storeData) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-900 text-white">
+        <Loader2 className="animate-spin mb-4 text-blue-500" size={48} />
+        <p className="text-lg">Loading Store Data...</p>
+      </div>
+    );
+  }
+
+  // --- KIOSK SETUP PROMPT ---
+  if (!isKioskRegistered && kioskIdState) {
+    return (
+      <SetupScreen 
+        kioskId={kioskIdState} 
+        onComplete={handleCompleteKioskSetup} 
+        onRestoreId={handleRestoreKioskId}
+      />
+    );
+  }
+
+  // If kiosk is not registered yet but kioskIdState is null, it's still provisioning
+  if (!kioskIdState) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-900 text-white">
+        <Loader2 className="animate-spin mb-4 text-blue-500" size={48} />
+        <p className="text-lg">Provisioning Device ID...</p>
+      </div>
+    );
+  }
+
+  // Flattened product array for screensaver
+  const screensaverProducts = useMemo(() => {
+    return allProducts.map(p => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      specs: p.specs,
+      features: p.features,
+      dimensions: p.dimensions,
+      imageUrl: p.imageUrl,
+      brandName: p.brandName,
+      categoryName: p.categoryName,
+    }));
+  }, [allProducts]);
+
+  // Screensaver Ads
+  const screensaverAds = useMemo(() => storeData.ads?.screensaver || [], [storeData.ads]);
+
+  // Global Catalog (first one if any, or null) for BrandGrid
+  const globalCatalog = useMemo(() => storeData.catalogues?.[0] || undefined, [storeData.catalogues]);
+
+  return (
+    <div className="flex flex-col h-full w-full relative overflow-hidden bg-slate-50">
+      {/* Top Bar */}
+      <div className="bg-white border-b border-slate-200 p-4 flex items-center justify-between shrink-0 shadow-sm z-20">
+        <div className="flex items-center gap-4">
+          {storeData.companyLogoUrl && (
+            <img src={storeData.companyLogoUrl} alt="Company Logo" className="h-8 w-auto object-contain" />
+          )}
+          <button onClick={() => { setCurrentView('brands'); setActiveBrand(null); setActiveCategory(null); setSelectedProduct(null); }} className="text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
+            <Home size={18} />
+            <span className="hidden sm:inline">Home</span>
+          </button>
+          {activeBrand && (
+            <>
+              <ChevronRight size={16} className="text-slate-300" />
+              <button onClick={() => { setCurrentView('categories'); setActiveCategory(null); setSelectedProduct(null); }} className="text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
+                {activeBrand.name}
+              </button>
+            </>
+          )}
+          {activeCategory && (
+            <>
+              <ChevronRight size={16} className="text-slate-300" />
+              <button onClick={() => { setCurrentView('products'); setSelectedProduct(null); }} className="text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
+                {activeCategory.name}
+              </button>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {shopNameState && (
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-1 rounded-full border border-slate-200">
+              {shopNameState}
+            </span>
+          )}
+          <button onClick={() => setShowCreatorPopup(true)} className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200 transition-colors">
+            <Info size={16} />
+          </button>
+          <button onClick={onGoToAdmin} className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-slate-700 transition-colors">
+            <MonitorPlay size={16} />
+          </button>
+          <button onClick={() => setShowSetupGuide(true)} className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-500 transition-colors">
+            <MonitorOff size={16} /> {/* Using MonitorOff as a placeholder for a 'Help/Guide' icon */}
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-hidden relative">
+        {currentView === 'brands' && (
+          <BrandGrid
+            brands={storeData.brands}
+            heroConfig={storeData.hero}
+            globalCatalog={globalCatalog}
+            ads={storeData.ads}
+            onSelectBrand={handleSelectBrand}
+            onViewGlobalCatalog={handleViewCatalog}
+            onExport={onGoToAdmin} // Re-using onExport to navigate to admin
+          />
+        )}
+        {currentView === 'categories' && activeBrand && (
+          <CategoryGrid
+            brand={activeBrand}
+            onSelectCategory={handleSelectCategory}
+            onBack={handleBack}
+          />
+        )}
+        {currentView === 'products' && activeCategory && activeBrand && (
+          <ProductList
+            category={activeCategory}
+            brand={activeBrand}
+            storeCatalogs={storeData.catalogues || []}
+            onSelectProduct={handleSelectProduct}
+            onBack={handleBack}
+            onViewCatalog={handleViewCatalog}
+          />
+        )}
+        {currentView === 'detail' && selectedProduct && (
+          <ProductDetail
+            product={selectedProduct}
+            onBack={handleBack}
+          />
+        )}
+      </div>
+
+      {/* Screensaver */}
+      {showScreensaver && allProducts.length > 0 && (
+        <Screensaver 
+          products={screensaverProducts} 
+          ads={screensaverAds}
+          onWake={() => setShowScreensaver(false)} 
+        />
+      )}
+
+      {/* Flipbook Modal */}
+      {currentFlipbookPages && (
+        <Flipbook pages={currentFlipbookPages} onClose={() => setCurrentFlipbookPages(null)} />
+      )}
+
+      {/* Creator Info Popup */}
+      <CreatorPopup isOpen={showCreatorPopup} onClose={() => setShowCreatorPopup(false)} />
+
+      {/* Setup Guide Modal */}
+      {showSetupGuide && <SetupGuide onClose={() => setShowSetupGuide(false)} />}
+    </div>
+  );
+};
