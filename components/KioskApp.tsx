@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -119,47 +120,46 @@ const TopBar = ({
   }, [clicks, onOpenSetup]);
 
   return (
-    <div className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm z-40 shrink-0 relative">
-       <div className="flex items-center gap-4">
-         <button onClick={onHome} className="transition-transform active:scale-95 focus:outline-none">
+    <div className="h-16 md:h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shadow-sm z-40 shrink-0 relative">
+       <div className="flex items-center gap-4 flex-1 min-w-0">
+         <button onClick={onHome} className="transition-transform active:scale-95 focus:outline-none shrink-0">
             {/* Display Company Logo or Default Home Icon */}
             {companyLogoUrl ? (
-                <img src={companyLogoUrl} alt="Home" className="h-10 w-auto object-contain hover:opacity-80 transition-opacity" />
+                <img src={companyLogoUrl} alt="Home" className="h-8 md:h-10 w-auto object-contain hover:opacity-80 transition-opacity" />
             ) : (
                 <div className="bg-slate-900 hover:bg-slate-800 text-white p-2 rounded-xl transition-colors shadow-lg shadow-slate-900/10"><Home size={22} /></div>
             )}
          </button>
          
-         <div className="flex items-center h-full ml-4 space-x-2 text-slate-500 font-medium text-sm md:text-base">
+         <div className="flex items-center h-full ml-2 md:ml-4 space-x-1 md:space-x-2 text-slate-500 font-medium text-xs md:text-sm whitespace-nowrap overflow-hidden">
             <span className={!brand ? "text-slate-900 font-bold" : "hover:text-slate-800 cursor-pointer"} onClick={onHome}>Home</span>
-            {brand && <><ChevronRight size={16} /><span className={!category ? "text-slate-900 font-bold" : ""}>{brand.name}</span></>}
-            {category && <><ChevronRight size={16} /><span className={!product ? "text-slate-900 font-bold" : ""}>{category.name}</span></>}
-            {product && <><ChevronRight size={16} /><span className="text-slate-900 font-bold truncate max-w-[200px]">{product.name}</span></>}
+            {brand && <><ChevronRight size={14} /><span className={!category ? "text-slate-900 font-bold" : "truncate"}>{brand.name}</span></>}
+            {category && <><ChevronRight size={14} /><span className={!product ? "text-slate-900 font-bold hidden sm:inline" : "hidden sm:inline"}>{category.name}</span></>}
+            {product && <><ChevronRight size={14} /><span className="text-slate-900 font-bold truncate max-w-[100px] sm:max-w-[200px]">{product.name}</span></>}
          </div>
        </div>
 
-       <div className="flex items-center gap-8">
-          <div className="text-right hidden md:block select-none cursor-pointer active:scale-95 transition-transform" onClick={() => setClicks(c => c + 1)}>
+       <div className="flex items-center gap-4 md:gap-8 shrink-0">
+          <div className="text-right hidden lg:block select-none cursor-pointer active:scale-95 transition-transform" onClick={() => setClicks(c => c + 1)}>
             <div className="text-xl font-bold text-slate-900 tabular-nums leading-none">{time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
             <div className="text-xs text-slate-400 uppercase tracking-widest font-semibold mt-1">{time.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</div>
           </div>
           
-          <div className="h-8 w-[1px] bg-slate-200"></div>
+          <div className="h-8 w-[1px] bg-slate-200 hidden md:block"></div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
              <div className="flex flex-col items-end cursor-default select-none">
-                <div className="flex items-center text-slate-900 text-sm font-bold gap-1">{shopName}</div>
+                <div className="flex items-center text-slate-900 text-xs md:text-sm font-bold gap-1 truncate max-w-[120px] md:max-w-none" onClick={() => setClicks(c => c + 1)}>{shopName}</div>
                 {/* Red/Green Light Indicator */}
                 <div className="flex items-center gap-2 mt-0.5">
-                   {/* This is the red/green light requested */}
-                   <div className={`w-3 h-3 rounded-full border-2 border-white shadow-md relative overflow-hidden ${isConnected ? 'bg-green-500 shadow-green-500/50' : 'bg-red-500 shadow-red-500/50'}`}>
+                   <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full border-2 border-white shadow-md relative overflow-hidden ${isConnected ? 'bg-green-500 shadow-green-500/50' : 'bg-red-500 shadow-red-500/50'}`}>
                       <div className="absolute inset-0 bg-white/20 rounded-full animate-pulse"></div>
                    </div>
-                   <div className="flex items-center gap-2">
-                       <span className={`text-[10px] font-bold uppercase tracking-wider ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
+                   <div className="flex items-center gap-1 md:gap-2">
+                       <span className={`text-[9px] md:text-[10px] font-bold uppercase tracking-wider hidden sm:inline ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
                            {isConnected ? 'Connected' : 'Offline'}
                        </span>
-                       <span className="text-[9px] text-slate-300 font-mono uppercase">ID: {kioskId}</span>
+                       <span className="text-[8px] md:text-[9px] text-slate-300 font-mono uppercase hidden sm:inline">ID: {kioskId}</span>
                    </div>
                 </div>
              </div>
@@ -171,11 +171,16 @@ const TopBar = ({
 
 const Footer = ({ onToggleScreensaver, isScreensaverEnabled }: { onToggleScreensaver: () => void, isScreensaverEnabled: boolean }) => {
   return (
-    <div className="h-14 bg-white border-t border-slate-200 flex items-center justify-between px-6 z-50 shrink-0">
-      <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono"><span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>SYSTEM ONLINE</div>
-      <div className="hidden md:block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kiosk Pro V1.0.4</div>
-      <div className="flex items-center gap-6">
-        <button onClick={onToggleScreensaver} className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-colors px-3 py-2 rounded-lg ${isScreensaverEnabled ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:text-slate-600'}`}>
+    <div className="h-14 bg-white border-t border-slate-200 flex items-center justify-between px-4 md:px-6 z-50 shrink-0 overflow-hidden">
+      <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono shrink-0 hidden sm:flex"><span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>SYSTEM ONLINE</div>
+      
+      {/* Hide Version on Mobile to save space for Screensaver toggle */}
+      <div className="hidden md:block text-[10px] font-bold text-slate-400 uppercase tracking-widest absolute left-1/2 transform -translate-x-1/2">
+          Kiosk Pro V1.0.4
+      </div>
+      
+      <div className="flex items-center gap-6 w-full sm:w-auto justify-end">
+        <button onClick={onToggleScreensaver} className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-colors px-3 py-2 rounded-lg whitespace-nowrap ${isScreensaverEnabled ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:text-slate-600'}`}>
            {isScreensaverEnabled ? <MonitorPlay size={16} /> : <MonitorOff size={16} />}{isScreensaverEnabled ? "Screensaver ON" : "Screensaver OFF"}
         </button>
       </div>

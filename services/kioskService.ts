@@ -139,30 +139,45 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
         });
 
         // 2. CRITICAL: Update the Global Store Config JSON so Admin Hub sees it in the list
-        const { data: currentConfig } = await supabase
+        // Fetch existing config or initialize if missing
+        const { data: currentConfig, error } = await supabase
           .from('store_config')
           .select('data')
           .eq('id', 1)
           .single();
 
-        if (currentConfig && currentConfig.data) {
-           const currentFleet = (currentConfig.data.fleet as KioskRegistry[]) || [];
-           
-           // Check if exists
-           const existingIndex = currentFleet.findIndex(k => k.id === id);
-           let newFleet = [...currentFleet];
-           
-           if (existingIndex >= 0) {
-               newFleet[existingIndex] = { ...newFleet[existingIndex], name: shopName, status: 'online', last_seen: new Date().toISOString() };
-           } else {
-               newFleet.push(kioskData);
-           }
+        let newFleet: KioskRegistry[] = [];
+        let configData = {};
 
-           await supabase
-             .from('store_config')
-             .update({ data: { ...currentConfig.data, fleet: newFleet } })
-             .eq('id', 1);
+        if (error || !currentConfig) {
+             console.log("Store Config missing, initializing...");
+             // Default structure
+             configData = { 
+                 companyLogoUrl: '', 
+                 hero: { title: 'Welcome', subtitle: '' }, 
+                 brands: [], 
+                 fleet: [] 
+             };
+        } else {
+             configData = currentConfig.data || {};
+             newFleet = (configData as any).fleet || [];
         }
+
+        // Add or Update Fleet Item
+        const existingIndex = newFleet.findIndex((k: KioskRegistry) => k.id === id);
+        if (existingIndex >= 0) {
+             newFleet[existingIndex] = { ...newFleet[existingIndex], name: shopName, status: 'online', last_seen: new Date().toISOString() };
+        } else {
+             newFleet.push(kioskData);
+        }
+        
+        // Write back
+        await supabase
+          .from('store_config')
+          .upsert({ 
+              id: 1, 
+              data: { ...configData, fleet: newFleet } 
+          });
 
       } catch(e) {
         console.error("Failed to register kiosk in cloud", e);

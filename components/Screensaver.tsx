@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { FlatProduct, AdItem } from '../types';
 
@@ -88,17 +89,17 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
          {/* Very subtle text at bottom, not obstructing view */}
          {!isAd && (
              <div className="absolute bottom-10 right-10 flex flex-col items-end opacity-80 text-shadow-lg animate-fade-in">
-                <h1 className="text-4xl font-black text-white uppercase tracking-tighter drop-shadow-2xl">
+                <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter drop-shadow-2xl">
                     {content.brandName}
                 </h1>
-                <h2 className="text-2xl font-bold text-yellow-400 drop-shadow-md">
+                <h2 className="text-2xl md:text-4xl font-bold text-yellow-400 drop-shadow-md">
                     {content.name}
                 </h2>
              </div>
          )}
          
          {/* Floating Call to Action - Bouncing */}
-         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none mix-blend-overlay">
             <div className="bg-white/10 backdrop-blur-sm border border-white/30 text-white px-8 py-3 rounded-full font-bold uppercase tracking-widest text-lg shadow-2xl animate-pulse-slow opacity-0 animate-appear-delay">
                Touch to Start
             </div>
