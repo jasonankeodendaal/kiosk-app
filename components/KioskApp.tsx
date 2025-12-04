@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -17,7 +19,7 @@ import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
 import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop } from 'lucide-react';
 
-const IDLE_TIMEOUT = 60000;
+const DEFAULT_IDLE_TIMEOUT = 60000;
 
 export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => (
   <div 
@@ -148,6 +150,8 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
 
   const timerRef = useRef<number | null>(null);
 
+  const idleTimeout = (storeData?.screensaverSettings?.idleTimeout || 60) * 1000;
+
   const resetIdleTimer = useCallback(() => {
     setIsIdle(false);
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -161,9 +165,9 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
         setActiveBrand(null);
         setShowFlipbook(false);
         setShowCreator(false);
-      }, IDLE_TIMEOUT);
+      }, idleTimeout);
     }
-  }, [screensaverEnabled]);
+  }, [screensaverEnabled, idleTimeout]);
 
   useEffect(() => {
     window.addEventListener('touchstart', resetIdleTimer);
@@ -253,7 +257,8 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
            products={allProducts} 
            ads={storeData.ads?.screensaver || []} 
            pamphlets={storeData.catalogues || []}
-           onWake={resetIdleTimer} 
+           onWake={resetIdleTimer}
+           settings={storeData.screensaverSettings}
          />
        )}
 

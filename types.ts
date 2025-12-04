@@ -19,6 +19,7 @@ export interface Product {
   imageUrl: string;
   galleryUrls?: string[]; // Additional images
   videoUrl?: string; // MP4/WAV URL
+  manualUrl?: string; // PDF Data URL
 }
 
 export interface Category {
@@ -70,6 +71,16 @@ export interface AdConfig {
   screensaver: AdItem[];
 }
 
+export interface ScreensaverSettings {
+  idleTimeout: number; // Seconds
+  imageDuration: number; // Seconds
+  muteVideos: boolean;
+  showProductImages: boolean;
+  showProductVideos: boolean;
+  showPamphlets: boolean;
+  showCustomAds: boolean;
+}
+
 export interface KioskRegistry {
   id: string;
   name: string;
@@ -90,6 +101,7 @@ export interface StoreData {
   catalogues?: Catalogue[]; // Changed from singular `catalog` to an array of `catalogues`
   brands: Brand[];
   ads?: AdConfig;
+  screensaverSettings?: ScreensaverSettings; // New configuration object
   fleet?: KioskRegistry[]; // Persisted fleet data
 }
 

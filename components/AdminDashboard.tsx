@@ -1,11 +1,12 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings
 } from 'lucide-react';
-import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue } from '../types';
+import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, ScreensaverSettings } from '../types';
 import { resetStoreData } from '../services/geminiService';
 import SetupGuide from './SetupGuide';
 import JSZip from 'jszip';
@@ -19,65 +20,6 @@ if (pdfjs && pdfjs.GlobalWorkerOptions) {
 }
 
 const generateId = (prefix: string) => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
-
-const dataURItoBlob = (dataURI: string) => {
-  if (!dataURI || !dataURI.includes(',')) return null;
-  try {
-    const byteString = atob(dataURI.split(',')[1]);
-    const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
-    }
-    return new Blob([ab], { type: mimeString });
-  } catch (e) {
-    return null;
-  }
-};
-
-const readFileAsBase64 = (file: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-};
-
-const parseTextData = async (blob: Blob): Promise<Record<string, any>> => {
-    try {
-        const text = await blob.text();
-        const lines = text.split('\n');
-        const data: Record<string, any> = {};
-        
-        lines.forEach(line => {
-             const parts = line.split(':');
-             if (parts.length >= 2) {
-                 const key = parts[0].trim().toLowerCase();
-                 const val = parts.slice(1).join(':').trim();
-                 
-                 if (key === 'specs' || key === 'dimensions' || key === 'features') {
-                    try {
-                        if (val.startsWith('{') || val.startsWith('[')) {
-                            data[key] = JSON.parse(val);
-                        } else {
-                            data[key] = val;
-                        }
-                    } catch {
-                        data[key] = val;
-                    }
-                 } else {
-                     data[key] = val;
-                 }
-             }
-        });
-        return data;
-    } catch (e) {
-        console.error("Failed to parse text file", e);
-        return {};
-    }
-};
 
 const Auth = ({ setSession }: { setSession: (s: boolean) => void }) => {
   const [password, setPassword] = useState('');
@@ -123,7 +65,7 @@ const FileUpload = ({
   helperText = "JPG/PNG up to 2MB"
 }: { 
   currentUrl?: string, 
-  onUpload: (data: string, fileType?: 'image' | 'video') => void, 
+  onUpload: (data: string, fileType?: 'image' | 'video' | 'pdf') => void, 
   label: string,
   accept?: string,
   icon?: React.ReactNode,
@@ -133,7 +75,11 @@ const FileUpload = ({
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const reader = new FileReader();
-      const type = file.type.startsWith('video') ? 'video' : 'image';
+      
+      let type: 'image' | 'video' | 'pdf' = 'image';
+      if (file.type.startsWith('video')) type = 'video';
+      if (file.type === 'application/pdf') type = 'pdf';
+
       reader.onloadend = () => {
         if (typeof reader.result === 'string') {
           onUpload(reader.result, type);
@@ -151,6 +97,8 @@ const FileUpload = ({
            {currentUrl ? (
              accept.includes('video') && (currentUrl.startsWith('data:video') || currentUrl.endsWith('.mp4')) ? 
              <Video size={20} className="text-blue-500" /> : 
+             accept.includes('pdf') ?
+             <FileText size={20} className="text-red-500" /> :
              <img src={currentUrl} alt="Preview" className="w-full h-full object-cover" />
            ) : (
              icon
@@ -171,7 +119,7 @@ const FileUpload = ({
 
 const ProductEditor = ({ product, onSave, onCancel }: any) => {
   const [formData, setFormData] = useState<Product>(product || {
-    id: generateId('p'), name: '', sku: '', description: '', terms: '', imageUrl: '', galleryUrls: [], videoUrl: '', specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' }
+    id: generateId('p'), name: '', sku: '', description: '', terms: '', imageUrl: '', galleryUrls: [], videoUrl: '', manualUrl: '', specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' }
   });
   const [activeTab, setActiveTab] = useState<'general' | 'specs' | 'media' | 'terms'>('general');
   const [specKey, setSpecKey] = useState('');
@@ -276,8 +224,18 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
                         <FileUpload label="Primary Display Image" currentUrl={formData.imageUrl} onUpload={(data) => setFormData({...formData, imageUrl: data})} />
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                        <h4 className="font-black text-slate-900 mb-4 border-b border-slate-100 pb-2 text-sm">Video Content</h4>
+                        <h4 className="font-black text-slate-900 mb-4 border-b border-slate-100 pb-2 text-sm">Multimedia</h4>
                         <FileUpload label="Product Video (MP4/WebM)" accept="video/*" icon={<Video />} helperText="MP4/WAV/WebM up to 10MB." currentUrl={formData.videoUrl} onUpload={(data) => setFormData({...formData, videoUrl: data})} />
+                        <div className="mt-4 border-t border-slate-100 pt-4">
+                           <FileUpload 
+                              label="Product Manual (PDF)" 
+                              accept="application/pdf" 
+                              icon={<FileText size={20} className="text-slate-400" />} 
+                              helperText="PDF Document up to 5MB" 
+                              currentUrl={formData.manualUrl} 
+                              onUpload={(data) => setFormData({...formData, manualUrl: data})} 
+                            />
+                        </div>
                     </div>
                   </div>
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -321,6 +279,190 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
   );
 };
 
+const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUpdate: (d: StoreData) => void }) => {
+  const screensaverAds = storeData.ads?.screensaver || [];
+  // Use existing settings or default if missing
+  const settings: ScreensaverSettings = storeData.screensaverSettings || {
+      idleTimeout: 60,
+      imageDuration: 8,
+      muteVideos: false,
+      showProductImages: true,
+      showProductVideos: true,
+      showPamphlets: true,
+      showCustomAds: true
+  };
+
+  const updateSettings = (updates: Partial<ScreensaverSettings>) => {
+      onUpdate({ ...storeData, screensaverSettings: { ...settings, ...updates } });
+  };
+
+  const addSlide = (url: string, type: 'image' | 'video') => {
+      const newAd: AdItem = { id: generateId('ss'), type, url };
+      const newAds = { ...storeData.ads!, screensaver: [...screensaverAds, newAd] };
+      onUpdate({ ...storeData, ads: newAds });
+  };
+
+  const removeSlide = (id: string) => {
+      const newAds = { ...storeData.ads!, screensaver: screensaverAds.filter(a => a.id !== id) };
+      onUpdate({ ...storeData, ads: newAds });
+  };
+
+  return (
+      <div className="max-w-6xl mx-auto p-4 animate-fade-in pb-20">
+          <div className="flex items-center justify-between mb-8">
+              <div>
+                  <h2 className="text-3xl font-black text-slate-900">Screensaver Control</h2>
+                  <p className="text-slate-500">Manage idle screen playback loop and configuration.</p>
+              </div>
+          </div>
+
+          {/* Configuration Panel */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+              <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
+                 <Settings size={20} className="text-blue-600" /> Playback Settings
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {/* Timers */}
+                  <div className="space-y-4">
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                          <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                              <Clock size={14} /> Idle Wait Time (Seconds)
+                          </label>
+                          <input 
+                             type="number" 
+                             value={settings.idleTimeout}
+                             onChange={(e) => updateSettings({ idleTimeout: parseInt(e.target.value) || 30 })}
+                             className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:border-blue-500"
+                          />
+                          <p className="text-[10px] text-slate-400 mt-1">Time before screensaver starts.</p>
+                      </div>
+
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                          <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                              <Clock size={14} /> Image Duration (Seconds)
+                          </label>
+                          <input 
+                             type="number" 
+                             value={settings.imageDuration}
+                             onChange={(e) => updateSettings({ imageDuration: parseInt(e.target.value) || 5 })}
+                             className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:border-blue-500"
+                          />
+                          <p className="text-[10px] text-slate-400 mt-1">How long each image stays on screen.</p>
+                      </div>
+                  </div>
+
+                  {/* Toggles */}
+                  <div className="space-y-4">
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                          <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Content Sources</label>
+                          
+                          <div className="space-y-3">
+                              <button onClick={() => updateSettings({ showProductImages: !settings.showProductImages })} className="flex items-center justify-between w-full">
+                                  <span className="text-sm font-bold text-slate-700">Product Images</span>
+                                  {settings.showProductImages ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}
+                              </button>
+                              <button onClick={() => updateSettings({ showProductVideos: !settings.showProductVideos })} className="flex items-center justify-between w-full">
+                                  <span className="text-sm font-bold text-slate-700">Product Videos</span>
+                                  {settings.showProductVideos ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}
+                              </button>
+                              <button onClick={() => updateSettings({ showPamphlets: !settings.showPamphlets })} className="flex items-center justify-between w-full">
+                                  <span className="text-sm font-bold text-slate-700">Pamphlet Covers</span>
+                                  {settings.showPamphlets ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}
+                              </button>
+                              <button onClick={() => updateSettings({ showCustomAds: !settings.showCustomAds })} className="flex items-center justify-between w-full">
+                                  <span className="text-sm font-bold text-slate-700">Custom Ads (Below)</span>
+                                  {settings.showCustomAds ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Audio */}
+                  <div className="space-y-4">
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 h-full">
+                          <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Audio Control</label>
+                          <div className="flex flex-col gap-4">
+                             <button 
+                                onClick={() => updateSettings({ muteVideos: !settings.muteVideos })} 
+                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${settings.muteVideos ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}
+                             >
+                                 {settings.muteVideos ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                                 <div className="text-left">
+                                     <div className="font-bold text-sm">{settings.muteVideos ? 'Videos Muted' : 'Sound Enabled'}</div>
+                                     <div className="text-[10px] opacity-70">{settings.muteVideos ? 'Silent Playback' : 'Play audio from videos'}</div>
+                                 </div>
+                             </button>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <div className="flex items-center justify-between mb-4 mt-8">
+             <h3 className="text-lg font-black text-slate-900 flex items-center gap-2"><Megaphone size={20} className="text-purple-600" /> Custom Ads & Slides</h3>
+             <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold uppercase">{screensaverAds.length} Items</span>
+          </div>
+
+          {/* Custom Slide Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {screensaverAds.map((ad, idx) => (
+                  <div key={ad.id} className="relative group bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden aspect-video">
+                      {ad.type === 'video' ? (
+                           <div className="w-full h-full bg-black flex items-center justify-center">
+                              <video src={ad.url} className="w-full h-full object-cover opacity-80" />
+                              <div className="absolute inset-0 flex items-center justify-center"><PlayCircle className="text-white/50" size={32} /></div>
+                           </div>
+                      ) : (
+                          <img src={ad.url} className="w-full h-full object-cover" />
+                      )}
+                      
+                      <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm uppercase">
+                          {idx + 1}. {ad.type}
+                      </div>
+
+                      <button 
+                          onClick={() => removeSlide(ad.id)}
+                          className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-lg"
+                      >
+                          <Trash2 size={14} />
+                      </button>
+                  </div>
+              ))}
+
+              <div className="aspect-video bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-4 hover:bg-slate-100 transition-colors p-4">
+                   <div className="text-xs font-bold text-slate-400 uppercase">Add Slide</div>
+                   <div className="flex gap-2">
+                       <label className="flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-blue-200 transition-colors">
+                           <ImageIcon size={14} /> Image
+                           <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                               const file = e.target.files?.[0];
+                               if(file) {
+                                   const reader = new FileReader();
+                                   reader.onload = () => addSlide(reader.result as string, 'image');
+                                   reader.readAsDataURL(file);
+                               }
+                           }} />
+                       </label>
+                       <label className="flex items-center gap-1 bg-purple-100 text-purple-700 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-purple-200 transition-colors">
+                           <Video size={14} /> Video
+                           <input type="file" className="hidden" accept="video/*" onChange={(e) => {
+                               const file = e.target.files?.[0];
+                               if(file) {
+                                   const reader = new FileReader();
+                                   reader.onload = () => addSlide(reader.result as string, 'video');
+                                   reader.readAsDataURL(file);
+                               }
+                           }} />
+                       </label>
+                   </div>
+              </div>
+          </div>
+      </div>
+  );
+};
+
+
 export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void }) => {
   const [session, setSession] = useState(false);
   const [activeBrandId, setActiveBrandId] = useState<string | null>(null);
@@ -328,9 +470,11 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
+  const [activeView, setActiveView] = useState<'dashboard' | 'inventory' | 'screensaver'>('dashboard');
 
   if (!session) return <Auth setSession={setSession} />;
 
+  // Derived state to find current objects
   const activeBrand = storeData?.brands.find(b => b.id === activeBrandId);
   const activeCategory = activeBrand?.categories.find(c => c.id === activeCategoryId);
 
@@ -338,13 +482,15 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
       if (!storeData || !activeBrand || !activeCategory) return;
       
       const updatedBrands = storeData.brands.map(b => {
-          if (b.id !== activeBrand.id) return b;
+          if (b.id !== activeBrand.id) return b; 
+          
           return {
               ...b,
               categories: b.categories.map(c => {
-                  if (c.id !== activeCategory.id) return c;
+                  if (c.id !== activeCategory.id) return c; 
+                  
                   const exists = c.products.find(p => p.id === product.id);
-                  let newProducts = c.products;
+                  let newProducts;
                   if (exists) {
                       newProducts = c.products.map(p => p.id === product.id ? product : p);
                   } else {
@@ -355,7 +501,8 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
           };
       });
       
-      onUpdateData({ ...storeData, brands: updatedBrands });
+      const newStoreData = { ...storeData, brands: updatedBrands };
+      onUpdateData(newStoreData);
       setEditingProduct(null);
       setIsCreatingProduct(false);
   };
@@ -383,12 +530,17 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
              </div>
           </div>
           <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-             <button onClick={() => { setActiveBrandId(null); setActiveCategoryId(null); }} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${!activeBrandId ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
+             <button onClick={() => { setActiveView('dashboard'); setActiveBrandId(null); setActiveCategoryId(null); }} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeView === 'dashboard' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
                 <LayoutTemplate size={18} /> <span className="font-bold text-sm">Dashboard</span>
              </button>
+             
+             <button onClick={() => { setActiveView('screensaver'); setActiveBrandId(null); }} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeView === 'screensaver' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <PlayCircle size={18} /> <span className="font-bold text-sm">Screensaver</span>
+             </button>
+
              <div className="pt-4 pb-2 px-3 text-[10px] font-black uppercase text-slate-500 tracking-wider">Inventory</div>
              {storeData?.brands.map(brand => (
-                 <button key={brand.id} onClick={() => { setActiveBrandId(brand.id); setActiveCategoryId(null); }} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeBrandId === brand.id ? 'bg-slate-800 text-white border border-slate-700' : 'text-slate-400 hover:bg-slate-800'}`}>
+                 <button key={brand.id} onClick={() => { setActiveView('inventory'); setActiveBrandId(brand.id); setActiveCategoryId(null); }} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeView === 'inventory' && activeBrandId === brand.id ? 'bg-slate-800 text-white border border-slate-700' : 'text-slate-400 hover:bg-slate-800'}`}>
                     <Box size={18} /> <span className="font-bold text-sm truncate">{brand.name}</span>
                  </button>
              ))}
@@ -416,7 +568,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
              <div className="flex items-center gap-4 text-slate-500">
                 <span className="font-bold text-xs uppercase tracking-wider">Path:</span>
                 <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                   <span>Home</span>
+                   <span className="capitalize">{activeView}</span>
                    {activeBrand && <><ChevronRight size={14} className="text-slate-400" /> <span>{activeBrand.name}</span></>}
                    {activeCategory && <><ChevronRight size={14} className="text-slate-400" /> <span>{activeCategory.name}</span></>}
                 </div>
@@ -430,7 +582,9 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
 
           {/* Content Area */}
           <div className="flex-1 overflow-y-auto p-8">
-             {!activeBrand ? (
+             {activeView === 'screensaver' ? (
+                 <ScreensaverEditor storeData={storeData!} onUpdate={onUpdateData} />
+             ) : activeView === 'dashboard' ? (
                 // Dashboard Home
                 <div className="max-w-5xl mx-auto animate-fade-in">
                    <h2 className="text-3xl font-black text-slate-900 mb-8">System Overview</h2>
@@ -474,6 +628,13 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                              )}
                           </tbody>
                        </table>
+                   </div>
+                </div>
+             ) : !activeBrand ? (
+                // Brand Selection (Inventory Root)
+                <div className="animate-fade-in">
+                   <div className="max-w-5xl mx-auto text-center py-20">
+                      <h2 className="text-2xl font-black text-slate-300 mb-4">Select a Brand from the sidebar to manage inventory.</h2>
                    </div>
                 </div>
              ) : !activeCategory ? (
@@ -551,6 +712,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                                        <button onClick={() => {
                                            if(confirm("Delete product?")) {
                                                const updatedProds = activeCategory.products.filter(p => p.id !== product.id);
+                                               // Deep update for delete
                                                const updatedBrands = storeData!.brands.map(b => {
                                                    if(b.id !== activeBrand!.id) return b;
                                                    return {
@@ -565,6 +727,9 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                                </div>
                            </div>
                        ))}
+                       {activeCategory.products.length === 0 && (
+                          <div className="col-span-full py-12 text-center text-slate-400 italic">No products yet. Click "New Product" to add one.</div>
+                       )}
                    </div>
                 </div>
              )}
@@ -573,3 +738,4 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
     </div>
   );
 };
+

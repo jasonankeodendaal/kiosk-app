@@ -1,7 +1,8 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
-import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop } from 'lucide-react';
+import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon } from 'lucide-react';
 
 interface ProductDetailProps {
   product: Product;
@@ -12,11 +13,10 @@ interface ProductDetailProps {
 
 const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensaverEnabled, onToggleScreensaver }) => {
   const [activeTab, setActiveTab] = useState<'features' | 'specs' | 'dimensions' | 'terms'>('features');
-  const [currentMediaIndex, setCurrentMediaIndex] = useState(0); // For the main media carousel
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0); 
   const [showEnlargedMedia, setShowEnlargedMedia] = useState(false);
   const [enlargedMediaIndex, setEnlargedMediaIndex] = useState(0);
 
-  // Combine all media into a single array for the carousel
   const allMedia = useMemo(() => {
     const media: { type: 'image' | 'video', url: string }[] = [];
     if (product.imageUrl) {
@@ -25,7 +25,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
     product.galleryUrls?.forEach(url => {
       media.push({ type: 'image', url });
     });
-    // Add video last for a consistent image-first browsing experience, but still part of carousel
     if (product.videoUrl) {
       media.push({ type: 'video', url: product.videoUrl });
     }
@@ -42,9 +41,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
     setCurrentMediaIndex((prev) => (prev - 1 + allMedia.length) % allMedia.length);
   };
 
-  const handleEnlargeMedia = (index: number) => {
-    setEnlargedMediaIndex(index);
-    setShowEnlargedMedia(true);
+  const handleEnlargedPrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEnlargedMediaIndex((prev) => (prev - 1 + allMedia.length) % allMedia.length);
   };
 
   const handleEnlargedNext = (e: React.MouseEvent) => {
@@ -52,9 +51,20 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
     setEnlargedMediaIndex((prev) => (prev + 1) % allMedia.length);
   };
 
-  const handleEnlargedPrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEnlargedMediaIndex((prev) => (prev - 1 + allMedia.length) % allMedia.length);
+  const handleEnlargeMedia = (index: number) => {
+    setEnlargedMediaIndex(index);
+    setShowEnlargedMedia(true);
+  };
+
+  const openManual = () => {
+      if(product.manualUrl) {
+          // Open PDF in new tab/window
+          const pdfWindow = window.open("");
+          if (pdfWindow) {
+              pdfWindow.document.write(`<iframe width='100%' height='100%' src='${product.manualUrl}'></iframe>`);
+              pdfWindow.document.title = `${product.name} - Manual`;
+          }
+      }
   };
 
   const currentMedia = allMedia[currentMediaIndex];
@@ -63,221 +73,390 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
   return (
     <div className="flex flex-col h-full bg-white relative animate-fade-in overflow-hidden">
       
-      {/* Main Layout: Always Flex Row (Side by Side) */}
-      <div className="flex-1 flex flex-row h-full overflow-hidden">
+      {/* ======================= */}
+      {/* DESKTOP LAYOUT (Tablet+) */}
+      {/* ======================= */}
+      <div className="hidden lg:flex flex-1 flex-row h-full overflow-hidden">
         
-        {/* Left Column: Media - Adjusted Width for Mobile (35%) vs Desktop (40-50%) */}
-        <div className="w-[35%] lg:w-2/5 bg-slate-50/50 flex flex-col border-r border-slate-200 overflow-y-auto relative shrink-0">
+        {/* LEFT COLUMN: Media Showcase */}
+        <div className="w-[45%] bg-slate-900 flex flex-col overflow-hidden relative shrink-0">
           
-          <div className="absolute top-2 left-2 z-20 flex items-center gap-2">
+          {/* Top Controls */}
+          <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
              <button 
               onClick={onBack}
-              className="flex items-center text-slate-600 hover:text-slate-900 font-bold transition-colors uppercase text-[9px] lg:text-[10px] tracking-widest bg-white/90 backdrop-blur-md px-2 py-1 lg:px-3 lg:py-1.5 rounded-full border border-slate-200 shadow-sm"
+              className="flex items-center text-white/80 hover:text-white font-bold transition-colors uppercase text-[10px] tracking-widest bg-black/30 backdrop-blur-md px-4 py-2 rounded-full border border-white/10"
             >
-              <ChevronLeft size={12} className="mr-0.5" /> Back
+              <ChevronLeft size={14} className="mr-1" /> Back
             </button>
-            <button 
+          </div>
+          
+          <div className="absolute top-6 right-6 z-20">
+             <button 
                 onClick={onToggleScreensaver}
-                className={`flex items-center justify-center p-1 rounded-full border shadow-sm ${screensaverEnabled ? 'bg-green-100 text-green-600 border-green-200' : 'bg-white text-slate-400 border-slate-200'}`}
+                className={`flex items-center justify-center w-8 h-8 rounded-full border shadow-sm backdrop-blur-md transition-colors ${screensaverEnabled ? 'bg-green-500/20 text-green-400 border-green-500/50' : 'bg-black/20 text-slate-400 border-white/10'}`}
                 title="Toggle Screensaver"
             >
-                {screensaverEnabled ? <MonitorPlay size={12} /> : <MonitorStop size={12} />}
+                {screensaverEnabled ? <MonitorPlay size={14} /> : <MonitorStop size={14} />}
             </button>
           </div>
 
-          {/* Media Carousel */}
-          <div className="flex-1 flex items-center justify-center p-2 lg:p-12 relative">
+          {/* Main Media Stage */}
+          <div className="flex-1 flex items-center justify-center p-8 relative bg-gradient-to-b from-slate-800 to-slate-900">
              {allMedia.length > 0 ? (
-                <div className="relative w-full max-w-[140px] md:max-w-xs aspect-square group">
-                  <div className="absolute inset-0 bg-blue-500 rounded-full blur-[60px] opacity-10 scale-75 group-hover:opacity-20 transition-opacity duration-700"></div>
+                <div className="relative w-full h-full flex items-center justify-center group">
                   
                   {currentMedia.type === 'image' ? (
                      <img 
                        src={currentMedia.url} 
                        alt={product.name} 
-                       className="w-full h-full object-contain relative z-10 drop-shadow-xl transition-transform duration-500 group-hover:scale-105 cursor-pointer"
+                       className="max-w-full max-h-full object-contain relative z-10 drop-shadow-2xl cursor-pointer"
                        onClick={() => handleEnlargeMedia(currentMediaIndex)}
                      />
                   ) : (
                      <div className="relative w-full h-full flex items-center justify-center">
                        <video 
                          src={currentMedia.url} 
-                         controls={false} // No controls for thumbnail preview
+                         controls={false} 
                          autoPlay 
                          loop 
-                         muted 
-                         className="w-full h-full object-contain relative z-10 drop-shadow-xl transition-transform duration-500 group-hover:scale-105"
+                         muted={false} 
+                         className="max-w-full max-h-full object-contain relative z-10 drop-shadow-2xl"
                        />
                        <PlayCircle 
                          size={64} 
-                         className="absolute text-white/80 transition-transform group-hover:scale-110 cursor-pointer" 
-                         onClick={() => handleEnlargeMedia(currentMediaIndex)} // Click to play enlarged
+                         className="absolute text-white/80 transition-transform group-hover:scale-110 cursor-pointer z-20 drop-shadow-lg" 
+                         onClick={() => handleEnlargeMedia(currentMediaIndex)} 
                        />
                      </div>
                   )}
 
-                  {/* Navigation Arrows */}
+                  {/* Navigation Arrows on Stage */}
                   {allMedia.length > 1 && (
                      <>
-                        <button 
-                           onClick={handlePrevMedia} 
-                           className="absolute left-0 top-1/2 -translate-y-1/2 bg-white/70 backdrop-blur-sm p-2 rounded-full shadow-md text-slate-700 hover:bg-white transition-colors z-20"
-                        >
-                           <LeftArrow size={16} />
-                        </button>
-                        <button 
-                           onClick={handleNextMedia} 
-                           className="absolute right-0 top-1/2 -translate-y-1/2 bg-white/70 backdrop-blur-sm p-2 rounded-full shadow-md text-slate-700 hover:bg-white transition-colors z-20"
-                        >
-                           <RightArrow size={16} />
-                        </button>
+                        <button onClick={handlePrevMedia} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/50 text-white p-3 rounded-full backdrop-blur-sm z-20 transition-all border border-white/10"><LeftArrow size={24} /></button>
+                        <button onClick={handleNextMedia} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/50 text-white p-3 rounded-full backdrop-blur-sm z-20 transition-all border border-white/10"><RightArrow size={24} /></button>
                      </>
                   )}
                 </div>
              ) : (
-                 <div className="w-full max-w-[140px] md:max-w-xs aspect-square flex items-center justify-center bg-slate-100 rounded-lg text-slate-300">
-                     <ImageIcon size={48} />
+                 <div className="flex flex-col items-center justify-center text-slate-600">
+                     <ImageIcon size={64} />
+                     <span className="font-bold uppercase tracking-widest mt-2 text-xs">No Media</span>
                  </div>
              )}
           </div>
           
-          {/* Media Thumbnails for direct selection */}
-          <div className="p-2 lg:p-8 bg-white border-t border-slate-100">
-            {allMedia.length > 0 ? (
+          {/* Thumbnails Strip */}
+          {allMedia.length > 1 && (
+              <div className="p-4 bg-black/20 border-t border-white/5 backdrop-blur-sm">
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide justify-center">
                 {allMedia.map((media, idx) => (
                    <button 
                       key={idx} 
                       onClick={() => setCurrentMediaIndex(idx)} 
-                      className={`w-12 h-12 lg:w-20 lg:h-20 shrink-0 bg-white rounded-lg overflow-hidden shadow-sm p-1 transition-all ${idx === currentMediaIndex ? 'border-2 border-blue-500' : 'border border-slate-200 opacity-70 hover:opacity-100'}`}
+                      className={`w-14 h-14 shrink-0 rounded-lg overflow-hidden shadow-sm transition-all relative ${idx === currentMediaIndex ? 'ring-2 ring-blue-500 opacity-100' : 'opacity-50 hover:opacity-80'}`}
                    >
                       {media.type === 'image' ? (
-                         <img src={media.url} className="w-full h-full object-contain" alt={`Media ${idx}`} />
+                         <img src={media.url} className="w-full h-full object-cover" alt="" />
                       ) : (
-                         <div className="relative w-full h-full flex items-center justify-center bg-slate-900">
-                            <video src={media.url} className="w-full h-full object-cover opacity-60" muted />
-                            <PlayCircle className="absolute text-white w-4 h-4 lg:w-6 lg:h-6" />
+                         <div className="w-full h-full flex items-center justify-center bg-slate-800">
+                             <PlayCircle size={20} className="text-white" />
                          </div>
                       )}
                    </button>
                 ))}
                 </div>
-            ) : (
-                <div className="text-center text-slate-400 text-xs py-2">No additional media available.</div>
-            )}
-          </div>
+              </div>
+          )}
         </div>
 
-        {/* Right Column: Info & Specs - Adjusted Width (65% Mobile) */}
-        <div className="w-[65%] lg:w-3/5 flex flex-col h-full bg-white relative overflow-hidden">
-          {/* Header Info */}
-          <div className="p-4 lg:p-8 border-b border-slate-100 shrink-0">
-             <div className="flex items-center justify-between mb-1">
-                <span className="text-blue-600 font-bold uppercase tracking-wider text-[9px] lg:text-[10px] bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                  {product.sku || 'N/A'}
-                </span>
-                <button className="text-slate-400 hover:text-blue-600 transition-colors hidden sm:block">
-                  <Share2 size={16} />
-                </button>
-             </div>
-             <h1 className="text-xl lg:text-3xl font-black text-slate-900 mb-2 tracking-tight leading-tight line-clamp-2">{product.name}</h1>
-             <p className="text-xs lg:text-sm text-slate-500 leading-snug font-medium line-clamp-3">{product.description}</p>
-          </div>
-
-          {/* Compact Tabs */}
-          <div className="flex border-b border-slate-100 px-4 lg:px-8 bg-slate-50/50 shrink-0 overflow-x-auto scrollbar-hide">
-            {['features', 'specs', 'dimensions', 'terms'].map((tab) => (
-              <button 
-                key={tab}
-                onClick={() => setActiveTab(tab as any)}
-                className={`py-2 lg:py-3 px-3 lg:px-4 font-black text-[9px] lg:text-xs uppercase tracking-widest transition-all border-b-2 relative top-[1px] whitespace-nowrap ${
-                  activeTab === tab 
-                  ? 'border-blue-600 text-blue-600' 
-                  : 'border-transparent text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-
+        {/* RIGHT COLUMN: Info & Specs */}
+        <div className="w-[55%] flex flex-col h-full bg-white relative overflow-hidden">
+          
           {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-y-auto p-4 lg:p-8 bg-white">
-            {activeTab === 'features' && (
-              <div className="grid grid-cols-1 gap-2 lg:gap-3 animate-fade-in">
-                {product.features.map((feature, idx) => (
-                  <div key={idx} className="bg-slate-50 p-2 lg:p-3 rounded-lg border border-slate-100 flex items-start gap-2 lg:gap-3">
-                    <div className="mt-0.5 w-3 h-3 lg:w-4 lg:h-4 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                       <Check size={8} className="text-blue-600 lg:hidden" />
-                       <Check size={10} className="text-blue-600 hidden lg:block" />
-                    </div>
-                    <span className="text-slate-700 font-bold text-[10px] lg:text-xs leading-snug">{feature}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {activeTab === 'specs' && (
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden text-[10px] lg:text-xs animate-fade-in">
-                <table className="w-full">
-                  <tbody>
-                    {Object.entries(product.specs).map(([key, value], idx) => (
-                      <tr key={key} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                        <td className="p-2 lg:p-3 font-bold text-slate-400 uppercase tracking-wider border-r border-slate-100 w-1/3 break-words">
-                          {key.replace(/([A-Z])/g, ' $1').trim()}
-                        </td>
-                        <td className="p-2 lg:p-3 font-bold text-slate-900">
-                          {value}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {activeTab === 'dimensions' && (
-              <div className="animate-fade-in h-full flex flex-col">
-                <div className="grid grid-cols-2 gap-2 lg:gap-3 mb-6">
-                  {Object.entries(product.dimensions).map(([key, val]) => (
-                    <div key={key} className="bg-slate-50 p-2 lg:p-4 rounded-xl border border-slate-100 text-center flex flex-col items-center justify-center">
-                      <span className="text-[9px] font-black uppercase text-slate-400 mb-1">{key}</span>
-                      <span className="text-sm lg:text-lg font-black text-slate-900 leading-none">{val}</span>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="flex-1 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 p-4 lg:p-8 min-h-[100px]">
-                   <BoxIcon size={32} strokeWidth={1} className="mb-2 text-slate-300 lg:hidden" />
-                   <BoxIcon size={48} strokeWidth={1} className="mb-2 text-slate-300 hidden lg:block" />
-                   <span className="text-[9px] font-bold uppercase tracking-widest text-center">Scale Visualization</span>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'terms' && (
-               <div className="animate-fade-in h-full">
-                  <div className="bg-yellow-50/50 p-4 lg:p-6 rounded-xl border border-yellow-100 h-full overflow-y-auto">
-                     <div className="flex items-center gap-2 text-yellow-700 mb-3 sticky top-0 bg-yellow-50/95 pb-2">
-                        <FileText size={16} />
-                        <h3 className="font-bold text-[10px] lg:text-xs uppercase tracking-wider">Terms & Conditions</h3>
+          <div className="flex-1 overflow-y-auto">
+             <div className="p-8 lg:p-12">
+                 {/* Title Header */}
+                 <div className="mb-8 border-b border-slate-100 pb-8">
+                     <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            {product.sku && (
+                                <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase tracking-wide">
+                                    SKU: {product.sku}
+                                </span>
+                            )}
+                        </div>
+                        {product.manualUrl && (
+                            <button onClick={openManual} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors">
+                                <FileIcon size={14} className="text-blue-500" /> User Manual
+                            </button>
+                        )}
                      </div>
-                     <p className="text-slate-600 text-[10px] lg:text-xs leading-relaxed whitespace-pre-wrap font-mono text-justify">
-                        {product.terms || "Standard warranty applies. Product specifications subject to change without notice. Usage implies acceptance of general store policy."}
-                     </p>
-                  </div>
-               </div>
-            )}
+                     <h1 className="text-4xl lg:text-5xl font-black text-slate-900 mb-6 uppercase tracking-tight leading-none">
+                        {product.name}
+                     </h1>
+                     
+                     <div className="prose prose-lg text-slate-600 leading-relaxed font-medium">
+                        <p>{product.description || "No specific description available."}</p>
+                     </div>
+                 </div>
+
+                 {/* Information Tabs */}
+                 <div className="flex flex-col gap-8">
+                     {/* Features */}
+                     <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2"><Layers size={16} /> Key Features</h3>
+                        <div className="grid grid-cols-1 gap-3">
+                            {product.features.length > 0 ? product.features.map((feature, idx) => (
+                                <div key={idx} className="flex items-start gap-3">
+                                    <Check size={16} className="text-blue-500 mt-0.5 shrink-0" />
+                                    <span className="text-slate-700 font-bold text-sm">{feature}</span>
+                                </div>
+                            )) : <div className="text-slate-400 italic text-sm">No features listed.</div>}
+                        </div>
+                     </div>
+
+                     {/* Specs Grid */}
+                     <div className="grid grid-cols-2 gap-4">
+                        {Object.entries(product.specs).map(([key, value], idx) => (
+                            <div key={idx} className="border border-slate-200 rounded-xl p-4">
+                                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">{key}</span>
+                                <span className="block text-sm font-bold text-slate-900">{value}</span>
+                            </div>
+                        ))}
+                     </div>
+
+                     {/* Terms Section (Desktop) */}
+                     {product.terms && (
+                         <div className="bg-white rounded-2xl p-6 border border-slate-200 mt-4">
+                             <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2"><Info size={16} /> Warranty & Terms</h3>
+                             <p className="text-xs text-slate-500 font-mono leading-relaxed whitespace-pre-wrap">{product.terms}</p>
+                         </div>
+                     )}
+                 </div>
+             </div>
           </div>
+
+          {/* Bottom Action Bar */}
+          <div className="p-4 border-t border-slate-200 bg-slate-50/80 backdrop-blur shrink-0 flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-400 uppercase">Consult Staff for Availability</span>
+              <button 
+                onClick={onBack}
+                className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-slate-800 transition-colors"
+              >
+                  Close View
+              </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ======================= */}
+      {/* MOBILE LAYOUT (App-like) */}
+      {/* ======================= */}
+      <div className="lg:hidden flex flex-col h-full bg-slate-100 relative overflow-hidden">
+        
+        {/* Floating Header */}
+        <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-30 pointer-events-none">
+           <button 
+             onClick={onBack} 
+             className="pointer-events-auto w-10 h-10 bg-white/90 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center text-slate-900 hover:bg-white active:scale-95 transition-all"
+           >
+             <ChevronLeft size={24} />
+           </button>
+
+           <button 
+             onClick={onToggleScreensaver} 
+             className={`pointer-events-auto w-10 h-10 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center transition-all ${screensaverEnabled ? 'bg-green-500/90 text-white' : 'bg-black/50 text-white/80'}`}
+           >
+             {screensaverEnabled ? <MonitorPlay size={20} /> : <MonitorStop size={20} />}
+           </button>
+        </div>
+
+        {/* Top: Image Carousel */}
+        <div className="w-full h-[45vh] bg-white relative shrink-0 group">
+           {currentMedia ? (
+             currentMedia.type === 'image' ? (
+                <img 
+                  src={currentMedia.url} 
+                  className="w-full h-full object-contain p-6" 
+                  alt={product.name}
+                  onClick={() => handleEnlargeMedia(currentMediaIndex)}
+                />
+             ) : (
+                <video src={currentMedia.url} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+             )
+           ) : (
+             <div className="w-full h-full flex items-center justify-center text-slate-300">
+               <ImageIcon size={48} />
+             </div>
+           )}
+
+           {/* Carousel Indicators */}
+           {allMedia.length > 1 && (
+             <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-1.5 z-20">
+               {allMedia.map((_, i) => (
+                 <div key={i} className={`h-1.5 rounded-full transition-all shadow-sm ${i === currentMediaIndex ? 'w-6 bg-slate-900' : 'w-1.5 bg-slate-300'}`} />
+               ))}
+             </div>
+           )}
+
+           {/* Carousel Arrows */}
+           {allMedia.length > 1 && (
+             <>
+               <button 
+                 onClick={handlePrevMedia} 
+                 className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-md text-slate-800 p-2 rounded-full transition-all z-20 border border-white/10 shadow-lg active:scale-95"
+                 aria-label="Previous Image"
+               >
+                 <LeftArrow size={24} />
+               </button>
+               <button 
+                 onClick={handleNextMedia} 
+                 className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-md text-slate-800 p-2 rounded-full transition-all z-20 border border-white/10 shadow-lg active:scale-95"
+                 aria-label="Next Image"
+               >
+                 <RightArrow size={24} />
+               </button>
+             </>
+           )}
+        </div>
+
+        {/* Bottom: Sliding Content Sheet */}
+        <div className="flex-1 bg-white rounded-t-[2rem] -mt-6 relative z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] flex flex-col overflow-hidden">
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6 md:p-8 pb-20">
+                {/* Drag Handle Visual */}
+                <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-6"></div>
+
+                {/* Header Info */}
+                <div className="mb-6">
+                    <div className="flex justify-between items-start mb-2">
+                        {product.sku && (
+                           <span className="inline-block bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide">
+                              SKU: {product.sku}
+                           </span>
+                        )}
+                        {product.manualUrl && (
+                            <button onClick={openManual} className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide flex items-center gap-1">
+                                <FileIcon size={12} /> Manual
+                            </button>
+                        )}
+                    </div>
+                    <h1 className="text-2xl font-black text-slate-900 leading-tight uppercase tracking-tight mb-2">
+                       {product.name}
+                    </h1>
+                </div>
+
+                {/* Description */}
+                <div className="mb-8">
+                    <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                       {product.description}
+                    </p>
+                </div>
+
+                {/* Specs List */}
+                <div className="space-y-6">
+                    {product.features.length > 0 && (
+                        <div>
+                            <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                               <Check size={14} className="text-green-500" /> Key Features
+                            </h3>
+                            <ul className="space-y-2">
+                               {product.features.map((f, i) => (
+                                   <li key={i} className="flex items-start gap-3 text-xs font-bold text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                       <div className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-1.5 shrink-0"></div>
+                                       <span className="leading-relaxed">{f}</span>
+                                   </li>
+                               ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {Object.keys(product.specs).length > 0 && (
+                        <div>
+                            <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                               <Layers size={14} className="text-blue-500" /> Specifications
+                            </h3>
+                            <div className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
+                                {Object.entries(product.specs).map(([k, v], i) => (
+                                    <div key={k} className="flex justify-between items-center p-3 border-b border-slate-200 last:border-0 text-xs">
+                                        <span className="font-bold text-slate-400 uppercase">{k}</span>
+                                        <span className="font-bold text-slate-900">{v}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div>
+                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                           <Ruler size={14} className="text-orange-500" /> Dimensions
+                        </h3>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                                <span className="block text-[10px] text-slate-400 font-bold uppercase">Height</span>
+                                <span className="block text-sm font-black text-slate-900">{product.dimensions.height || '-'}</span>
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                                <span className="block text-[10px] text-slate-400 font-bold uppercase">Width</span>
+                                <span className="block text-sm font-black text-slate-900">{product.dimensions.width || '-'}</span>
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                                <span className="block text-[10px] text-slate-400 font-bold uppercase">Depth</span>
+                                <span className="block text-sm font-black text-slate-900">{product.dimensions.depth || '-'}</span>
+                            </div>
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                                <span className="block text-[10px] text-slate-400 font-bold uppercase">Weight</span>
+                                <span className="block text-sm font-black text-slate-900">{product.dimensions.weight || '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Terms & Conditions (Mobile) */}
+                    {product.terms && (
+                        <div>
+                            <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                               <Info size={14} className="text-slate-500" /> Warranty & Terms
+                            </h3>
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <p className="text-xs text-slate-500 font-mono leading-relaxed">{product.terms}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Tiny Video Preview at Bottom */}
+                    {product.videoUrl && (
+                        <div className="mt-8 pt-6 border-t border-slate-100">
+                            <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                               <PlayCircle size={14} className="text-purple-600" /> Product Video
+                            </h3>
+                            <button 
+                                onClick={() => {
+                                    // Find video in media list to open modal
+                                    const vidIdx = allMedia.findIndex(m => m.type === 'video');
+                                    if(vidIdx !== -1) handleEnlargeMedia(vidIdx);
+                                }}
+                                className="relative w-32 aspect-video rounded-lg overflow-hidden shadow-md border border-slate-200 group bg-black"
+                            >
+                                <video src={product.videoUrl} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" muted />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
+                                    <PlayCircle size={24} className="text-white drop-shadow-md group-hover:scale-110 transition-transform" />
+                                </div>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
       </div>
 
       {/* Enlarged Media Modal */}
       {showEnlargedMedia && enlargedMedia && (
-        <div className="fixed inset-0 z-[80] bg-black/95 flex items-center justify-center p-4" onClick={() => setShowEnlargedMedia(false)}>
+        <div className="fixed inset-0 z-[110] bg-black/98 flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowEnlargedMedia(false)}>
           <button 
             onClick={() => setShowEnlargedMedia(false)} 
-            className="absolute top-6 right-6 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors z-50"
+            className="absolute top-6 right-6 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors z-50 backdrop-blur-md"
           >
             <X size={32} />
           </button>
@@ -286,15 +465,15 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
             {enlargedMedia.type === 'image' ? (
                 <img 
                   src={enlargedMedia.url} 
-                  alt={`Enlarged ${product.name}`} 
-                  className="max-w-full max-h-full object-contain animate-fade-in" 
+                  alt={`Enlarged view`} 
+                  className="max-w-full max-h-full object-contain" 
                 />
             ) : (
                 <video 
                   src={enlargedMedia.url} 
                   controls 
                   autoPlay 
-                  className="max-w-full max-h-full object-contain animate-fade-in" 
+                  className="max-w-full max-h-full object-contain" 
                 />
             )}
 
@@ -302,15 +481,15 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
               <>
                 <button 
                   onClick={handleEnlargedPrev} 
-                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white p-3 rounded-full shadow-lg transition-colors z-20"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/30 text-white p-4 rounded-full transition-colors z-20 backdrop-blur-md border border-white/10"
                 >
-                  <LeftArrow size={24} />
+                  <LeftArrow size={32} />
                 </button>
                 <button 
                   onClick={handleEnlargedNext} 
-                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white p-3 rounded-full shadow-lg transition-colors z-20"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/30 text-white p-4 rounded-full transition-colors z-20 backdrop-blur-md border border-white/10"
                 >
-                  <RightArrow size={24} />
+                  <RightArrow size={32} />
                 </button>
               </>
             )}

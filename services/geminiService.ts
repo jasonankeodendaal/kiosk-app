@@ -1,4 +1,5 @@
 
+
 import { StoreData } from "../types";
 import { supabase, getEnv } from "./kioskService";
 
@@ -13,6 +14,15 @@ const DEFAULT_DATA: StoreData = {
     backgroundImageUrl: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070&auto=format&fit=crop",
     logoUrl: "https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png",
     websiteUrl: "https://jstyp.me"
+  },
+  screensaverSettings: {
+    idleTimeout: 60,
+    imageDuration: 8,
+    muteVideos: false,
+    showProductImages: true,
+    showProductVideos: true,
+    showPamphlets: true,
+    showCustomAds: true
   },
   catalogues: [
     {
@@ -240,6 +250,7 @@ const generateStoreData = async (): Promise<StoreData> => {
                   ads: rawData.ads || DEFAULT_DATA.ads,
                   hero: { ...DEFAULT_DATA.hero, ...(rawData.hero || {}) },
                   catalogues: rawData.catalogues || [],
+                  screensaverSettings: { ...DEFAULT_DATA.screensaverSettings, ...(rawData.screensaverSettings || {}) }
               };
               localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(mergedData));
               return mergedData;
