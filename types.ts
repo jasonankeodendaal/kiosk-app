@@ -19,7 +19,8 @@ export interface Product {
   imageUrl: string;
   galleryUrls?: string[]; // Additional images
   videoUrl?: string; // MP4/WAV URL
-  manualUrl?: string; // PDF Data URL
+  manualUrl?: string; // PDF Data URL (Original)
+  manualImages?: string[]; // Converted PDF pages as images for Flipbook
 }
 
 export interface Category {

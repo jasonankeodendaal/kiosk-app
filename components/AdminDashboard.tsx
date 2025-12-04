@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, ScreensaverSettings } from '../types';
 import { resetStoreData } from '../services/geminiService';
@@ -20,6 +20,33 @@ if (pdfjs && pdfjs.GlobalWorkerOptions) {
 }
 
 const generateId = (prefix: string) => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
+
+const convertPdfToImages = async (pdfDataUrl: string): Promise<string[]> => {
+    try {
+        const loadingTask = pdfjs.getDocument(pdfDataUrl);
+        const pdf = await loadingTask.promise;
+        const numPages = pdf.numPages;
+        const images: string[] = [];
+
+        for (let i = 1; i <= numPages; i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 1.5 });
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            if (context) {
+                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                images.push(canvas.toDataURL('image/jpeg', 0.8));
+            }
+        }
+        return images;
+    } catch (e) {
+        console.error("PDF Conversion Error", e);
+        return [];
+    }
+};
 
 const Auth = ({ setSession }: { setSession: (s: boolean) => void }) => {
   const [password, setPassword] = useState('');
@@ -62,14 +89,16 @@ const FileUpload = ({
   label, 
   accept = "image/*", 
   icon = <ImageIcon />,
-  helperText = "JPG/PNG up to 2MB"
+  helperText = "JPG/PNG up to 2MB",
+  isProcessing = false
 }: { 
   currentUrl?: string, 
   onUpload: (data: string, fileType?: 'image' | 'video' | 'pdf') => void, 
   label: string,
   accept?: string,
   icon?: React.ReactNode,
-  helperText?: string
+  helperText?: string,
+  isProcessing?: boolean
 }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -94,7 +123,9 @@ const FileUpload = ({
       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">{label}</label>
       <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
         <div className="w-16 h-16 bg-slate-50 border border-slate-200 border-dashed rounded-lg flex items-center justify-center overflow-hidden relative shrink-0 text-slate-300 shadow-inner">
-           {currentUrl ? (
+           {isProcessing ? (
+             <Loader2 className="animate-spin text-blue-500" size={24} />
+           ) : currentUrl ? (
              accept.includes('video') && (currentUrl.startsWith('data:video') || currentUrl.endsWith('.mp4')) ? 
              <Video size={20} className="text-blue-500" /> : 
              accept.includes('pdf') ?
@@ -105,10 +136,10 @@ const FileUpload = ({
            )}
         </div>
         <div className="flex-1 min-w-0">
-           <label className="cursor-pointer inline-flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wide transition-all shadow hover:bg-slate-800 transform hover:-translate-y-0.5 whitespace-nowrap">
+           <label className={`cursor-pointer inline-flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wide transition-all shadow hover:bg-slate-800 transform hover:-translate-y-0.5 whitespace-nowrap ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
               <Upload size={12} />
-              Select File
-              <input type="file" className="hidden" accept={accept} onChange={handleFileChange} />
+              {isProcessing ? 'Processing...' : 'Select File'}
+              <input type="file" className="hidden" accept={accept} onChange={handleFileChange} disabled={isProcessing} />
            </label>
            <p className="text-[9px] text-slate-400 mt-1 font-bold uppercase truncate">{helperText}</p>
         </div>
@@ -119,16 +150,25 @@ const FileUpload = ({
 
 const ProductEditor = ({ product, onSave, onCancel }: any) => {
   const [formData, setFormData] = useState<Product>(product || {
-    id: generateId('p'), name: '', sku: '', description: '', terms: '', imageUrl: '', galleryUrls: [], videoUrl: '', manualUrl: '', specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' }
+    id: generateId('p'), name: '', sku: '', description: '', terms: '', imageUrl: '', galleryUrls: [], videoUrl: '', manualUrl: '', manualImages: [], specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' }
   });
   const [activeTab, setActiveTab] = useState<'general' | 'specs' | 'media' | 'terms'>('general');
   const [specKey, setSpecKey] = useState('');
   const [specVal, setSpecVal] = useState('');
   const [featureInput, setFeatureInput] = useState('');
+  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
 
   const addSpec = () => { if(!specKey || !specVal) return; setFormData(prev => ({ ...prev, specs: { ...prev.specs, [specKey]: specVal } })); setSpecKey(''); setSpecVal(''); };
   const removeSpec = (key: string) => { const newSpecs = { ...formData.specs }; delete newSpecs[key]; setFormData(prev => ({ ...prev, specs: newSpecs })); };
   const addFeature = () => { if(!featureInput) return; setFormData(prev => ({ ...prev, features: [...prev.features, featureInput] })); setFeatureInput(''); };
+
+  const handleManualUpload = async (data: string) => {
+      setFormData(prev => ({...prev, manualUrl: data}));
+      setIsProcessingPdf(true);
+      const images = await convertPdfToImages(data);
+      setFormData(prev => ({...prev, manualImages: images}));
+      setIsProcessingPdf(false);
+  };
 
   const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false }: any) => (
     <div className={`mb-4 ${half ? 'w-full' : ''}`}>
@@ -231,10 +271,17 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
                               label="Product Manual (PDF)" 
                               accept="application/pdf" 
                               icon={<FileText size={20} className="text-slate-400" />} 
-                              helperText="PDF Document up to 5MB" 
+                              helperText="PDF Auto-Converts to Flipbook" 
                               currentUrl={formData.manualUrl} 
-                              onUpload={(data) => setFormData({...formData, manualUrl: data})} 
+                              onUpload={handleManualUpload}
+                              isProcessing={isProcessingPdf}
                             />
+                            {formData.manualImages && formData.manualImages.length > 0 && (
+                                <div className="mt-2 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded inline-block">
+                                    <Check size={10} className="inline mr-1" />
+                                    {formData.manualImages.length} Pages Extracted
+                                </div>
+                            )}
                         </div>
                     </div>
                   </div>
@@ -520,75 +567,99 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
   }
 
   return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
-       {/* Sidebar */}
-       <div className="w-64 bg-slate-900 text-white flex flex-col shrink-0 z-20 shadow-xl">
-          <div className="p-6 border-b border-slate-800">
+    <div className="flex flex-col h-screen bg-slate-100 overflow-hidden font-sans">
+       
+       {/* === TOP NAVIGATION HEADER (Replaces Sidebar) === */}
+       <div className="bg-slate-900 text-white shrink-0 shadow-xl z-30">
+          
+          {/* Row 1: Logo & Utilities */}
+          <div className="flex items-center justify-between p-3 md:p-4 border-b border-slate-800">
              <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-black">A</div>
-                <span className="font-bold text-lg tracking-tight">Admin Hub</span>
+                <span className="font-bold text-lg tracking-tight hidden md:inline">Admin Hub</span>
+                <span className="font-bold text-lg tracking-tight md:hidden">Hub</span>
+             </div>
+             
+             <div className="flex items-center gap-3">
+                 <button onClick={() => setShowSetup(true)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors" title="Setup Guide">
+                     <HelpCircle size={18} />
+                 </button>
+                 <button onClick={onExit} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2">
+                     <LogOut size={18} />
+                     <span className="hidden md:inline text-xs font-bold uppercase">Exit</span>
+                 </button>
              </div>
           </div>
-          <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-             <button onClick={() => { setActiveView('dashboard'); setActiveBrandId(null); setActiveCategoryId(null); }} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeView === 'dashboard' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
-                <LayoutTemplate size={18} /> <span className="font-bold text-sm">Dashboard</span>
-             </button>
-             
-             <button onClick={() => { setActiveView('screensaver'); setActiveBrandId(null); }} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeView === 'screensaver' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}>
-                <PlayCircle size={18} /> <span className="font-bold text-sm">Screensaver</span>
-             </button>
 
-             <div className="pt-4 pb-2 px-3 text-[10px] font-black uppercase text-slate-500 tracking-wider">Inventory</div>
-             {storeData?.brands.map(brand => (
-                 <button key={brand.id} onClick={() => { setActiveView('inventory'); setActiveBrandId(brand.id); setActiveCategoryId(null); }} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeView === 'inventory' && activeBrandId === brand.id ? 'bg-slate-800 text-white border border-slate-700' : 'text-slate-400 hover:bg-slate-800'}`}>
-                    <Box size={18} /> <span className="font-bold text-sm truncate">{brand.name}</span>
-                 </button>
-             ))}
-             <button onClick={() => {
-                 const newBrand: Brand = { id: generateId('b'), name: 'New Brand', categories: [] };
-                 onUpdateData({ ...storeData!, brands: [...(storeData?.brands || []), newBrand] });
-             }} className="w-full flex items-center gap-3 p-3 rounded-xl text-slate-500 hover:bg-slate-800 border-2 border-dashed border-slate-800 hover:border-slate-700 transition-all">
-                <Plus size={18} /> <span className="font-bold text-sm">Add Brand</span>
+          {/* Row 2: Main Navigation Tabs */}
+          <div className="flex overflow-x-auto">
+             <button 
+               onClick={() => { setActiveView('dashboard'); setActiveBrandId(null); setActiveCategoryId(null); }} 
+               className={`flex-1 min-w-[100px] p-4 text-xs font-black uppercase tracking-widest text-center transition-colors border-b-4 ${activeView === 'dashboard' ? 'border-blue-500 bg-slate-800 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+             >
+                Dashboard
              </button>
-          </nav>
-          <div className="p-4 border-t border-slate-800 bg-slate-900">
-             <button onClick={() => setShowSetup(true)} className="w-full flex items-center gap-3 p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all mb-2">
-                 <HelpCircle size={18} /> <span className="font-bold text-sm">Setup Guide</span>
+             <button 
+               onClick={() => { setActiveView('inventory'); if(!activeBrandId && storeData?.brands.length > 0) setActiveBrandId(storeData.brands[0].id); }} 
+               className={`flex-1 min-w-[100px] p-4 text-xs font-black uppercase tracking-widest text-center transition-colors border-b-4 ${activeView === 'inventory' ? 'border-blue-500 bg-slate-800 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+             >
+                Inventory
              </button>
-             <button onClick={onExit} className="w-full flex items-center gap-3 p-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all">
-                 <LogOut size={18} /> <span className="font-bold text-sm">Exit Hub</span>
+             <button 
+               onClick={() => { setActiveView('screensaver'); setActiveBrandId(null); }} 
+               className={`flex-1 min-w-[100px] p-4 text-xs font-black uppercase tracking-widest text-center transition-colors border-b-4 ${activeView === 'screensaver' ? 'border-blue-500 bg-slate-800 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+             >
+                Screensaver
              </button>
           </div>
        </div>
 
-       {/* Main View */}
-       <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-100 relative">
-          {/* Top Bar */}
-          <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 z-10">
-             <div className="flex items-center gap-4 text-slate-500">
-                <span className="font-bold text-xs uppercase tracking-wider">Path:</span>
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                   <span className="capitalize">{activeView}</span>
-                   {activeBrand && <><ChevronRight size={14} className="text-slate-400" /> <span>{activeBrand.name}</span></>}
-                   {activeCategory && <><ChevronRight size={14} className="text-slate-400" /> <span>{activeCategory.name}</span></>}
-                </div>
-             </div>
-             <div className="flex items-center gap-4">
-                 <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1.5 rounded-full border border-green-200">
-                    <Wifi size={14} /> <span className="text-xs font-bold uppercase">Online</span>
-                 </div>
+       {/* === SUB NAVIGATION (Contextual) === */}
+       {activeView === 'inventory' && (
+          <div className="bg-white border-b border-slate-200 p-2 overflow-x-auto flex items-center gap-2 shrink-0 z-20 shadow-sm">
+             <div className="px-2 text-[10px] font-black uppercase text-slate-400 shrink-0">Brands:</div>
+             {storeData?.brands.map(brand => (
+                 <button 
+                   key={brand.id} 
+                   onClick={() => { setActiveBrandId(brand.id); setActiveCategoryId(null); }} 
+                   className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${activeBrandId === brand.id ? 'bg-slate-900 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                 >
+                    <Box size={14} /> {brand.name}
+                 </button>
+             ))}
+             <button 
+               onClick={() => {
+                   const newBrand: Brand = { id: generateId('b'), name: 'New Brand', categories: [] };
+                   onUpdateData({ ...storeData!, brands: [...(storeData?.brands || []), newBrand] });
+               }} 
+               className="px-3 py-2 rounded-lg border-2 border-dashed border-slate-300 text-slate-400 hover:border-blue-400 hover:text-blue-500 transition-colors whitespace-nowrap"
+               title="Add Brand"
+             >
+                <Plus size={16} />
+             </button>
+          </div>
+       )}
+
+       {/* Main View Content Area */}
+       <div className="flex-1 overflow-y-auto bg-slate-100 relative p-4 md:p-8">
+          
+          {/* Header Status Bar (Simplified) */}
+          <div className="mb-6 flex items-center justify-between text-slate-400">
+             <div className="flex items-center gap-2 text-xs font-bold uppercase">
+                <span>{activeView}</span>
+                {activeBrand && <><ChevronRight size={12} /> <span>{activeBrand.name}</span></>}
+                {activeCategory && <><ChevronRight size={12} /> <span>{activeCategory.name}</span></>}
              </div>
           </div>
 
-          {/* Content Area */}
-          <div className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-6xl mx-auto">
              {activeView === 'screensaver' ? (
                  <ScreensaverEditor storeData={storeData!} onUpdate={onUpdateData} />
              ) : activeView === 'dashboard' ? (
                 // Dashboard Home
-                <div className="max-w-5xl mx-auto animate-fade-in">
+                <div className="animate-fade-in">
                    <h2 className="text-3xl font-black text-slate-900 mb-8">System Overview</h2>
-                   <div className="grid grid-cols-3 gap-6 mb-8">
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                          <div className="text-slate-400 font-bold text-xs uppercase mb-2">Total Brands</div>
                          <div className="text-4xl font-black text-slate-900">{storeData?.brands.length}</div>
@@ -604,8 +675,8 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                    </div>
                    
                    <h3 className="text-xl font-black text-slate-900 mb-4">Fleet Status</h3>
-                   <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                       <table className="w-full text-left">
+                   <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden overflow-x-auto">
+                       <table className="w-full text-left min-w-[500px]">
                           <thead className="bg-slate-50 border-b border-slate-100">
                              <tr>
                                 <th className="p-4 text-xs font-black uppercase text-slate-500">ID</th>
@@ -631,35 +702,39 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                    </div>
                 </div>
              ) : !activeBrand ? (
-                // Brand Selection (Inventory Root)
-                <div className="animate-fade-in">
-                   <div className="max-w-5xl mx-auto text-center py-20">
-                      <h2 className="text-2xl font-black text-slate-300 mb-4">Select a Brand from the sidebar to manage inventory.</h2>
-                   </div>
+                // No Brand Selected (but in Inventory Tab)
+                <div className="animate-fade-in text-center py-20">
+                   <Box size={48} className="mx-auto text-slate-300 mb-4" />
+                   <h2 className="text-2xl font-black text-slate-400 mb-2">Select a Brand</h2>
+                   <p className="text-slate-500 text-sm">Use the top bar to select or create a brand to manage.</p>
                 </div>
              ) : !activeCategory ? (
-                // Brand View
+                // Brand View (Categories)
                 <div className="animate-fade-in">
-                   <div className="flex items-center justify-between mb-8">
+                   <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
                        <div className="flex items-center gap-4">
                           {activeBrand.logoUrl && <img src={activeBrand.logoUrl} className="w-16 h-16 object-contain bg-white rounded-lg border border-slate-200 p-2" />}
                           <h2 className="text-3xl font-black text-slate-900">{activeBrand.name}</h2>
                        </div>
-                       <div className="flex gap-2">
+                       <div className="flex gap-2 w-full md:w-auto">
                            <button onClick={() => {
                                const newName = prompt("Rename Brand", activeBrand.name);
                                if(newName) {
                                    const updated = storeData!.brands.map(b => b.id === activeBrand.id ? {...b, name: newName} : b);
                                    onUpdateData({...storeData!, brands: updated});
                                }
-                           }} className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"><Edit2 size={16} /></button>
+                           }} className="flex-1 md:flex-none p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 text-xs font-bold uppercase text-slate-600">
+                               <Edit2 size={16} /> Rename
+                           </button>
                            <button onClick={() => {
                                if(confirm("Delete this brand?")) {
                                    const updated = storeData!.brands.filter(b => b.id !== activeBrand.id);
                                    onUpdateData({...storeData!, brands: updated});
                                    setActiveBrandId(null);
                                }
-                           }} className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={16} /></button>
+                           }} className="flex-1 md:flex-none p-2 bg-white border border-slate-200 rounded-lg hover:bg-red-50 text-red-500 flex items-center justify-center gap-2 text-xs font-bold uppercase">
+                               <Trash2 size={16} /> Delete
+                           </button>
                        </div>
                    </div>
 
@@ -690,10 +765,12 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
              ) : (
                 // Products View
                 <div className="animate-fade-in">
-                   <div className="flex items-center gap-4 mb-8">
-                       <button onClick={() => setActiveCategoryId(null)} className="p-2 rounded-full hover:bg-slate-200 transition-colors"><ArrowLeft size={24} /></button>
+                   <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-8">
+                       <button onClick={() => setActiveCategoryId(null)} className="p-2 rounded-full hover:bg-slate-200 transition-colors flex items-center gap-1 text-slate-500 font-bold text-xs uppercase">
+                           <ArrowLeft size={16} /> Back
+                       </button>
                        <h2 className="text-3xl font-black text-slate-900">{activeCategory.name}</h2>
-                       <button onClick={() => setIsCreatingProduct(true)} className="ml-auto bg-blue-600 text-white px-6 py-3 rounded-xl font-bold uppercase tracking-wider hover:bg-blue-700 shadow-lg flex items-center gap-2">
+                       <button onClick={() => setIsCreatingProduct(true)} className="md:ml-auto w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-xl font-bold uppercase tracking-wider hover:bg-blue-700 shadow-lg flex items-center justify-center gap-2">
                            <Plus size={18} /> New Product
                        </button>
                    </div>
@@ -738,4 +815,3 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
     </div>
   );
 };
-

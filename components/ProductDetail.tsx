@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
+import Flipbook from './Flipbook';
 import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon } from 'lucide-react';
 
 interface ProductDetailProps {
@@ -16,6 +17,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0); 
   const [showEnlargedMedia, setShowEnlargedMedia] = useState(false);
   const [enlargedMediaIndex, setEnlargedMediaIndex] = useState(0);
+  const [showManual, setShowManual] = useState(false);
 
   const allMedia = useMemo(() => {
     const media: { type: 'image' | 'video', url: string }[] = [];
@@ -57,8 +59,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
   };
 
   const openManual = () => {
-      if(product.manualUrl) {
-          // Open PDF in new tab/window
+      // Prioritize the flipbook experience if pages are available
+      if (product.manualImages && product.manualImages.length > 0) {
+          setShowManual(true);
+      } else if(product.manualUrl) {
+          // Fallback to old behavior if only raw PDF URL exists without converted images
           const pdfWindow = window.open("");
           if (pdfWindow) {
               pdfWindow.document.write(`<iframe width='100%' height='100%' src='${product.manualUrl}'></iframe>`);
@@ -187,7 +192,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                                 </span>
                             )}
                         </div>
-                        {product.manualUrl && (
+                        {(product.manualUrl || (product.manualImages && product.manualImages.length > 0)) && (
                             <button onClick={openManual} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors">
                                 <FileIcon size={14} className="text-blue-500" /> User Manual
                             </button>
@@ -337,7 +342,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                               SKU: {product.sku}
                            </span>
                         )}
-                        {product.manualUrl && (
+                        {(product.manualUrl || (product.manualImages && product.manualImages.length > 0)) && (
                             <button onClick={openManual} className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide flex items-center gap-1">
                                 <FileIcon size={12} /> Manual
                             </button>
@@ -495,6 +500,15 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
             )}
           </div>
         </div>
+      )}
+
+      {/* Manual Flipbook Modal */}
+      {showManual && (product.manualImages || product.manualUrl) && (
+          <Flipbook 
+              pages={product.manualImages || []} 
+              onClose={() => setShowManual(false)}
+              catalogueTitle={`${product.name} - User Manual`}
+          />
       )}
     </div>
   );
