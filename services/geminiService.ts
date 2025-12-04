@@ -203,6 +203,168 @@ const DEFAULT_DATA: StoreData = {
                 ]
             }
         ]
+    },
+    // --- NEW MOCK BRANDS FOR TESTING ---
+    {
+        id: "b4",
+        name: "Zenith Watches",
+        logoUrl: "https://cdn-icons-png.flaticon.com/512/2784/2784461.png",
+        categories: [
+            {
+                id: "c5",
+                name: "Chronographs",
+                icon: "Watch",
+                products: [
+                    {
+                        id: "p8",
+                        name: "ChronoMaster T500",
+                        description: "Precision engineering meets timeless elegance.",
+                        specs: { movement: "Automatic", glass: "Sapphire" },
+                        features: ["Water Resistant 100m", "Date Window"],
+                        dimensions: { width: "42mm", height: "12mm", depth: "42mm", weight: "120g" },
+                        imageUrl: "https://images.unsplash.com/photo-1524592094714-0f0654e20314?q=80&w=1000&auto=format&fit=crop"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        id: "b5",
+        name: "Gourmet Chef",
+        logoUrl: "https://cdn-icons-png.flaticon.com/512/1830/1830839.png",
+        categories: [
+            {
+                id: "c6",
+                name: "Kitchen",
+                icon: "Box",
+                products: [
+                    {
+                        id: "p9",
+                        name: "Pro Series Blender",
+                        description: "Blend smoothies, soups, and more in seconds.",
+                        specs: { power: "1200W", capacity: "2L" },
+                        features: ["Ice Crush Mode", "Self Cleaning"],
+                        dimensions: { width: "20cm", height: "45cm", depth: "20cm", weight: "3kg" },
+                        imageUrl: "https://images.unsplash.com/photo-1570222094114-28a9d88a27e6?q=80&w=1000&auto=format&fit=crop"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        id: "b6",
+        name: "Velocity Cycle",
+        logoUrl: "https://cdn-icons-png.flaticon.com/512/2972/2972185.png",
+        categories: [
+            {
+                id: "c7",
+                name: "Road Bikes",
+                icon: "Box",
+                products: [
+                    {
+                        id: "p10",
+                        name: "Carbon Aero 500",
+                        description: "Lightweight carbon fiber frame for maximum speed.",
+                        specs: { frame: "Carbon Fiber", gears: "Shimano 21-Speed" },
+                        features: ["Aerodynamic Rims", "Hydraulic Brakes"],
+                        dimensions: { width: "50cm", height: "100cm", depth: "180cm", weight: "8kg" },
+                        imageUrl: "https://images.unsplash.com/photo-1485965120184-e224f7a1db69?q=80&w=1000&auto=format&fit=crop"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        id: "b7",
+        name: "Visionary Lens",
+        logoUrl: "https://cdn-icons-png.flaticon.com/512/685/685655.png",
+        categories: [
+            {
+                id: "c8",
+                name: "Cameras",
+                icon: "Box",
+                products: [
+                    {
+                        id: "p11",
+                        name: "Alpha DSLR 90D",
+                        description: "Capture the world in stunning 4K detail.",
+                        specs: { sensor: "Full Frame", resolution: "45MP" },
+                        features: ["Wi-Fi Transfer", "Touch Screen"],
+                        dimensions: { width: "14cm", height: "10cm", depth: "8cm", weight: "700g" },
+                        imageUrl: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=1000&auto=format&fit=crop"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        id: "b8",
+        name: "Audio X",
+        logoUrl: "https://cdn-icons-png.flaticon.com/512/3659/3659898.png",
+        categories: [
+            {
+                id: "c9",
+                name: "Headphones",
+                icon: "Headphones",
+                products: [
+                    {
+                        id: "p12",
+                        name: "Studio Pro NC",
+                        description: "Industry-leading noise cancellation.",
+                        specs: { battery: "30 Hours", connectivity: "Bluetooth 5.2" },
+                        features: ["Active Noise Cancel", "Transparency Mode"],
+                        dimensions: { width: "18cm", height: "20cm", depth: "8cm", weight: "250g" },
+                        imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1000&auto=format&fit=crop"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        id: "b9",
+        name: "Solaris Power",
+        logoUrl: "https://cdn-icons-png.flaticon.com/512/1163/1163624.png",
+        categories: [
+            {
+                id: "c10",
+                name: "Smart Home",
+                icon: "Box",
+                products: [
+                    {
+                        id: "p13",
+                        name: "Home Battery Wall",
+                        description: "Store solar energy for use anytime.",
+                        specs: { capacity: "13.5kWh", warranty: "10 Years" },
+                        features: ["App Monitoring", "Backup Protection"],
+                        dimensions: { width: "80cm", height: "120cm", depth: "15cm", weight: "120kg" },
+                        imageUrl: "https://images.unsplash.com/photo-1592833159057-65a284572bfe?q=80&w=1000&auto=format&fit=crop"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        id: "b10",
+        name: "Titan Gaming",
+        logoUrl: "https://cdn-icons-png.flaticon.com/512/686/686589.png",
+        categories: [
+            {
+                id: "c11",
+                name: "Consoles",
+                icon: "Box",
+                products: [
+                    {
+                        id: "p14",
+                        name: "Titan Box Series X",
+                        description: "The most powerful console ever made.",
+                        specs: { gpu: "12 TFLOPS", storage: "1TB SSD" },
+                        features: ["8K Gaming", "Ray Tracing"],
+                        dimensions: { width: "15cm", height: "30cm", depth: "15cm", weight: "4kg" },
+                        imageUrl: "https://images.unsplash.com/photo-1621259182902-88055ebbef0f?q=80&w=1000&auto=format&fit=crop"
+                    }
+                ]
+            }
+        ]
     }
   ]
 };

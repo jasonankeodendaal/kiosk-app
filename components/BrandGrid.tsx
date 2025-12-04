@@ -106,13 +106,26 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
 
 const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, ads, onSelectBrand, onViewGlobalCatalog, onExport, screensaverEnabled, onToggleScreensaver }) => {
   const [showAllBrands, setShowAllBrands] = useState(false);
+  const [displayLimit, setDisplayLimit] = useState(5);
   
+  // Dynamic Responsive Limit: Show 3 on mobile, 5 on desktop
+  useEffect(() => {
+    const handleResize = () => {
+        // Tailwind 'md' is 768px
+        setDisplayLimit(window.innerWidth < 768 ? 3 : 5);
+    };
+
+    handleResize(); // Initial check
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const globalPamphlets = allCatalogs?.filter(c => !c.brandId) || [];
   const mainPamphlet = globalPamphlets[0]; 
 
-  // Limit visible brands to first 5
-  const visibleBrands = brands.slice(0, 5);
-  const hasMoreBrands = brands.length > 5;
+  // Limit visible brands based on screen size
+  const visibleBrands = brands.slice(0, displayLimit);
+  const hasMoreBrands = brands.length > displayLimit;
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
@@ -258,7 +271,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
         {/* Left Column (Brands + Bottom Ads) */}
         <div className="flex-1 flex flex-col gap-8">
             
-            {/* Grid - 4 Columns on Mobile */}
+            {/* Grid - 4 Columns on Mobile (3 Brands + View All) */}
             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-6 gap-2 md:gap-8 w-full">
               {visibleBrands.map((brand) => (
                 <button
@@ -334,7 +347,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
             </div>
             
             <div className="flex-1 overflow-y-auto">
-               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-6">
+               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-8 p-4">
                  {brands.map((brand) => (
                     <button
                       key={brand.id}
@@ -342,24 +355,22 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                           setShowAllBrands(false);
                           onSelectBrand(brand);
                       }}
-                      className="group flex flex-col items-center justify-start gap-3 p-4 bg-white/5 hover:bg-white/10 rounded-xl transition-all duration-300 border border-white/5 hover:border-white/20"
+                      className="group flex items-center justify-center transition-transform duration-300 hover:scale-110"
+                      title={brand.name}
                     >
-                      <div className="relative w-16 h-16 md:w-24 md:h-24 flex items-center justify-center">
+                      <div className="relative w-24 h-24 md:w-32 md:h-32 flex items-center justify-center">
                         {brand.logoUrl ? (
                           <img 
                             src={brand.logoUrl} 
                             alt={brand.name} 
-                            className="w-full h-full object-contain filter grayscale brightness-200 contrast-125 opacity-70 group-hover:grayscale-0 group-hover:brightness-100 group-hover:opacity-100 transition-all duration-300"
+                            className="w-full h-full object-contain filter grayscale brightness-200 contrast-125 opacity-70 group-hover:grayscale-0 group-hover:brightness-100 group-hover:opacity-100 transition-all duration-300 drop-shadow-lg"
                           />
                         ) : (
-                          <div className="w-full h-full rounded-full bg-white/10 text-white/50 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center text-2xl font-black transition-colors duration-300">
+                          <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/10 text-white/50 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center text-2xl font-black transition-colors duration-300">
                             {brand.name.charAt(0)}
                           </div>
                         )}
                       </div>
-                      <span className="text-[10px] md:text-sm font-bold text-slate-400 group-hover:text-white uppercase tracking-wide text-center leading-tight">
-                          {brand.name}
-                      </span>
                     </button>
                   ))}
                </div>
