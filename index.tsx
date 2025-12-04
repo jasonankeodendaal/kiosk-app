@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -42,41 +43,62 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
           justifyContent:'center',
           textAlign: 'center'
         }}>
-          <h1 style={{fontSize: 24, marginBottom: 16, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px'}}>System Malfunction</h1>
-          <p style={{opacity: 0.7, marginBottom: 32}}>The kiosk encountered a critical error during startup.</p>
-          <pre style={{
-            backgroundColor: '#0f172a', 
-            padding: 24, 
-            borderRadius: 12, 
-            maxWidth: '90%', 
-            width: '600px',
-            overflow: 'auto', 
-            color: '#f87171',
-            textAlign: 'left',
-            border: '1px solid #334155',
-            fontFamily: 'monospace',
-            fontSize: '12px'
-          }}>
-            {this.state.error?.toString()}
-          </pre>
-          <button 
-            onClick={() => window.location.reload()} 
-            style={{
-              marginTop: 32, 
-              padding: '16px 32px', 
-              backgroundColor: '#3b82f6', 
-              color: 'white', 
-              border: 'none', 
-              borderRadius: 12, 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              fontSize: '14px',
-              textTransform: 'uppercase',
-              letterSpacing: '1px'
-            }}
-          >
-             Reboot System
-          </button>
+          <h1 style={{fontSize: 24, marginBottom: 16, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px', color: '#f87171'}}>System Malfunction</h1>
+          <p style={{opacity: 0.9, marginBottom: 16, fontSize: '18px'}}>The kiosk encountered a critical data error.</p>
+          
+          <div style={{backgroundColor: '#0f172a', padding: 20, borderRadius: 12, border: '1px solid #334155', maxWidth: '600px', marginBottom: 20, textAlign: 'left'}}>
+              <h3 style={{color: '#60a5fa', fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', fontSize: '12px', letterSpacing: '1px'}}>Diagnosis</h3>
+              <p style={{fontFamily: 'monospace', color: '#cbd5e1', fontSize: '14px', marginBottom: 0}}>
+                 {this.state.error?.toString()}
+              </p>
+          </div>
+
+          <div style={{maxWidth: '600px', textAlign: 'left', lineHeight: '1.6', color: '#94a3b8', fontSize: '14px'}}>
+             <strong>Recommended Fix:</strong><br/>
+             This usually happens when the local data cache is corrupted or empty. 
+             Please try clearing the browser's Local Storage.
+          </div>
+
+          <div style={{display: 'flex', gap: '16px', marginTop: 32}}>
+              <button 
+                onClick={() => {
+                    localStorage.clear();
+                    window.location.reload();
+                }} 
+                style={{
+                  padding: '16px 32px', 
+                  backgroundColor: '#ef4444', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: 12, 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}
+              >
+                 Clear Data & Reboot
+              </button>
+              
+              <button 
+                onClick={() => window.location.reload()} 
+                style={{
+                  padding: '16px 32px', 
+                  backgroundColor: '#3b82f6', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: 12, 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}
+              >
+                 Restart System
+              </button>
+          </div>
         </div>
       );
     }

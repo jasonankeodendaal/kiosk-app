@@ -332,7 +332,19 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
   const handleSetupComplete = async (name: string) => { setLoading(true); await completeKioskSetup(name); setShopName(name); setSetupRequired(false); setLoading(false); };
   const handleRestoreId = (id: string) => { setCustomKioskId(id); setKioskId(id); };
   
-  const allProducts: FlatProduct[] = useMemo(() => { if (!storeData) return []; const flat: FlatProduct[] = []; storeData.brands.forEach(brand => { brand.categories.forEach(category => { category.products.forEach(product => { flat.push({ ...product, brandName: brand.name, categoryName: category.name }); }); }); }); return flat; }, [storeData]);
+  // FIX: Added optional chaining (?) to all map/forEach loops to prevent "Cannot read properties of undefined" crash
+  const allProducts: FlatProduct[] = useMemo(() => { 
+    if (!storeData) return []; 
+    const flat: FlatProduct[] = []; 
+    storeData.brands?.forEach(brand => { 
+      brand.categories?.forEach(category => { 
+        category.products?.forEach(product => { 
+          flat.push({ ...product, brandName: brand.name, categoryName: category.name }); 
+        }); 
+      }); 
+    }); 
+    return flat; 
+  }, [storeData]);
   
   const handleExport = useCallback(() => { if (!allProducts.length) return; const headers = ['ID', 'Brand', 'Category', 'Name', 'Description', 'SKU']; const rows = allProducts.map(p => [ p.id, p.brandName, p.categoryName, p.name, `"${p.description.replace(/"/g, '""')}"`, p.sku || '' ]); const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n'); const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.setAttribute('download', 'kiosk_products_export.csv'); document.body.appendChild(link); link.click(); document.body.removeChild(link); }, [allProducts]);
   

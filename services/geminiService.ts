@@ -64,9 +64,23 @@ const generateStoreData = async (): Promise<StoreData> => {
               .single();
           
           if (data && data.data) {
+              const rawData = data.data;
+              
+              // FIX: Merge with default structure to prevent crash if JSON is partial or empty ({})
+              const mergedData: StoreData = {
+                  ...DEFAULT_DATA,
+                  ...rawData,
+                  // Explicitly ensure arrays exist, even if DB has them as undefined
+                  brands: rawData.brands || [],
+                  fleet: rawData.fleet || [],
+                  ads: rawData.ads || DEFAULT_DATA.ads,
+                  hero: { ...DEFAULT_DATA.hero, ...(rawData.hero || {}) },
+                  catalog: { ...DEFAULT_DATA.catalog, ...(rawData.catalog || {}) }
+              };
+
               // Cache it locally
-              localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(data.data));
-              return data.data as StoreData;
+              localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(mergedData));
+              return mergedData;
           }
       } catch (e) {
           console.warn("Supabase fetch failed, falling back to local", e);
