@@ -1,14 +1,14 @@
 
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Megaphone as MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Megaphone as MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings } from '../types';
 import { resetStoreData } from '../services/geminiService';
+import { uploadFileToStorage } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -96,7 +96,7 @@ const FileUpload = ({
 }: { 
   currentUrl?: string, 
   onUpload: (data: string | string[], fileType?: 'image' | 'video' | 'pdf') => void, 
-  label: string,
+  label: string, 
   accept?: string,
   icon?: React.ReactNode,
   helperText?: string,
@@ -105,50 +105,54 @@ const FileUpload = ({
 }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [localProcessing, setLocalProcessing] = useState(false);
+  const [useStorage, setUseStorage] = useState(true); // Default to trying cloud storage
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files) as File[];
       setLocalProcessing(true);
-      setUploadProgress(0);
+      setUploadProgress(10); // Start
 
       // Determine type from first file
       let fileType: 'image' | 'video' | 'pdf' = 'image';
       if (files[0].type.startsWith('video')) fileType = 'video';
       if (files[0].type === 'application/pdf') fileType = 'pdf';
 
-      const readFile = (file: File): Promise<string> => {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          
-          reader.onprogress = (event) => {
-             if (event.lengthComputable) {
-                 const percent = Math.round((event.loaded / event.total) * 100);
-                 setUploadProgress(percent);
-             }
-          };
+      // 1. Try Supabase Storage Upload First (Efficient)
+      const uploadSingle = async (file: File): Promise<string> => {
+           let url = null;
+           // Only try storage if not disabled and file is valid
+           if (useStorage) {
+               console.log("Attempting Cloud Storage Upload...");
+               url = await uploadFileToStorage(file);
+           }
+           
+           if (url) {
+               console.log("Cloud Upload Success:", url);
+               return url;
+           }
 
-          reader.onloadend = () => {
-             if (typeof reader.result === 'string') resolve(reader.result);
-             else resolve('');
-          };
-          
-          reader.readAsDataURL(file);
-        });
+           // 2. Fallback to Base64 (Legacy/Offline)
+           console.log("Cloud Upload Failed or Skipped. Falling back to Base64.");
+           return new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(file);
+           });
       };
 
       try {
           if (allowMultiple) {
               const results = [];
               for (let i = 0; i < files.length; i++) {
-                  setUploadProgress(Math.round((i / files.length) * 100));
-                  const res = await readFile(files[i]);
+                  setUploadProgress(Math.round(((i + 0.5) / files.length) * 100));
+                  const res = await uploadSingle(files[i]);
                   results.push(res);
               }
               setUploadProgress(100);
               onUpload(results, fileType);
           } else {
-              const result = await readFile(files[0]);
+              const result = await uploadSingle(files[0]);
               setUploadProgress(100);
               onUpload(result, fileType);
           }
@@ -168,7 +172,11 @@ const FileUpload = ({
 
   return (
     <div className="mb-4">
-      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">{label}</label>
+      <div className="flex justify-between items-center mb-2">
+         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">{label}</label>
+         {/* Hidden toggle for advanced debugging if needed, usually always on */}
+      </div>
+      
       <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
         
         {/* Progress Bar Background */}
@@ -186,7 +194,7 @@ const FileUpload = ({
                  <span className="text-[8px] font-bold text-blue-600">{uploadProgress}%</span>
              </div>
            ) : currentUrl && !allowMultiple ? (
-             accept.includes('video') && (currentUrl.startsWith('data:video') || currentUrl.endsWith('.mp4')) ? 
+             accept.includes('video') && (currentUrl.startsWith('data:video') || currentUrl.endsWith('.mp4') || currentUrl.startsWith('http')) ? 
              <Video size={20} className="text-blue-500" /> : 
              accept.includes('pdf') ?
              <FileText size={20} className="text-red-500" /> :
@@ -198,7 +206,7 @@ const FileUpload = ({
         <div className="flex-1 min-w-0">
            <label className={`cursor-pointer inline-flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wide transition-all shadow hover:bg-slate-800 transform hover:-translate-y-0.5 whitespace-nowrap ${isBusy ? 'opacity-50 pointer-events-none' : ''}`}>
               <Upload size={12} />
-              {isBusy ? 'Uploading...' : (allowMultiple ? 'Select Files' : 'Select File')}
+              {isBusy ? (uploadProgress < 100 ? 'Uploading...' : 'Processing...') : (allowMultiple ? 'Select Files' : 'Select File')}
               <input 
                   type="file" 
                   className="hidden" 
@@ -215,14 +223,6 @@ const FileUpload = ({
   );
 };
 
-// ... (Other components remain the same until AdminDashboard export)
-
-// ... [KioskEditorModal, CameraViewerModal, DataManagerModal, HeroEditor, AdsManager, CatalogueManager, InputField, ProductEditor, ScreensaverEditor implementation] ...
-// To save space in this response, I'm assuming the sub-components above are unchanged from previous versions, 
-// as the request only affects the main AdminDashboard component's props and the refresh button.
-// I will just re-export the main component with the fix.
-
-// RE-INCLUDING SUB-COMPONENTS TO ENSURE FILE INTEGRITY IN XML OUTPUT
 const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, onSave: (k: KioskRegistry) => void, onClose: () => void }) => {
     const [data, setData] = useState(kiosk);
 
@@ -493,26 +493,20 @@ const AdsManager = ({ ads, onUpdate }: { ads: AdConfig, onUpdate: (a: AdConfig) 
             </div>
 
             <div className="flex gap-2">
-                <label className="flex items-center gap-1 bg-slate-900 text-white px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-slate-800 transition-colors">
-                    <Plus size={14} /> Add Image
-                    <input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                        if(e.target.files?.[0]) {
-                            const reader = new FileReader();
-                            reader.onload = () => addAd(zoneKey, reader.result as string, 'image');
-                            reader.readAsDataURL(e.target.files[0]);
-                        }
-                    }} />
-                </label>
-                <label className="flex items-center gap-1 bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-slate-200 transition-colors">
-                    <Video size={14} /> Add Video
-                    <input type="file" className="hidden" accept="video/*" onChange={(e) => {
-                        if(e.target.files?.[0]) {
-                            const reader = new FileReader();
-                            reader.onload = () => addAd(zoneKey, reader.result as string, 'video');
-                            reader.readAsDataURL(e.target.files[0]);
-                        }
-                    }} />
-                </label>
+                <div className="flex-1">
+                    <FileUpload 
+                        label="Add Media" 
+                        onUpload={(url, type) => {
+                            if (url && (type === 'image' || type === 'video')) {
+                                addAd(zoneKey, url as string, type);
+                            }
+                        }}
+                        allowMultiple={false}
+                        icon={<Plus size={16} />}
+                        helperText="Image or Video"
+                        accept="image/*,video/*"
+                    />
+                </div>
             </div>
         </div>
     );
@@ -559,6 +553,11 @@ const CatalogueManager = ({ catalogues, onUpdate, mode = 'global', brandId }: { 
 
     const handleUpload = async (file: File) => {
         setIsUploading(true);
+        // First try to upload the raw PDF to storage (so we have a link)
+        const pdfUrl = await uploadFileToStorage(file);
+        
+        // Then convert pages locally for display (since we need them for flipbook)
+        // If we wanted to optimize further, we'd do conversion server-side, but client-side is fine for now
         const reader = new FileReader();
         reader.onload = async () => {
             const rawPdf = reader.result as string;
@@ -569,7 +568,7 @@ const CatalogueManager = ({ catalogues, onUpdate, mode = 'global', brandId }: { 
                 pages: images,
                 year: new Date().getFullYear(),
                 startDate: new Date().toISOString().split('T')[0],
-                pdfUrl: rawPdf,
+                pdfUrl: pdfUrl || undefined, // Use the storage URL if successful
                 brandId: brandId 
             };
             setLocalCatalogues([...localCatalogues, newCat]);
@@ -605,7 +604,8 @@ const CatalogueManager = ({ catalogues, onUpdate, mode = 'global', brandId }: { 
                     </button>
                 </div>
             </div>
-
+            
+            {/* Same grid as before */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
                 {localCatalogues.map(cat => (
                     <div key={cat.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group flex flex-col">
@@ -660,14 +660,13 @@ const CatalogueManager = ({ catalogues, onUpdate, mode = 'global', brandId }: { 
                                     />
                                 </div>
                             )}
-
                             <div className="mt-2 text-[8px] md:text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1 border-t border-slate-100 pt-2">
                                 <Book size={10} /> {cat.pages.length} Pages
                             </div>
                         </div>
                     </div>
                 ))}
-                {localCatalogues.length === 0 && (
+                 {localCatalogues.length === 0 && (
                     <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 rounded-2xl">
                         <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
                         <h3 className="text-slate-400 font-bold uppercase tracking-wider">No {mode === 'brand' ? 'Catalogues' : 'Pamphlets'}</h3>
@@ -679,7 +678,7 @@ const CatalogueManager = ({ catalogues, onUpdate, mode = 'global', brandId }: { 
     );
 };
 
-// ... InputField, ProductEditor, ScreensaverEditor omitted (unchanged) ...
+// ... (Input Field omitted - standard)
 const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false }: any) => (
     <div className={`mb-4 ${half ? 'w-full' : ''}`}>
       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">{label}</label>
@@ -691,6 +690,7 @@ const InputField = ({ label, val, onChange, placeholder, isArea = false, half = 
     </div>
 );
 
+// ... ProductEditor with FileUpload ...
 const ProductEditor = ({ product, onSave, onCancel }: any) => {
   const [formData, setFormData] = useState<Product>(product || {
     id: generateId('p'), name: '', sku: '', description: '', terms: '', imageUrl: '', galleryUrls: [], videoUrl: '', manualUrl: '', manualImages: [], specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' }
@@ -709,6 +709,9 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
       if (Array.isArray(data)) return; 
       setFormData(prev => ({...prev, manualUrl: data}));
       setIsProcessingPdf(true);
+      // We still need the base64 for PDF processing locally unless we move this logic to edge function
+      // For now, if 'data' is a URL (from storage), we need to fetch it to render images.
+      // But convertPdfToImages takes a dataUrl or URL.
       const images = await convertPdfToImages(data);
       setFormData(prev => ({...prev, manualImages: images}));
       setIsProcessingPdf(false);
@@ -764,6 +767,7 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
             )}
             {activeTab === 'specs' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                 {/* Specs Editor Omitted for brevity, unchanged */}
                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
                     <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2"><Monitor size={16} className="text-blue-500" /> Technical Specs</h4>
                     <div className="flex gap-2 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200">
@@ -814,7 +818,7 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
                             label="Product Video (MP4/WebM)" 
                             accept="video/*" 
                             icon={<Video />} 
-                            helperText="MP4/WAV/WebM up to 10MB." 
+                            helperText="MP4/WAV/WebM up to 50MB (Storage)" 
                             currentUrl={formData.videoUrl} 
                             onUpload={(data) => setFormData({...formData, videoUrl: data as string})} 
                         />
@@ -878,6 +882,7 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
   );
 };
 
+// ... ScreensaverEditor omitted (unchanged)
 const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUpdate: (d: StoreData) => void }) => {
   const [localSettings, setLocalSettings] = useState<ScreensaverSettings>(storeData.screensaverSettings || {
       idleTimeout: 60,
@@ -1055,32 +1060,23 @@ const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUp
               <div className="aspect-video bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-4 hover:bg-slate-100 transition-colors p-4">
                    <div className="text-xs font-bold text-slate-400 uppercase">Add Slide</div>
                    <div className="flex gap-2">
-                       <label className="flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-blue-200 transition-colors">
-                           <ImageIcon size={14} /> Image
-                           <input type="file" className="hidden" multiple accept="image/*" onChange={(e) => {
-                               const files = e.target.files;
-                               if(files && files.length > 0) {
-                                   Array.from(files).forEach((file: any) => {
-                                       const reader = new FileReader();
-                                       reader.onload = () => addSlide(reader.result as string, 'image');
-                                       reader.readAsDataURL(file);
-                                   });
-                               }
-                           }} />
-                       </label>
-                       <label className="flex items-center gap-1 bg-purple-100 text-purple-700 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-purple-200 transition-colors">
-                           <Video size={14} /> Video
-                           <input type="file" className="hidden" multiple accept="video/*" onChange={(e) => {
-                               const files = e.target.files;
-                               if(files && files.length > 0) {
-                                    Array.from(files).forEach((file: any) => {
-                                       const reader = new FileReader();
-                                       reader.onload = () => addSlide(reader.result as string, 'video');
-                                       reader.readAsDataURL(file);
-                                    });
-                               }
-                           }} />
-                       </label>
+                       <div className="flex-1">
+                          <FileUpload 
+                            label="" 
+                            currentUrl=""
+                            onUpload={(data, type) => {
+                                if (data) {
+                                    const items = Array.isArray(data) ? data : [data];
+                                    const safeType = type === 'video' ? 'video' : 'image';
+                                    items.forEach(u => addSlide(u, safeType));
+                                }
+                            }}
+                            allowMultiple={true}
+                            icon={<Plus size={16} />}
+                            helperText="Image/Video"
+                            accept="image/*,video/*"
+                          />
+                       </div>
                    </div>
               </div>
           </div>
@@ -1088,8 +1084,8 @@ const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUp
   );
 };
 
-
 export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh?: () => void }) => {
+  // ... (No changes to the main component logic, just ensuring the imports are used)
   const [session, setSession] = useState(false);
   const [activeBrandId, setActiveBrandId] = useState<string | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -1108,7 +1104,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
 
   if (!session) return <Auth setSession={setSession} />;
 
-  // Derived state to find current objects
+  // ... (Helper functions handleSaveProduct, etc. remain the same)
   const activeBrand = storeData?.brands.find(b => b.id === activeBrandId);
   const activeCategory = activeBrand?.categories.find(c => c.id === activeCategoryId);
 
@@ -1148,14 +1144,12 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
       setEditingKiosk(null);
   };
 
-  // Trigger snapshot via Fleet data update (realtime signaling)
   const handleRequestSnapshot = (kiosk: KioskRegistry) => {
       if (!storeData?.fleet) return;
       const newFleet = storeData.fleet.map(k => k.id === kiosk.id ? { ...k, requestSnapshot: true } : k);
       onUpdateData({ ...storeData, fleet: newFleet });
   };
 
-  // Trigger Remote Reboot
   const handleRequestReboot = (kiosk: KioskRegistry) => {
       if (!storeData?.fleet) return;
       if (confirm(`Are you sure you want to REBOOT kiosk ${kiosk.name}?`)) {
@@ -1176,13 +1170,11 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
       return <SetupGuide onClose={() => setShowSetup(false)} />;
   }
 
+  // ... (JSX Return remains the same)
   return (
     <div className="flex flex-col h-screen bg-slate-100 overflow-hidden font-sans">
-       
-       {/* === TOP NAVIGATION HEADER (Replaces Sidebar) === */}
+       {/* ... Header & Tabs ... */}
        <div className="bg-slate-900 text-white shrink-0 shadow-xl z-30">
-          
-          {/* Row 1: Logo & Utilities */}
           <div className="flex items-center justify-between p-3 md:p-4 border-b border-slate-800">
              <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-black">A</div>
@@ -1209,7 +1201,6 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
              </div>
           </div>
 
-          {/* Row 2: Main Navigation Tabs */}
           <div className="flex overflow-x-auto">
              <button 
                onClick={() => { setActiveView('dashboard'); setActiveBrandId(null); setActiveCategoryId(null); }} 
@@ -1238,7 +1229,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
           </div>
        </div>
 
-       {/* === SUB NAVIGATION (Contextual) === */}
+       {/* ... Sub Nav ... */}
        {activeView === 'inventory' && (
           <div className="bg-white border-b border-slate-200 p-2 overflow-x-auto flex items-center gap-2 shrink-0 z-20 shadow-sm">
              <div className="px-2 text-[10px] font-black uppercase text-slate-400 shrink-0">Brands:</div>
@@ -1278,9 +1269,8 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
            </div>
        )}
 
-       {/* Main View Content Area */}
+       {/* ... Main Content ... */}
        <div className="flex-1 overflow-y-auto bg-slate-100 relative p-4 md:p-8">
-          
           <div className="max-w-6xl mx-auto">
              {activeView === 'screensaver' ? (
                  <ScreensaverEditor storeData={storeData!} onUpdate={onUpdateData} />
@@ -1353,7 +1343,6 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                                            <Wifi size={12} /> {k.wifiStrength}%
                                        </div>
                                        <div className="text-[10px] text-slate-400 mt-0.5">IP: {k.ipAddress || '---'}</div>
-                                       {/* Optional connection speed if stored */}
                                    </td>
                                    <td className="p-4 text-right">
                                        <div className="flex justify-end gap-2">
@@ -1390,7 +1379,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                    </div>
                 </div>
              ) : !activeBrand ? (
-                // No Brand Selected (but in Inventory Tab)
+                // No Brand Selected
                 <div className="animate-fade-in text-center py-20">
                    <Box size={48} className="mx-auto text-slate-300 mb-4" />
                    <h2 className="text-2xl font-black text-slate-400 mb-2">Select a Brand</h2>
@@ -1504,7 +1493,6 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                                        <button onClick={() => {
                                            if(confirm("Delete product?")) {
                                                const updatedProds = activeCategory.products.filter(p => p.id !== product.id);
-                                               // Deep update for delete
                                                const updatedBrands = storeData!.brands.map(b => {
                                                    if(b.id !== activeBrand!.id) return b;
                                                    return {

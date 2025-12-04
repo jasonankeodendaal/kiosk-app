@@ -253,3 +253,36 @@ export const sendHeartbeat = async (snapshotBase64?: string) => {
       console.warn("Heartbeat failed", e);
   }
 };
+
+// 8. NEW: Upload File to Supabase Storage Bucket
+export const uploadFileToStorage = async (file: File): Promise<string | null> => {
+    if (!supabase) initSupabase();
+    if (!supabase) return null;
+
+    try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        // Attempt upload to 'kiosk-media' bucket
+        // User must create this bucket in Supabase Dashboard and set to Public
+        const { data, error } = await supabase.storage
+            .from('kiosk-media')
+            .upload(filePath, file);
+
+        if (error) {
+            console.warn("Storage upload failed (Bucket 'kiosk-media' might not exist):", error.message);
+            return null;
+        }
+
+        // Get Public URL
+        const { data: { publicUrl } } = supabase.storage
+            .from('kiosk-media')
+            .getPublicUrl(filePath);
+
+        return publicUrl;
+    } catch (e) {
+        console.error("Unexpected storage error", e);
+        return null;
+    }
+};

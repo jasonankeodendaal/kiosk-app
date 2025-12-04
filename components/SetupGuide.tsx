@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, Server, Copy, Check, ArrowRight, ExternalLink, ShieldCheck, Database, Key, Settings, Layers, Smartphone, Globe, Cpu, Cloud, ToggleRight } from 'lucide-react';
+import { X, Server, Copy, Check, ArrowRight, ExternalLink, ShieldCheck, Database, Key, Settings, Layers, Smartphone, Globe, Cpu, Cloud, ToggleRight, CloudLightning } from 'lucide-react';
 
 interface SetupGuideProps {
   onClose: () => void;
@@ -109,7 +109,7 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
               <div className="md:hidden flex border-b border-slate-200 overflow-x-auto">
                  <button onClick={() => setActiveTab('local')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'local' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500'}`}>1. Local Hub</button>
                  <button onClick={() => setActiveTab('split')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'split' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-slate-500'}`}>2. Split App</button>
-                 <button onClick={() => setActiveTab('vercel')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'vercel' ? 'text-black border-b-2 border-black' : 'text-slate-500'}`}>Vercel</button>
+                 <button onClick={() => setActiveTab('supabase')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'supabase' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500'}`}>Supabase</button>
               </div>
 
               {/* === TAB 1: LOCAL SERVER === */}
@@ -150,7 +150,7 @@ const path = require('path');
 const app = express();
 
 app.use(cors());
-// Increased limit for large video uploads
+// Increased limit for large video uploads (Base64 fallback)
 app.use(express.json({limit: '500mb'}));
 
 // 1. Host the Kiosk App (Frontend)
@@ -182,11 +182,88 @@ app.listen(3000, () => console.log('HUB SERVER ONLINE: Port 3000'));`}
                            </div>
                         </div>
                       </section>
-                      {/* ... rest of the component remains same ... */}
                    </div>
                 </div>
               )}
-              {/* ... Other tabs ... */}
+
+              {/* ... (Tab 2 omitted for brevity) ... */}
+
+              {/* === TAB 4: SUPABASE === */}
+              {activeTab === 'supabase' && (
+                <div className="p-8 animate-fade-in">
+                    <div className="mb-8">
+                       <h2 className="text-3xl font-black text-slate-900 mb-2">Supabase Cloud Config</h2>
+                       <p className="text-slate-600">Use Supabase for database hosting and optimized large file storage.</p>
+                    </div>
+
+                    <div className="space-y-8">
+                        {/* Storage Bucket Setup - NEW */}
+                        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+                             <div className="flex items-center gap-3 mb-4">
+                                 <CloudLightning size={24} className="text-blue-600" />
+                                 <h3 className="text-lg font-black text-blue-900 uppercase">1. Optimize Uploads (Storage Bucket)</h3>
+                             </div>
+                             <p className="text-sm text-slate-700 mb-4">
+                                 To prevent sync errors with large videos/files, enable Supabase Storage:
+                             </p>
+                             <ol className="list-decimal pl-5 space-y-2 text-sm text-slate-800 font-bold">
+                                 <li>Go to <strong>Storage</strong> in your Supabase Dashboard.</li>
+                                 <li>Create a new bucket named: <code className="bg-white px-2 py-1 rounded border border-blue-200 text-blue-700">kiosk-media</code></li>
+                                 <li><strong>Crucial:</strong> Set the bucket to <strong>Public</strong>.</li>
+                                 <li>(Optional) Add a policy to allow inserts/updates for public users if not authenticated, or use service role.</li>
+                             </ol>
+                        </div>
+
+                        <div>
+                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2">2. Database Schema</h3>
+                            <p className="text-sm text-slate-600 mb-4">Run this SQL in your Supabase SQL Editor to create the required tables.</p>
+                            <CodeBlock 
+                                id="supabase-sql"
+                                label="SQL Editor"
+                                code={`-- 1. Store Config Table
+create table public.store_config (
+  id bigint primary key,
+  data jsonb,
+  updated_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- 2. Kiosk Telemetry Table
+create table public.kiosks (
+  id text primary key,
+  name text,
+  status text,
+  last_seen timestamp with time zone,
+  wifi_strength int,
+  ip_address text,
+  version text,
+  location_description text,
+  assigned_zone text,
+  request_snapshot boolean default false,
+  restart_requested boolean default false
+);
+
+-- 3. Initial Data Seed
+insert into public.store_config (id, data) values (1, '{}'::jsonb);
+
+-- 4. Enable Realtime (For Auto-Sync)
+alter publication supabase_realtime add table public.store_config;
+`}
+                            />
+                        </div>
+
+                        <div>
+                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2">3. Environment Variables</h3>
+                            <p className="text-sm text-slate-600 mb-4">Add these to your Vercel project or .env file.</p>
+                            <CodeBlock 
+                                id="supabase-env"
+                                label=".env"
+                                code={`NEXT_PUBLIC_SUPABASE_URL=your_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key`}
+                            />
+                        </div>
+                    </div>
+                </div>
+              )}
            </div>
         </div>
       </div>
