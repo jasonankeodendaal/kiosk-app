@@ -1,13 +1,16 @@
+
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
-import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon } from 'lucide-react';
+import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop } from 'lucide-react';
 
 interface ProductDetailProps {
   product: Product;
   onBack: () => void;
+  screensaverEnabled: boolean;
+  onToggleScreensaver: () => void;
 }
 
-const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
+const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensaverEnabled, onToggleScreensaver }) => {
   const [activeTab, setActiveTab] = useState<'features' | 'specs' | 'dimensions' | 'terms'>('features');
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0); // For the main media carousel
   const [showEnlargedMedia, setShowEnlargedMedia] = useState(false);
@@ -66,12 +69,19 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack }) => {
         {/* Left Column: Media - Adjusted Width for Mobile (35%) vs Desktop (40-50%) */}
         <div className="w-[35%] lg:w-2/5 bg-slate-50/50 flex flex-col border-r border-slate-200 overflow-y-auto relative shrink-0">
           
-          <div className="absolute top-2 left-2 z-20">
+          <div className="absolute top-2 left-2 z-20 flex items-center gap-2">
              <button 
               onClick={onBack}
               className="flex items-center text-slate-600 hover:text-slate-900 font-bold transition-colors uppercase text-[9px] lg:text-[10px] tracking-widest bg-white/90 backdrop-blur-md px-2 py-1 lg:px-3 lg:py-1.5 rounded-full border border-slate-200 shadow-sm"
             >
               <ChevronLeft size={12} className="mr-0.5" /> Back
+            </button>
+            <button 
+                onClick={onToggleScreensaver}
+                className={`flex items-center justify-center p-1 rounded-full border shadow-sm ${screensaverEnabled ? 'bg-green-100 text-green-600 border-green-200' : 'bg-white text-slate-400 border-slate-200'}`}
+                title="Toggle Screensaver"
+            >
+                {screensaverEnabled ? <MonitorPlay size={12} /> : <MonitorStop size={12} />}
             </button>
           </div>
 

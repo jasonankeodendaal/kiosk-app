@@ -51,16 +51,6 @@ export const initSupabase = () => {
   return false;
 };
 
-export const checkSupabaseConnection = async (): Promise<boolean> => {
-    if (!supabase) return false;
-    try {
-        const { error } = await supabase.from('kiosks').select('id').limit(1);
-        return !error;
-    } catch (e) {
-        return false;
-    }
-};
-
 const STORAGE_KEY_ID = 'kiosk_pro_device_id';
 const STORAGE_KEY_NAME = 'kiosk_pro_shop_name';
 

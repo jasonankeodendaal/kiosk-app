@@ -1,17 +1,19 @@
 
 import React, { useEffect, useState } from 'react';
-import { Brand, Catalogue, HeroConfig, AdConfig, AdItem } from '../types'; // Import Catalogue
-import { Download, BookOpen, Globe, ChevronRight } from 'lucide-react';
+import { Brand, Catalogue, HeroConfig, AdConfig, AdItem } from '../types';
+import { BookOpen, Globe, ChevronRight, MonitorPlay, MonitorStop } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 
 interface BrandGridProps {
   brands: Brand[];
   heroConfig?: HeroConfig;
-  globalCatalog?: Catalogue; // Changed from 'catalog' to 'globalCatalog' with new type
+  globalCatalog?: Catalogue; 
   ads?: AdConfig;
   onSelectBrand: (brand: Brand) => void;
-  onViewGlobalCatalog: (pages: string[]) => void; // New prop for global catalog view
+  onViewGlobalCatalog: (pages: string[]) => void;
   onExport: () => void; 
+  screensaverEnabled: boolean;
+  onToggleScreensaver: () => void;
 }
 
 const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) => {
@@ -21,16 +23,14 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
         if (!items || items.length <= 1) return;
         const interval = setInterval(() => {
             setCurrentIndex((prev) => (prev + 1) % items.length);
-        }, 6000); // 6 Seconds Rotation
+        }, 6000);
         return () => clearInterval(interval);
     }, [items]);
 
     if (!items || items.length === 0) return (
-       // Empty placeholder that maintains layout for the "red box" requirement, but transparent if empty in production
        <div className={`relative overflow-hidden rounded-xl border border-slate-200/50 bg-slate-50/50 ${className}`}></div>
     );
     
-    // Ensure index is valid
     const index = currentIndex % items.length;
     const item = items[index];
 
@@ -46,7 +46,6 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
                 )}
             </div>
 
-            {/* Dots for carousel */}
             {items.length > 1 && (
                 <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1 z-10">
                     {items.map((_, idx) => (
@@ -61,241 +60,181 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
     );
 };
 
-// CatalogStrip now receives a single Catalog
-const CatalogStrip = ({ pages, onView }: { pages?: string[], onView: () => void }) => {
-  if (!pages || pages.length === 0) return null;
+const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, globalCatalog, ads, onSelectBrand, onViewGlobalCatalog, onExport, screensaverEnabled, onToggleScreensaver }) => {
   
-  // Use horizontal scroll with snap for touch-friendly "swipe" gestures
-  return (
-    <div className="w-full bg-slate-100 border-b border-slate-200 relative h-36 flex items-center group touch-pan-x">
-       <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-slate-100 to-transparent z-10 pointer-events-none"></div>
-       <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-slate-100 to-transparent z-10 pointer-events-none"></div>
-       
-       <div className="flex gap-4 px-6 overflow-x-auto w-full h-full items-center no-scrollbar snap-x snap-mandatory py-4">
-          <div className="shrink-0 snap-center flex flex-col justify-center items-start pr-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Catalog</span>
-              <div className="flex items-center gap-1 text-slate-900 font-bold text-xs uppercase whitespace-nowrap">
-                 <BookOpen size={14} className="text-blue-600" />
-                 Preview
-              </div>
-          </div>
-
-          {pages.map((page, idx) => (
-             <button 
-                key={idx} 
-                onClick={onView} 
-                className="h-28 aspect-[2/3] bg-white shadow-sm hover:shadow-md rounded-lg border border-slate-200 shrink-0 transition-transform transform active:scale-95 overflow-hidden relative snap-center"
-             >
-                <img src={page} className="w-full h-full object-cover" alt={`Page ${idx + 1}`} />
-                <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[8px] font-bold px-1 rounded backdrop-blur-sm">
-                    {idx + 1}
-                </div>
-             </button>
-          ))}
-          
-          <button 
-            onClick={onView}
-            className="h-28 aspect-[2/3] bg-white rounded-lg border-2 border-dashed border-slate-300 shrink-0 flex flex-col items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors gap-2 snap-center group/btn"
-          >
-             <div className="w-8 h-8 rounded-full bg-slate-100 group-hover/btn:bg-white flex items-center justify-center shadow-sm transition-colors">
-                <ChevronRight size={16} />
-             </div>
-             <span className="text-[9px] font-bold uppercase tracking-widest">Open</span>
-          </button>
-       </div>
-       
-       <style>{`
-         .no-scrollbar::-webkit-scrollbar {
-           display: none;
-         }
-         .no-scrollbar {
-           -ms-overflow-style: none;
-           scrollbar-width: none;
-         }
-       `}</style>
-    </div>
-  )
-}
-
-const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, globalCatalog, ads, onSelectBrand, onViewGlobalCatalog, onExport }) => {
-  
-  const handleDownloadPdf = async () => {
-    if (globalCatalog?.pdfUrl) {
-        // If an original PDF exists, download it
-        const link = document.createElement('a');
-        link.href = globalCatalog.pdfUrl;
-        link.download = `${globalCatalog.title || 'store_catalog'}.pdf`; // Use catalog title if available
-        link.click();
-    } else if (globalCatalog?.pages && globalCatalog.pages.length > 0) {
-        // If only images exist (Multi-Image Upload), generate a PDF using jsPDF
-        try {
-            const doc = new jsPDF();
-            for (let i = 0; i < globalCatalog.pages.length; i++) {
-                if (i > 0) doc.addPage();
-                
-                const imgData = globalCatalog.pages[i];
-                // Get image dimensions to fit page
-                const img = new Image();
-                img.src = imgData;
-                await new Promise((resolve) => { img.onload = resolve; });
-                
-                const pageWidth = doc.internal.pageSize.getWidth();
-                const pageHeight = doc.internal.pageSize.getHeight();
-                
-                // Calculate scale to fit
-                const widthRatio = pageWidth / img.width;
-                const heightRatio = pageHeight / img.height;
-                const ratio = Math.min(widthRatio, heightRatio);
-                
-                const w = img.width * ratio;
-                const h = img.height * ratio;
-                
-                // Keep default margin 0 to full bleed or centered
-                // Center the image
-                const x = (pageWidth - w) / 2;
-                const y = (pageHeight - h) / 2;
-                
-                doc.addImage(imgData, 'JPEG', x, y, w, h);
-            }
-            doc.save(`${globalCatalog.title || 'store_catalog'}.pdf`); // Use catalog title
-        } catch (e) {
-            console.error("Failed to generate PDF", e);
-            alert("Could not generate PDF from images.");
-        }
-    }
-  };
-
   return (
     <div className="flex flex-col h-full bg-slate-50 overflow-y-auto animate-fade-in">
       
       {/* Hero Section */}
-      <div className="bg-slate-900 text-white p-6 md:p-8 shrink-0 relative overflow-hidden min-h-[400px] flex flex-col justify-end">
+      <div className="bg-slate-900 text-white relative overflow-hidden shrink-0 min-h-[50vh] flex flex-col">
         
         {/* Dynamic Background Image */}
-        {heroConfig?.backgroundImageUrl && (
+        {heroConfig?.backgroundImageUrl ? (
             <div className="absolute inset-0 z-0">
-                <img src={heroConfig.backgroundImageUrl} alt="" className="w-full h-full object-cover opacity-50 blur-sm scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent"></div>
-                <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-transparent to-transparent"></div>
+                <img src={heroConfig.backgroundImageUrl} alt="" className="w-full h-full object-cover opacity-40 blur-sm scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-slate-900/30"></div>
             </div>
+        ) : (
+             <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-900 to-slate-800"></div>
         )}
 
-        {/* Abstract shapes (Fallback if no image or blended) */}
-        {!heroConfig?.backgroundImageUrl && (
-            <>
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/30 rounded-full blur-[100px] -mr-32 -mt-32"></div>
-                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-yellow-400/10 rounded-full blur-[80px] -ml-20 -mb-20"></div>
-            </>
-        )}
-        
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-end gap-6 pt-6">
-          <div className="w-full max-w-2xl">
-            {heroConfig?.logoUrl ? (
-                <img src={heroConfig.logoUrl} alt="Brand Logo" className="h-16 w-auto object-contain mb-6 drop-shadow-md" />
-            ) : (
-                <div className="flex items-center gap-2 mb-4">
-                   <span className="bg-yellow-400 text-slate-900 text-[10px] font-extrabold px-2 py-1 rounded uppercase tracking-wider">Showcase</span>
-                </div>
-            )}
+        {/* Screensaver Toggle (Top Left) */}
+        <div className="absolute top-4 left-4 z-50">
+           <button 
+             onClick={onToggleScreensaver}
+             className={`flex items-center justify-center p-2 rounded-full border transition-all ${screensaverEnabled ? 'bg-green-500/20 text-green-400 border-green-500/50 hover:bg-green-500 hover:text-white' : 'bg-white/10 text-slate-400 border-white/20 hover:bg-white/20 hover:text-white'}`}
+             title={screensaverEnabled ? "Auto-Play On" : "Auto-Play Off"}
+           >
+              {screensaverEnabled ? <MonitorPlay size={20} /> : <MonitorStop size={20} />}
+           </button>
+        </div>
+
+        {/* Hero Content Grid */}
+        <div className="relative z-10 flex-1 flex flex-col md:flex-row items-center justify-between p-6 md:p-12 gap-8 max-w-7xl mx-auto w-full">
             
-            <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-4 text-white leading-tight">
-               {heroConfig?.title || "Our Partners"}
-            </h1>
-            <p className="text-slate-300 text-xl font-light max-w-lg mb-8">
-               {heroConfig?.subtitle || "Select a brand to explore."}
-            </p>
-
-            {/* Catalog Actions & Website Button */}
-            <div className="flex flex-wrap items-center gap-4">
-                {/* ALWAYS SHOW CATALOG BUTTON if pages exist */}
-                {globalCatalog && globalCatalog.pages && globalCatalog.pages.length > 0 && (
-                    <button 
-                        onClick={() => onViewGlobalCatalog(globalCatalog.pages)}
-                        className="flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold uppercase tracking-wider text-sm shadow-xl shadow-blue-600/30 transition-all hover:-translate-y-1 animate-pulse-slow ring-4 ring-blue-600/20"
-                    >
-                        <BookOpen size={20} /> View Latest Catalog
-                    </button>
+            {/* Left: Text Content */}
+            <div className="flex-1 text-center md:text-left space-y-6 max-w-2xl">
+                {heroConfig?.logoUrl && (
+                    <img src={heroConfig.logoUrl} alt="Logo" className="h-16 md:h-20 object-contain mb-4 mx-auto md:mx-0 drop-shadow-md" />
                 )}
                 
-                {/* Download PDF / View Website Buttons */}
-                <div className="flex items-center gap-3">
+                <div>
+                   <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-tight mb-2">
+                      {heroConfig?.title || "Welcome to Kiosk Pro"}
+                   </h1>
+                   <div className="h-1.5 w-24 bg-blue-500 rounded-full mx-auto md:mx-0 mb-4"></div>
+                   <p className="text-xl text-slate-300 font-light leading-relaxed">
+                      {heroConfig?.subtitle || "Explore our premium collection of brands and products."}
+                   </p>
+                </div>
+
+                <div className="flex flex-wrap gap-4 justify-center md:justify-start pt-4">
                      {globalCatalog && globalCatalog.pages && globalCatalog.pages.length > 0 && (
-                         <button 
-                            onClick={handleDownloadPdf}
-                            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-4 rounded-xl font-bold uppercase tracking-wider text-sm backdrop-blur-sm border border-white/20 transition-all"
+                        <button 
+                            onClick={() => onViewGlobalCatalog(globalCatalog.pages)}
+                            className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-bold uppercase tracking-widest shadow-lg hover:-translate-y-1 transition-all flex items-center gap-2"
                         >
-                            <Download size={18} /> PDF
+                            <BookOpen size={20} /> Open Main Pamphlet
                         </button>
                      )}
-
                      {heroConfig?.websiteUrl && (
                          <a 
                             href={heroConfig.websiteUrl}
-                            target="_blank"
+                            target="_blank" 
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 bg-white text-slate-900 px-6 py-4 rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg transition-all hover:-translate-y-0.5 hover:bg-slate-100"
-                        >
-                            <Globe size={18} /> Website
-                        </a>
-                    )}
+                            className="bg-white/10 hover:bg-white/20 text-white px-8 py-3 rounded-xl font-bold uppercase tracking-widest backdrop-blur-sm border border-white/20 hover:-translate-y-1 transition-all flex items-center gap-2"
+                         >
+                            <Globe size={20} /> Website
+                         </a>
+                     )}
                 </div>
             </div>
-          </div>
+
+            {/* Right: Floating 3D Pamphlet (Global Catalog) */}
+            {globalCatalog && globalCatalog.pages && globalCatalog.pages.length > 0 && (
+                <div className="perspective-1000 hidden md:block">
+                    <div 
+                        className="relative w-[280px] aspect-[2/3] cursor-pointer animate-float"
+                        onClick={() => onViewGlobalCatalog(globalCatalog.pages)}
+                    >
+                        {/* Book Body */}
+                        <div className="book-container absolute inset-0 bg-white rounded-r-lg shadow-2xl">
+                             <img 
+                                src={globalCatalog.pages[0]} 
+                                className="w-full h-full object-cover rounded-r-lg book-cover border-l-4 border-slate-200"
+                                alt="Pamphlet Cover"
+                             />
+                             {/* Spine effect */}
+                             <div className="absolute top-0 bottom-0 left-0 w-1 bg-gradient-to-r from-slate-300 to-slate-100"></div>
+                             
+                             {/* Label */}
+                             <div className="absolute bottom-4 left-0 right-0 text-center bg-black/60 backdrop-blur-md text-white py-2">
+                                <span className="text-xs font-black uppercase tracking-widest">Main Showcase</span>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
+
+        {/* Bottom Strip: Pamphlet Thumbnails */}
+        {globalCatalog && globalCatalog.pages && globalCatalog.pages.length > 0 && (
+            <div className="relative z-20 bg-black/20 backdrop-blur-md border-t border-white/10 p-4">
+                 <div className="max-w-7xl mx-auto flex gap-4 overflow-x-auto no-scrollbar items-center py-2">
+                     <span className="text-white/50 text-[10px] font-black uppercase tracking-widest rotate-180 py-2 vertical-rl hidden md:block">
+                         Inside the Pamphlet
+                     </span>
+                     {globalCatalog.pages.slice(0, 6).map((page, idx) => (
+                         <button 
+                             key={idx} 
+                             onClick={() => onViewGlobalCatalog(globalCatalog.pages)}
+                             className="h-20 aspect-[2/3] rounded-md overflow-hidden border border-white/20 hover:border-blue-400 hover:scale-110 transition-all shadow-lg shrink-0"
+                         >
+                             <img src={page} className="w-full h-full object-cover" alt={`Page ${idx+1}`} />
+                         </button>
+                     ))}
+                     <button 
+                         onClick={() => onViewGlobalCatalog(globalCatalog.pages)}
+                         className="h-20 aspect-[2/3] rounded-md border-2 border-dashed border-white/20 flex items-center justify-center text-white/50 hover:text-white hover:border-white transition-all shrink-0"
+                     >
+                         <ChevronRight size={20} />
+                     </button>
+                 </div>
+            </div>
+        )}
       </div>
 
-      {/* Catalog Teaser Strip (Swiper) */}
-      {globalCatalog && globalCatalog.pages && globalCatalog.pages.length > 0 && (
-          <CatalogStrip pages={globalCatalog.pages} onView={() => onViewGlobalCatalog(globalCatalog.pages)} />
-      )}
-
       {/* Main Content Area */}
-      <div className="flex-1 p-4 pt-6 max-w-7xl mx-auto w-full flex flex-col lg:flex-row gap-6">
+      <div className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full flex flex-col lg:flex-row gap-6">
         
         {/* Left Column (Brands + Bottom Ads) */}
-        <div className="flex-1 flex flex-col gap-6">
+        <div className="flex-1 flex flex-col gap-8">
             
-            {/* Grid */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 w-full">
-              {brands.map((brand, idx) => (
+            {/* Grid - Minimum 2 Columns on Mobile */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 w-full">
+              {brands.map((brand) => (
                 <button
                   key={brand.id}
                   onClick={() => onSelectBrand(brand)}
-                  className="group flex flex-col items-center justify-center transition-all duration-300 focus:outline-none"
+                  className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl border border-slate-200 hover:border-blue-400 transition-all duration-300 p-4 flex flex-col items-center justify-center aspect-square overflow-hidden"
                 >
+                  <div className="absolute inset-0 bg-gradient-to-br from-white to-slate-50 group-hover:from-blue-50 group-hover:to-white transition-colors duration-500"></div>
+                  
                   {/* Logo Area */}
-                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 flex items-center justify-center p-2 transition-transform duration-300 group-hover:scale-110">
-                    <div className="absolute inset-0 bg-blue-500/0 group-hover:bg-blue-500/5 rounded-full blur-xl transition-colors duration-300"></div>
+                  <div className="relative z-10 w-2/3 h-2/3 flex items-center justify-center mb-2">
                     {brand.logoUrl ? (
                       <img 
                         src={brand.logoUrl} 
                         alt={brand.name} 
-                        className="w-full h-full object-contain filter grayscale group-hover:grayscale-0 opacity-70 group-hover:opacity-100 transition-all duration-500"
+                        className="w-full h-full object-contain filter grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500 transform group-hover:scale-110"
                       />
                     ) : (
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-200 text-slate-400 group-hover:bg-slate-900 group-hover:text-yellow-400 flex items-center justify-center text-2xl font-black shadow-inner transition-colors duration-300">
+                      <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center text-2xl font-black transition-colors duration-300">
                         {brand.name.charAt(0)}
                       </div>
                     )}
                   </div>
+                  
+                  <span className="relative z-10 font-bold text-slate-500 group-hover:text-blue-900 text-xs uppercase tracking-wider transition-colors">
+                      {brand.name}
+                  </span>
                 </button>
               ))}
             </div>
 
-            {/* Bottom Ads Area - Fixed to 2 columns on mobile to prevent stacking */}
+            {/* Bottom Ads Area - Fixed to 2 columns on mobile */}
             {ads && (
-                <div className="grid grid-cols-2 gap-2 md:gap-4 mt-auto w-full">
-                    {/* Render ads blocks even if empty to maintain layout if requested, though AdUnit handles content */}
-                    <AdUnit items={ads.homeBottomLeft} className="aspect-[2/1] w-full min-h-[80px] md:min-h-[150px]" />
-                    <AdUnit items={ads.homeBottomRight} className="aspect-[2/1] w-full min-h-[80px] md:min-h-[150px]" />
+                <div className="grid grid-cols-2 gap-4 mt-auto w-full">
+                    <AdUnit items={ads.homeBottomLeft} className="aspect-[2/1] w-full" />
+                    <AdUnit items={ads.homeBottomRight} className="aspect-[2/1] w-full" />
                 </div>
             )}
         </div>
 
-        {/* Right Column (Side Ad) - Only show if content exists or layout demands */}
+        {/* Right Column (Side Ad) - Hidden on Mobile */}
         <div className="hidden lg:block w-72 shrink-0">
              {ads && (
-                 <AdUnit items={ads.homeSideVertical} className="h-full w-full min-h-[400px]" />
+                 <AdUnit items={ads.homeSideVertical} className="h-full w-full min-h-[500px]" />
              )}
         </div>
       </div>

@@ -2,8 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Kiosk Pro Showcase</title>
     
     <!-- PWA Defaults (Static for Scanners) -->
@@ -64,6 +66,7 @@
         -webkit-user-select: none;
         overscroll-behavior: none;
         background-color: #f1f5f9;
+        -webkit-tap-highlight-color: transparent;
       }
       /* Hide scrollbar for cleaner kiosk look */
       ::-webkit-scrollbar {
@@ -98,18 +101,35 @@
         box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
       }
 
-      /* Flipbook 3D Classes */
+      /* Flipbook 3D Classes & Hero Books */
       .perspective-1000 {
         perspective: 1000px;
       }
-      .preserve-3d {
+      .book-container {
         transform-style: preserve-3d;
+        transform: rotateY(-25deg) rotateX(5deg);
+        transition: transform 0.5s ease-out;
       }
-      .backface-hidden {
-        backface-visibility: hidden;
+      .book-container:hover {
+        transform: rotateY(0deg) rotateX(0deg) scale(1.05);
       }
-      .rotate-y-180 {
-        transform: rotateY(180deg);
+      .book-cover {
+        box-shadow: 
+           -5px 5px 20px rgba(0,0,0,0.4),
+           inset 2px 0px 5px rgba(255,255,255,0.2);
+      }
+      
+      @keyframes float {
+        0%, 100% { transform: translateY(0) rotateY(-25deg); }
+        50% { transform: translateY(-15px) rotateY(-20deg); }
+      }
+      .animate-float {
+        animation: float 6s ease-in-out infinite;
+      }
+      
+      /* Utilities */
+      .vertical-rl {
+        writing-mode: vertical-rl;
       }
     </style>
   <script type="importmap">
