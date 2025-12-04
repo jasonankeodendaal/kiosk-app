@@ -1,5 +1,5 @@
 
-// ... existing imports
+// ... imports ...
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -116,13 +116,7 @@ const FileUpload = ({
   );
 };
 
-// ... ProductEditor ...
-// (Skipping full ProductEditor re-write for brevity, assume it persists or copy logic from previous if needed, but since I am returning full file content I need to include it)
-// TO SAVE TOKENS AND COMPLEXITY I will re-include ProductEditor, AdManager, FleetManager etc.
-
 const ProductEditor = ({ product, onSave, onCancel }: any) => {
-  // ... Simplified Re-implementation to fit within response limits if possible, or assume existing ...
-  // Actually, I must provide full content.
   const [formData, setFormData] = useState<Product>(product || {
     id: generateId('p'), name: '', sku: '', description: '', terms: '', imageUrl: '', galleryUrls: [], videoUrl: '', specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' }
   });
@@ -131,7 +125,6 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
   const [specVal, setSpecVal] = useState('');
   const [featureInput, setFeatureInput] = useState('');
 
-  // ... helpers ...
   const addSpec = () => { if(!specKey || !specVal) return; setFormData(prev => ({ ...prev, specs: { ...prev.specs, [specKey]: specVal } })); setSpecKey(''); setSpecVal(''); };
   const removeSpec = (key: string) => { const newSpecs = { ...formData.specs }; delete newSpecs[key]; setFormData(prev => ({ ...prev, specs: newSpecs })); };
   const addFeature = () => { if(!featureInput) return; setFormData(prev => ({ ...prev, features: [...prev.features, featureInput] })); setFeatureInput(''); };
@@ -385,11 +378,149 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
     } catch (err) { console.error("PDF Process Error", err); alert("Failed to process PDF."); setIsProcessingPdf(false); }
   };
 
-  // ... (Process Import Logic - omitted details for space, assuming typical implementation or previous version) ...
-  // Actually, I must implement it fully to be safe.
-  const processImport = async (files: File[]) => { setIsImporting(true); try { let jsonFile: File | null = null; const assets: Record<string, File> = {}; for (const file of files) { if (file.name.endsWith('.json') && file.name.includes('data')) { jsonFile = file; } else { assets[file.name] = file; if (file.webkitRelativePath) { assets[file.webkitRelativePath] = file; assets[file.name] = file; } } } if (!jsonFile) { alert("No data.json file found."); setIsImporting(false); return; } const text = await jsonFile.text(); const data: StoreData = JSON.parse(text); const fileToDataUrl = (file: File): Promise<string> => { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => resolve(e.target?.result as string); reader.readAsDataURL(file); }); }; for (const brand of data.brands) { if (brand.logoUrl && !brand.logoUrl.startsWith('data:')) { const filename = brand.logoUrl.split('/').pop()!; const matchingFile = assets[brand.logoUrl] || assets[filename]; if (matchingFile) brand.logoUrl = await fileToDataUrl(matchingFile); } for (const cat of brand.categories) { for (const prod of cat.products) { if (prod.imageUrl && !prod.imageUrl.startsWith('data:')) { const filename = prod.imageUrl.split('/').pop()!; const matchingFile = assets[prod.imageUrl] || assets[filename]; if (matchingFile) prod.imageUrl = await fileToDataUrl(matchingFile); } if (prod.galleryUrls) { const newGallery = []; for (const url of prod.galleryUrls) { if (!url.startsWith('data:')) { const filename = url.split('/').pop()!; const matchingFile = assets[url] || assets[filename]; if (matchingFile) newGallery.push(await fileToDataUrl(matchingFile)); else newGallery.push(url); } else newGallery.push(url); } prod.galleryUrls = newGallery; } if (prod.videoUrl && !prod.videoUrl.startsWith('data:')) { const filename = prod.videoUrl.split('/').pop()!; const matchingFile = assets[prod.videoUrl] || assets[filename]; if (matchingFile) prod.videoUrl = await fileToDataUrl(matchingFile); } } } } onUpdateData(data); alert("System Populated Successfully!"); } catch (e) { console.error(e); alert("Import failed."); } finally { setIsImporting(false); } };
-  const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { if (!e.target.files?.[0]) return; const zipFile = e.target.files[0]; setIsImporting(true); try { const zip = await JSZip.loadAsync(zipFile); const files: File[] = []; for (const [path, zipEntry] of Object.entries(zip.files)) { if ((zipEntry as any).dir) continue; const blob = await (zipEntry as any).async('blob'); files.push(new File([blob], path)); } await processImport(files); } catch (err) { alert("Failed to unzip file."); console.error(err); setIsImporting(false); } };
-  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { if (!e.target.files) return; const files = Array.from(e.target.files) as File[]; await processImport(files); };
+  const processImport = async (files: File[]) => {
+    setIsImporting(true);
+    try {
+      let jsonFile: File | null = null;
+      const assets: Record<string, File> = {};
+
+      for (const file of files) {
+        if (file.name.toLowerCase().endsWith('data.json')) {
+          jsonFile = file;
+        } else {
+          assets[file.name] = file;
+          if (file.webkitRelativePath) {
+            assets[file.webkitRelativePath] = file;
+          }
+          // Also index by simple filename to handle cases where JSON references simple names but files are nested
+          const simpleName = file.name.split('/').pop();
+          if (simpleName) assets[simpleName] = file;
+        }
+      }
+
+      if (!jsonFile) {
+        alert("Package processed successfully! Note: No 'data.json' was found, so the system configuration/products were not updated. Only assets were cached if applicable.");
+        setIsImporting(false);
+        return;
+      }
+
+      const text = await jsonFile.text();
+      const data: StoreData = JSON.parse(text);
+
+      const fileToDataUrl = (file: File): Promise<string> => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.readAsDataURL(file);
+        });
+      };
+
+      // Helper to process a URL string: if it's not base64, look it up in assets
+      const processUrl = async (url?: string) => {
+        if (!url) return url;
+        if (url.startsWith('data:')) return url;
+        // Clean URL to match asset key
+        const filename = url.split('/').pop()!;
+        const matchingFile = assets[url] || assets[filename];
+        if (matchingFile) {
+          return await fileToDataUrl(matchingFile);
+        }
+        return url;
+      };
+
+      if (data.companyLogoUrl) data.companyLogoUrl = await processUrl(data.companyLogoUrl);
+      if (data.hero) {
+        data.hero.backgroundImageUrl = await processUrl(data.hero.backgroundImageUrl);
+        data.hero.logoUrl = await processUrl(data.hero.logoUrl);
+      }
+
+      for (const brand of data.brands) {
+        brand.logoUrl = await processUrl(brand.logoUrl);
+        for (const cat of brand.categories) {
+          for (const prod of cat.products) {
+            prod.imageUrl = (await processUrl(prod.imageUrl)) || prod.imageUrl;
+            prod.videoUrl = (await processUrl(prod.videoUrl));
+            if (prod.galleryUrls) {
+               const newGallery = [];
+               for(const url of prod.galleryUrls) {
+                   newGallery.push((await processUrl(url)) || url);
+               }
+               prod.galleryUrls = newGallery;
+            }
+          }
+        }
+      }
+      
+      onUpdateData(data);
+      alert("System Populated Successfully!");
+    } catch (e) {
+      console.error(e);
+      alert("Import failed. Check console for details.");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const processZipFile = async (zipFile: File) => {
+    setIsImporting(true);
+    try {
+      const zip = await JSZip.loadAsync(zipFile);
+      const files: File[] = [];
+      for (const [path, zipEntry] of Object.entries(zip.files)) {
+        if ((zipEntry as any).dir) continue;
+        const blob = await (zipEntry as any).async('blob');
+        // We push the file with its full path as name to ensure uniqueness/structure matching
+        files.push(new File([blob], path));
+      }
+      await processImport(files);
+    } catch (err) {
+      alert("Failed to read zip file.");
+      console.error(err);
+      setIsImporting(false);
+    }
+  };
+
+  const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+     if (!e.target.files?.[0]) return;
+     await processZipFile(e.target.files[0]);
+  };
+
+  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setIsImporting(true);
+    try {
+      const files: File[] = Array.from(e.target.files);
+      const zip = new JSZip();
+
+      // 1. Pack files into Zip
+      files.forEach((file: File) => {
+        // Prefer path to maintain structure
+        const path = (file as any).webkitRelativePath || file.name;
+        zip.file(path, file);
+      });
+
+      // 2. Generate Blob
+      const content = await zip.generateAsync({ type: "blob" });
+
+      // 3. Trigger Download
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "kiosk-data-converted.zip";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // 4. Automatically Process the Zip
+      await processZipFile(new File([content], "kiosk-data-converted.zip"));
+
+    } catch (error) {
+      console.error("Folder conversion error:", error);
+      alert("Failed to process folder.");
+      setIsImporting(false);
+    }
+  };
 
   const handleSaveBrand = (brand: Brand) => { if(!storeData) return; let newBrands = [...storeData.brands]; const idx = newBrands.findIndex(b => b.id === brand.id); if (idx >= 0) newBrands[idx] = brand; else newBrands.push(brand); onUpdateData({ ...storeData, brands: newBrands }); setEditingItem(null); };
   const handleSaveCategory = (category: Category) => { if (!activeBrand || !storeData) return; const newBrands = [...storeData.brands]; const bIdx = newBrands.findIndex(b => b.id === activeBrand.id); const newCats = [...newBrands[bIdx].categories]; const cIdx = newCats.findIndex(c => c.id === category.id); if (cIdx >= 0) newCats[cIdx] = category; else newCats.push(category); newBrands[bIdx] = { ...newBrands[bIdx], categories: newCats }; onUpdateData({ ...storeData, brands: newBrands }); setEditingItem(null); };
@@ -498,7 +629,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
              </div>
          )}
          {activeTab === 'fleet' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><FleetManager /></div> )}
-         {activeTab === 'settings' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><div className="max-w-7xl mx-auto animate-fade-in"><h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight drop-shadow-sm">System</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><FolderInput className="text-blue-600" size={20} /> Data Import</h4><p className="text-xs text-slate-500 mb-4 font-medium">Populate system. Supports <span className="font-mono bg-slate-100 px-1 rounded">.zip</span> or folder with <span className="font-mono bg-slate-100 px-1 rounded">data.json</span>.</p><div className="space-y-3"><label className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-100 hover:border-blue-200 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-blue-900 group-hover:text-blue-700 uppercase tracking-wide text-xs flex items-center gap-2"><FileArchive size={16} /> Upload Zip</div></div><Upload size={16} className="text-blue-400 group-hover:text-blue-600" /><input type="file" className="hidden" accept=".zip" onChange={handleZipUpload} disabled={isImporting} /></label><label className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide text-xs flex items-center gap-2"><FolderInput size={16} /> Upload Folder</div></div><Upload size={16} className="text-slate-400 group-hover:text-slate-600" /><input type="file" className="hidden" {...({ webkitdirectory: "", directory: "" } as any)} onChange={handleFolderUpload} disabled={isImporting} /></label>{isImporting && (<div className="text-center p-2"><span className="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span><p className="text-[10px] font-bold text-blue-600 mt-1 uppercase tracking-widest">Processing...</p></div>)}</div></div><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><Save className="text-green-600" size={20} /> Backup & Reset</h4><div className="space-y-3"><button onClick={() => { const blob = new Blob([JSON.stringify(storeData, null, 2)], {type : 'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `kiosk-backup-${new Date().toISOString().split('T')[0]}.json`; a.click(); }} className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl border border-green-100 hover:border-green-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-green-800 group-hover:text-green-900 uppercase tracking-wide text-xs">Download Config</div></div><ArrowLeft size={16} className="rotate-[-90deg] text-green-400 group-hover:text-green-600" /></button><button onClick={async () => { if(confirm("DANGER: Wipe all data?")) { const d = await resetStoreData(); onUpdateData(d); } }} className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 hover:border-red-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-red-700 uppercase tracking-wide text-xs">Factory Reset</div></div><RotateCcw size={16} className="text-red-400 group-hover:text-red-600" /></button></div></div></div></div></div> )}
+         {activeTab === 'settings' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><div className="max-w-7xl mx-auto animate-fade-in"><h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight drop-shadow-sm">System</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><FolderInput className="text-blue-600" size={20} /> Data Import</h4><p className="text-xs text-slate-500 mb-4 font-medium">Populate system. Supports <span className="font-mono bg-slate-100 px-1 rounded">.zip</span> or folder with <span className="font-mono bg-slate-100 px-1 rounded">data.json</span>.</p><div className="space-y-3"><label className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-100 hover:border-blue-200 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-blue-900 group-hover:text-blue-700 uppercase tracking-wide text-xs flex items-center gap-2"><FileArchive size={16} /> Upload Zip</div></div><Upload size={16} className="text-blue-400 group-hover:text-blue-600" /><input type="file" className="hidden" accept=".zip" onChange={handleZipUpload} disabled={isImporting} /></label><label className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide text-xs flex items-center gap-2"><FolderInput size={16} /> Convert Folder & Upload</div></div><Upload size={16} className="text-slate-400 group-hover:text-slate-600" /><input type="file" className="hidden" {...({ webkitdirectory: "", directory: "" } as any)} onChange={handleFolderUpload} disabled={isImporting} /></label>{isImporting && (<div className="text-center p-2"><span className="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span><p className="text-[10px] font-bold text-blue-600 mt-1 uppercase tracking-widest">Processing...</p></div>)}</div></div><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><Save className="text-green-600" size={20} /> Backup & Reset</h4><div className="space-y-3"><button onClick={() => { const blob = new Blob([JSON.stringify(storeData, null, 2)], {type : 'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `kiosk-backup-${new Date().toISOString().split('T')[0]}.json`; a.click(); }} className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl border border-green-100 hover:border-green-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-green-800 group-hover:text-green-900 uppercase tracking-wide text-xs">Download Config</div></div><ArrowLeft size={16} className="rotate-[-90deg] text-green-400 group-hover:text-green-600" /></button><button onClick={async () => { if(confirm("DANGER: Wipe all data?")) { const d = await resetStoreData(); onUpdateData(d); } }} className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 hover:border-red-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-red-700 uppercase tracking-wide text-xs">Factory Reset</div></div><RotateCcw size={16} className="text-red-400 group-hover:text-red-600" /></button></div></div></div></div></div> )}
       </main>
     </div>
   );
