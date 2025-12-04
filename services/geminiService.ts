@@ -4,17 +4,16 @@ import { supabase, getEnv } from "./kioskService";
 
 const STORAGE_KEY_DATA = 'kiosk_pro_store_data';
 
-// Full Static Default Data (Non-AI)
 const DEFAULT_DATA: StoreData = {
   companyLogoUrl: "",
   hero: {
     title: "Our Partners",
     subtitle: "Select a brand to explore.",
-    backgroundImageUrl: "", // Empty will use default gradient
+    backgroundImageUrl: "", 
     logoUrl: "",
     websiteUrl: ""
   },
-  catalogues: [], // Changed from singular catalog to an empty array for new structure
+  catalogues: [], 
   ads: {
     homeBottomLeft: [],
     homeBottomRight: [],
@@ -26,7 +25,6 @@ const DEFAULT_DATA: StoreData = {
     {
       id: "b1",
       name: "Nexus",
-      logoUrl: "", 
       categories: [
         {
           id: "c1",
@@ -37,8 +35,8 @@ const DEFAULT_DATA: StoreData = {
               id: "p1",
               name: "Nexus Prime X1",
               description: "The ultimate flagship with a bezel-less ceramic display.",
-              specs: { processor: "Octa-Core 3.2GHz", memory: "12GB RAM", screen: "6.8 inch OLED", battery: "5000mAh" },
-              features: ["Ceramic Shield", "Night Sight 4.0", "Wireless Charging"],
+              specs: { processor: "Octa-Core 3.2GHz", memory: "12GB RAM" },
+              features: ["Ceramic Shield", "Night Sight 4.0"],
               dimensions: { width: "75mm", height: "160mm", depth: "8mm", weight: "190g" },
               imageUrl: "https://picsum.photos/seed/nexus1/600/600"
             }
@@ -49,17 +47,14 @@ const DEFAULT_DATA: StoreData = {
   ]
 };
 
-// 1. Fetch Data (Priority: API/Hub -> Supabase -> Local Cache)
-const generateStoreData = async (): Promise<StoreData> => {
-  // Check both standard Vite and Vercel/Next.js environment variables
-  const apiUrl = getEnv('VITE_API_URL', getEnv('NEXT_PUBLIC_API_URL', ''));
+// LOAD: Priority = API/Cloud -> Local Cache
+export const loadStoreData = async (): Promise<StoreData> => {
+  const apiUrl = getEnv('NEXT_PUBLIC_API_URL', getEnv('VITE_API_URL', ''));
 
-  // A. Try API / PC Hub (Strategy A)
-  // Auto-detect: If VITE_API_URL is set, OR if we are running without Supabase config (assume local hub)
-  if (apiUrl || !supabase) {
+  // 1. Try PC Hub / API
+  if (apiUrl) {
       try {
-          const endpoint = apiUrl ? `${apiUrl}/api/config` : '/api/config';
-          const res = await fetch(endpoint);
+          const res = await fetch(`${apiUrl}/api/config`);
           if (res.ok) {
               const remoteData = await res.json();
               if (remoteData && Object.keys(remoteData).length > 0) {
@@ -68,103 +63,65 @@ const generateStoreData = async (): Promise<StoreData> => {
                    return merged;
               }
           }
-      } catch (e) {
-          console.warn("Hub API fetch failed, trying next strategy...", e);
-      }
+      } catch (e) { console.warn("API load failed", e); }
   }
 
-  // B. Try Supabase (Strategy B)
+  // 2. Try Supabase
   if (supabase) {
       try {
-          const { data, error } = await supabase
-              .from('store_config')
-              .select('data')
-              .eq('id', 1)
-              .single();
-          
+          const { data, error } = await supabase.from('store_config').select('data').eq('id', 1).single();
           if (data && data.data) {
-              const rawData = data.data;
-              const mergedData: StoreData = {
-                  ...DEFAULT_DATA,
-                  ...rawData,
-                  brands: rawData.brands || [],
-                  fleet: rawData.fleet || [],
-                  ads: rawData.ads || DEFAULT_DATA.ads,
-                  hero: { ...DEFAULT_DATA.hero, ...(rawData.hero || {}) },
-                  catalogues: rawData.catalogues || [], // Changed to handle array of catalogues
-              };
+              const mergedData = { ...DEFAULT_DATA, ...data.data };
               localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(mergedData));
               return mergedData;
           }
-      } catch (e) {
-          console.warn("Supabase fetch failed", e);
-      }
+      } catch (e) { console.warn("Supabase load failed", e); }
   }
 
-  // C. Fallback to Local Storage (Offline Mode)
+  // 3. Fallback to Cache (For Offline Reading ONLY)
   try {
     const stored = localStorage.getItem(STORAGE_KEY_DATA);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-    localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(DEFAULT_DATA));
-    return DEFAULT_DATA;
-  } catch (e) {
-    console.error("Failed to load local data", e);
-    return DEFAULT_DATA;
-  }
+    if (stored) return JSON.parse(stored);
+  } catch (e) {}
+
+  return DEFAULT_DATA;
 };
 
-// 2. Save Data (Strict Cloud First - Never fallback to local on failure)
-const saveStoreData = async (data: StoreData): Promise<void> => {
+// SAVE: Strict Cloud-First. Throws error on failure. NO local fallback for writes.
+export const saveStoreData = async (data: StoreData): Promise<void> => {
     let saved = false;
-    // Check both standard Vite and Vercel/Next.js environment variables
-    const apiUrl = getEnv('VITE_API_URL', getEnv('NEXT_PUBLIC_API_URL', ''));
+    const apiUrl = getEnv('NEXT_PUBLIC_API_URL', getEnv('VITE_API_URL', ''));
 
-    // A. Try API / PC Hub
-    if (apiUrl || !supabase) {
+    // 1. Try API
+    if (apiUrl) {
         try {
-            const endpoint = apiUrl ? `${apiUrl}/api/update` : '/api/update';
-            const res = await fetch(endpoint, {
+            const res = await fetch(`${apiUrl}/api/update`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
             if (res.ok) saved = true;
-        } catch (e) {
-            console.warn("Hub API save failed", e);
-        }
+        } catch (e) { console.warn("API save failed", e); }
     }
 
-    // B. Try Supabase
+    // 2. Try Supabase
     if (!saved && supabase) {
-        try {
-            const { error } = await supabase
-                .from('store_config')
-                .upsert({ id: 1, data: data });
-            
-            if (error) throw error;
-            saved = true;
-        } catch (e) {
-            console.warn("Supabase save failed", e);
-        }
+        const { error } = await supabase.from('store_config').upsert({ id: 1, data: data });
+        if (!error) saved = true;
+        else console.warn("Supabase save error", error);
     }
 
-    // C. Handle Result
     if (saved) {
-        // Only update local cache if cloud sync succeeded
+        // Only update local cache if cloud accepted the data
         localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(data));
-        console.log("Data synced to Remote successfully");
+        console.log("Cloud sync successful.");
     } else {
-        // Critical Error: Do NOT silently save to local storage if cloud failed.
-        // User requested: "should never upload local" -> imply strict sync requirement.
-        throw new Error("Connection Failed: Could not sync to Server or Database. Changes not saved locally.");
+        // Critical Error: User requested strict cloud sync
+        throw new Error("Cloud Sync Failed. Check internet or API configuration. Data NOT saved.");
     }
 };
 
-const resetStoreData = async (): Promise<StoreData> => {
+export const resetStoreData = async (): Promise<StoreData> => {
     await saveStoreData(DEFAULT_DATA);
     return DEFAULT_DATA;
 };
-
-export { generateStoreData, saveStoreData, resetStoreData };
