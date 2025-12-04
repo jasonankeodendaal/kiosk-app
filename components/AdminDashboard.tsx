@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -215,7 +216,10 @@ const FileUpload = ({
   );
 };
 
-// --- BULK IMPORT COMPONENT ---
+// ... (BulkImporter and other modals unchanged) ...
+
+// ... (KioskEditorModal, CameraViewerModal, DataManagerModal unchanged) ...
+
 const BulkImporter = ({ onImport, onStatus }: { onImport: (data: Partial<StoreData>) => void, onStatus: (msg: string) => void }) => {
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -251,9 +255,6 @@ const BulkImporter = ({ onImport, onStatus }: { onImport: (data: Partial<StoreDa
 
         // 1. Group files by path
         // Expected Path: Brand/Category/Product/file.ext
-        // Note: webkitRelativePath usually includes the root folder selected, so: Root/Brand/Category/Product/file
-        
-        // We'll organize by depth
         const brandsMap: Record<string, Brand> = {};
         
         try {
@@ -263,7 +264,7 @@ const BulkImporter = ({ onImport, onStatus }: { onImport: (data: Partial<StoreDa
             for (const file of files) {
                 const pathParts = file.webkitRelativePath ? file.webkitRelativePath.split('/') : [];
                 // Remove root folder from logic usually
-                // Format: Root/Brand/Category/Product/...
+                // Format: Root/Brand/Category/Product/file
                 if (pathParts.length < 3) continue; // Needs at least Root/Brand/file or Root/Brand/Category/file
 
                 const brandName = pathParts[1];
@@ -284,7 +285,6 @@ const BulkImporter = ({ onImport, onStatus }: { onImport: (data: Partial<StoreDa
                 const categoryName = pathParts[2];
                 // If file in Category folder
                 if (pathParts.length === 4) {
-                    // Category level files (maybe category icon? skipping for now)
                     continue;
                 }
                 
@@ -424,6 +424,7 @@ const BulkImporter = ({ onImport, onStatus }: { onImport: (data: Partial<StoreDa
     );
 };
 
+// ... (KioskEditorModal, CameraViewerModal, DataManagerModal, HeroEditor, AdsManager, CatalogueManager, InputField, ProductEditor, ScreensaverEditor - all remain same) ...
 const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, onSave: (k: KioskRegistry) => void, onClose: () => void }) => {
     const [data, setData] = useState(kiosk);
 
@@ -783,8 +784,6 @@ const AdsManager = ({ ads, onUpdate }: { ads: AdConfig, onUpdate: (a: AdConfig) 
 };
 
 const CatalogueManager = ({ catalogues, onUpdate, mode = 'global', brandId }: { catalogues: Catalogue[], onUpdate: (c: Catalogue[]) => void, mode?: 'global' | 'brand', brandId?: string }) => {
-    // ... (Implementation unchanged from previous request) ...
-    // Placeholder to keep context
     const [localCatalogues, setLocalCatalogues] = useState<Catalogue[]>(catalogues);
     const [hasChanges, setHasChanges] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -862,8 +861,6 @@ const InputField = ({ label, val, onChange, placeholder, isArea = false, half = 
 );
 
 const ProductEditor = ({ product, onSave, onCancel }: any) => {
-    // ... (Implementation unchanged from previous request) ...
-    // ... Kept short for focus on changes ... 
     const [formData, setFormData] = useState<Product>(product || { id: generateId('p'), name: '', sku: '', description: '', terms: '', imageUrl: '', galleryUrls: [], videoUrl: '', manualUrl: '', manualImages: [], specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' } });
     const [activeTab, setActiveTab] = useState<'general' | 'specs' | 'media' | 'terms'>('general');
     const [specKey, setSpecKey] = useState('');
@@ -878,7 +875,6 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
     const handleManualUpload = async (data: string | string[]) => { if (Array.isArray(data)) return; setFormData(prev => ({...prev, manualUrl: data})); setIsProcessingPdf(true); const images = await convertPdfToImages(data); setFormData(prev => ({...prev, manualImages: images})); setIsProcessingPdf(false); };
     const handleGalleryUpload = (data: string | string[]) => { if (Array.isArray(data)) { setFormData(prev => ({...prev, galleryUrls: [...(prev.galleryUrls || []), ...data]})); } else { setFormData(prev => ({...prev, galleryUrls: [...(prev.galleryUrls || []), data]})); } };
 
-    // ... (Render identical to previous, ensuring FileUpload uses allowMultiple for gallery) ...
     return (
         <div className="bg-slate-100 rounded-3xl shadow-2xl border border-slate-300 overflow-hidden flex flex-col h-[calc(100vh-140px)] depth-shadow">
           <div className="bg-white border-b border-slate-200 p-4 flex justify-between items-center shrink-0 shadow-sm relative z-10">
@@ -934,7 +930,6 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
 };
 
 const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUpdate: (d: StoreData) => void }) => {
-    // ... (Implementation unchanged) ...
     const [localSettings, setLocalSettings] = useState<ScreensaverSettings>(storeData.screensaverSettings || { idleTimeout: 60, imageDuration: 8, muteVideos: false, showProductImages: true, showProductVideos: true, showPamphlets: true, showCustomAds: true });
     const [localAds, setLocalAds] = useState<AdItem[]>(storeData.ads?.screensaver || []);
     const [hasChanges, setHasChanges] = useState(false);
@@ -988,7 +983,6 @@ const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUp
 };
 
 export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh?: () => void }) => {
-  // ... (Full Component Render) ...
   const [session, setSession] = useState(false);
   const [activeBrandId, setActiveBrandId] = useState<string | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -1040,7 +1034,10 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
        {activeView === 'inventory' && (
           <div className="bg-white border-b border-slate-200 p-2 overflow-x-auto flex items-center gap-2 shrink-0 z-20 shadow-sm">
              <div className="px-2 text-[10px] font-black uppercase text-slate-400 shrink-0">Brands:</div>
-             {storeData?.brands.map(brand => (<button key={brand.id} onClick={() => { setActiveBrandId(brand.id); setActiveCategoryId(null); }} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${activeBrandId === brand.id ? 'bg-slate-900 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}><Box size={14} /> {brand.name}</button>))}
+             {storeData?.brands
+                .slice()
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map(brand => (<button key={brand.id} onClick={() => { setActiveBrandId(brand.id); setActiveCategoryId(null); }} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${activeBrandId === brand.id ? 'bg-slate-900 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}><Box size={14} /> {brand.name}</button>))}
              <button onClick={() => { const newBrand: Brand = { id: generateId('b'), name: 'New Brand', categories: [] }; onUpdateData({ ...storeData!, brands: [...(storeData?.brands || []), newBrand] }); }} className="px-3 py-2 rounded-lg border-2 border-dashed border-slate-300 text-slate-400 hover:border-blue-400 hover:text-blue-500 transition-colors whitespace-nowrap" title="Add Brand"><Plus size={16} /></button>
           </div>
        )}
@@ -1094,7 +1091,10 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                    </div>
                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8"><h4 className="font-bold text-slate-900 text-xs uppercase tracking-wide mb-4 flex items-center gap-2"><ImageIcon size={14} className="text-blue-500" /> Brand Identity</h4><FileUpload label="Brand Logo (Transparent PNG)" currentUrl={activeBrand.logoUrl} onUpload={(url) => { const updated = storeData!.brands.map(b => b.id === activeBrand.id ? {...b, logoUrl: url as string} : b); onUpdateData({...storeData!, brands: updated}); }} /></div>
                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-                       {activeBrand.categories.map(cat => (<button key={cat.id} onClick={() => setActiveCategoryId(cat.id)} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all text-left group"><div className="flex items-center justify-between mb-4"><span className="bg-blue-50 text-blue-600 p-3 rounded-lg"><Box size={24} /></span><span className="text-2xl font-black text-slate-200 group-hover:text-blue-100 transition-colors">{cat.products.length}</span></div><h3 className="text-xl font-bold text-slate-900 mb-1">{cat.name}</h3><p className="text-xs text-slate-400 font-bold uppercase tracking-wider">View Products</p></button>))}
+                       {activeBrand.categories
+                          .slice()
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map(cat => (<button key={cat.id} onClick={() => setActiveCategoryId(cat.id)} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all text-left group"><div className="flex items-center justify-between mb-4"><span className="bg-blue-50 text-blue-600 p-3 rounded-lg"><Box size={24} /></span><span className="text-2xl font-black text-slate-200 group-hover:text-blue-100 transition-colors">{cat.products.length}</span></div><h3 className="text-xl font-bold text-slate-900 mb-1">{cat.name}</h3><p className="text-xs text-slate-400 font-bold uppercase tracking-wider">View Products</p></button>))}
                        <button onClick={() => { const name = prompt("Category Name (e.g. Smartphones)"); if(name) { const newCat: Category = { id: generateId('c'), name, icon: 'Box', products: [] }; const updated = storeData!.brands.map(b => b.id === activeBrand.id ? {...b, categories: [...b.categories, newCat]} : b); onUpdateData({...storeData!, brands: updated}); } }} className="bg-slate-50 border-2 border-dashed border-slate-200 p-6 rounded-2xl flex flex-col items-center justify-center hover:bg-white hover:border-blue-400 transition-all group cursor-pointer"><Plus size={32} className="text-slate-300 group-hover:text-blue-500 mb-2" /><span className="font-bold text-slate-400 group-hover:text-blue-600">Add Category</span></button>
                    </div>
                    <CatalogueManager catalogues={storeData!.catalogues?.filter(c => c.brandId === activeBrand.id) || []} onUpdate={(updatedBrandCats) => { const otherCats = storeData!.catalogues?.filter(c => c.brandId !== activeBrand.id) || []; onUpdateData({...storeData!, catalogues: [...otherCats, ...updatedBrandCats]}); }} mode="brand" brandId={activeBrand.id} />
@@ -1103,7 +1103,10 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                 <div className="animate-fade-in">
                    <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-8"><button onClick={() => setActiveCategoryId(null)} className="p-2 rounded-full hover:bg-slate-200 transition-colors flex items-center gap-1 text-slate-500 font-bold text-xs uppercase"><ArrowLeft size={16} /> Back</button><h2 className="text-3xl font-black text-slate-900">{activeCategory.name}</h2><button onClick={() => setIsCreatingProduct(true)} className="md:ml-auto w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-xl font-bold uppercase tracking-wider hover:bg-blue-700 shadow-lg flex items-center justify-center gap-2"><Plus size={18} /> New Product</button></div>
                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                       {activeCategory.products.map(product => (<div key={product.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group"><div className="aspect-square bg-slate-50 relative">{product.imageUrl ? <img src={product.imageUrl} className="w-full h-full object-contain p-4" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Box size={32} /></div>}</div><div className="p-4"><h4 className="font-bold text-slate-900 truncate mb-1">{product.name}</h4><p className="text-xs text-slate-500 font-mono mb-4">{product.sku}</p><div className="flex gap-2"><button onClick={() => setEditingProduct(product)} className="flex-1 py-2 bg-slate-100 rounded-lg text-xs font-bold uppercase hover:bg-blue-50 hover:text-blue-600 transition-colors">Edit</button><button onClick={() => { if(confirm("Delete product?")) { const updatedProds = activeCategory.products.filter(p => p.id !== product.id); const updatedBrands = storeData!.brands.map(b => { if(b.id !== activeBrand!.id) return b; return { ...b, categories: b.categories.map(c => c.id === activeCategory.id ? {...c, products: updatedProds} : c) }; }); onUpdateData({...storeData!, brands: updatedBrands}); } }} className="p-2 bg-slate-100 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"><Trash2 size={16} /></button></div></div></div>))}
+                       {activeCategory.products
+                          .slice()
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map(product => (<div key={product.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group"><div className="aspect-square bg-slate-50 relative">{product.imageUrl ? <img src={product.imageUrl} className="w-full h-full object-contain p-4" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Box size={32} /></div>}</div><div className="p-4"><h4 className="font-bold text-slate-900 truncate mb-1">{product.name}</h4><p className="text-xs text-slate-500 font-mono mb-4">{product.sku}</p><div className="flex gap-2"><button onClick={() => setEditingProduct(product)} className="flex-1 py-2 bg-slate-100 rounded-lg text-xs font-bold uppercase hover:bg-blue-50 hover:text-blue-600 transition-colors">Edit</button><button onClick={() => { if(confirm("Delete product?")) { const updatedProds = activeCategory.products.filter(p => p.id !== product.id); const updatedBrands = storeData!.brands.map(b => { if(b.id !== activeBrand!.id) return b; return { ...b, categories: b.categories.map(c => c.id === activeCategory.id ? {...c, products: updatedProds} : c) }; }); onUpdateData({...storeData!, brands: updatedBrands}); } }} className="p-2 bg-slate-100 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"><Trash2 size={16} /></button></div></div></div>))}
                        {activeCategory.products.length === 0 && (<div className="col-span-full py-12 text-center text-slate-400 italic">No products yet. Click "New Product" to add one.</div>)}
                    </div>
                 </div>

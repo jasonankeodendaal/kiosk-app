@@ -1,6 +1,6 @@
 
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Brand, Catalogue, HeroConfig, AdConfig, AdItem } from '../types';
 import { BookOpen, Globe, ChevronRight, MonitorPlay, MonitorStop, X, Grid } from 'lucide-react';
 
@@ -123,9 +123,14 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
   const globalPamphlets = allCatalogs?.filter(c => !c.brandId) || [];
   const mainPamphlet = globalPamphlets[0]; 
 
+  // Sort brands alphabetically
+  const sortedBrands = useMemo(() => {
+      return [...brands].sort((a, b) => a.name.localeCompare(b.name));
+  }, [brands]);
+
   // Limit visible brands based on screen size
-  const visibleBrands = brands.slice(0, displayLimit);
-  const hasMoreBrands = brands.length > displayLimit;
+  const visibleBrands = sortedBrands.slice(0, displayLimit);
+  const hasMoreBrands = sortedBrands.length > displayLimit;
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
@@ -348,7 +353,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
             
             <div className="flex-1 overflow-y-auto">
                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-8 p-4">
-                 {brands.map((brand) => (
+                 {sortedBrands.map((brand) => (
                     <button
                       key={brand.id}
                       onClick={() => {

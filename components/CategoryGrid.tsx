@@ -1,5 +1,6 @@
 
-import React from 'react';
+
+import React, { useMemo } from 'react';
 import { Brand, Category, Catalogue } from '../types';
 import { Smartphone, Laptop, Watch, Headphones, Monitor, Tablet, Box, ChevronLeft, ArrowRight, BookOpen, MonitorPlay, MonitorStop, Calendar } from 'lucide-react';
 
@@ -35,6 +36,11 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSel
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
+
+  // Sort categories alphabetically
+  const sortedCategories = useMemo(() => {
+    return [...brand.categories].sort((a, b) => a.name.localeCompare(b.name));
+  }, [brand.categories]);
 
   return (
     <div className="flex flex-col h-full bg-slate-50 animate-fade-in">
@@ -74,7 +80,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSel
         
         {/* Categories Grid - Smaller on Mobile (4 columns) */}
         <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-6 mb-12">
-          {brand.categories.map((category) => (
+          {sortedCategories.map((category) => (
             <button
               key={category.id}
               onClick={() => onSelectCategory(category)}

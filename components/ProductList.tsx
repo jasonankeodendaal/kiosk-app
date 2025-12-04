@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Category, Product, Brand, Catalogue } from '../types';
 import { ChevronLeft, ArrowRight, MonitorPlay, MonitorStop, Search, X, Tag, Package } from 'lucide-react';
@@ -17,14 +18,18 @@ interface ProductListProps {
 const ProductList: React.FC<ProductListProps> = ({ category, onSelectProduct, onBack, screensaverEnabled, onToggleScreensaver }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Search Logic
+  // Search & Sort Logic
   const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return category.products;
-    const lowerQuery = searchQuery.toLowerCase();
-    return category.products.filter(p => 
-       p.name.toLowerCase().includes(lowerQuery) || 
-       (p.sku && p.sku.toLowerCase().includes(lowerQuery))
-    );
+    let result = category.products;
+    if (searchQuery.trim()) {
+      const lowerQuery = searchQuery.toLowerCase();
+      result = category.products.filter(p => 
+         p.name.toLowerCase().includes(lowerQuery) || 
+         (p.sku && p.sku.toLowerCase().includes(lowerQuery))
+      );
+    }
+    // Sort alphabetically by name
+    return result.sort((a, b) => a.name.localeCompare(b.name));
   }, [category.products, searchQuery]);
 
   return (
