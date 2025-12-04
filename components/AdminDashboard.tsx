@@ -1,9 +1,10 @@
+
 // ... imports ...
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem } from '../types';
 import { resetStoreData } from '../services/geminiService';
@@ -287,7 +288,12 @@ const AdManager = ({ ads, onUpdate }: { ads: AdConfig, onUpdate: (ads: AdConfig)
     );
     return (
         <div className="max-w-6xl mx-auto space-y-8 animate-fade-in pb-12">
-            <div className="mb-8"><h2 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">Ads & Marketing</h2><p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">Manage Promotional Content</p></div>
+            <div className="flex items-center justify-between mb-8">
+               <div><h2 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">Ads & Marketing</h2><p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">Manage Promotional Content</p></div>
+               <div className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-xs font-bold uppercase tracking-wide flex items-center gap-2">
+                  <Check size={14} /> Changes Save Automatically
+               </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="md:col-span-2">
                     <h3 className="text-xl font-black text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-300 pb-2"><LayoutTemplate size={20} className="text-blue-600" /> Home Page Layout</h3>
@@ -366,52 +372,62 @@ const FleetManager = ({ fleet, onUpdateFleet }: { fleet: KioskRegistry[], onUpda
 
       // Initialize WebRTC P2P Connection via PeerJS Public Cloud
       const adminPeerId = 'admin-' + Math.random().toString(36).substr(2, 9);
+      // Create Peer with random admin ID
       const peer = new Peer(adminPeerId, { debug: 1 });
       
       peer.on('open', (id) => {
           console.log('Admin Connected to Signaling Server. ID:', id);
           
-          // Sanitize target ID
+          // Sanitize target ID to match Kiosk logic
           const targetPeerId = `kiosk-pro-${kiosk.id.replace(/[^a-zA-Z0-9-_]/g, '')}`;
+          console.log("Dialing Kiosk:", targetPeerId);
           
-          // Wait a moment for connection stability then call
+          // Delay briefly to ensure connection stability
           setTimeout(() => {
-             // We initiate a call. We send a dummy stream or no stream, expecting a stream back.
-             // PeerJS requires a stream to 'call', but we can send a blank audio track or try receive only.
-             // Simplest is to ask user for permission or just receive.
-             // Current PeerJS implementation usually needs getUserMedia on caller too or just use a data connection to signal start.
-             // However, standard .call() expects a media stream.
-             // Workaround: We use a dummy stream.
+             // In PeerJS, to receive a video stream, we often call the peer.
+             // We initiate a call. We send a dummy audio stream if needed or just request.
+             // Standard practice: Caller sends stream. If we just want to watch, 
+             // we can try to call with a dummy stream or use a data connection to ask Kiosk to call us.
+             // However, for simplicity in this demo, let's assume Admin calls Kiosk.
+             // Kiosk answers and provides its stream.
              
-             // For this demo to be "Real", we need to call.
-             // We will try to get a dummy stream (audio only) to satisfy the protocol, or just receive.
-             const conn = peer.connect(targetPeerId);
-             
-             // Fallback: We need to trigger the kiosk to call US, or we call THEM.
-             // Simplest: Admin calls Kiosk.
-             navigator.mediaDevices.getUserMedia({ video: false, audio: true }).then((stream) => {
-                 const call = peer.call(targetPeerId, stream);
-                 
-                 call.on('stream', (remoteStream) => {
-                     setLoadingCamera(false);
-                     if (videoRef.current) {
-                         videoRef.current.srcObject = remoteStream;
-                     }
-                 });
-                 
-                 call.on('error', (err) => {
-                     console.error("Call error", err);
-                     alert("Could not connect to Kiosk. Ensure Kiosk is online.");
-                     setLoadingCamera(false);
-                 });
-             }).catch(e => {
-                 console.error("Admin needs mic permission to initiate call protocol", e);
-                 // Fallback if admin denies mic: try receive-only if supported by browser (rare in simple peerjs)
-                 alert("Please allow microphone access to initiate the secure handshake.");
-                 setLoadingCamera(false);
-             });
+             // We need a dummy stream to initiate a call (Browser restriction often requires it)
+             navigator.mediaDevices.getUserMedia({ video: false, audio: true })
+               .then((localStream) => {
+                   // Mute local audio tracks so we don't send admin noise
+                   localStream.getTracks().forEach(track => track.enabled = false);
 
-          }, 1000);
+                   const call = peer.call(targetPeerId, localStream);
+                   
+                   call.on('stream', (remoteStream) => {
+                       console.log("Received Remote Stream");
+                       setLoadingCamera(false);
+                       if (videoRef.current) {
+                           videoRef.current.srcObject = remoteStream;
+                       }
+                   });
+                   
+                   call.on('error', (err) => {
+                       console.error("Call error", err);
+                       alert("Connection Error. Ensure Kiosk is Online.");
+                       setLoadingCamera(false);
+                   });
+               })
+               .catch(e => {
+                   console.error("Admin needs mic permission to initiate handshake", e);
+                   alert("Please allow permission to initiate connection.");
+                   setLoadingCamera(false);
+               });
+          }, 1500);
+      });
+      
+      peer.on('error', (err) => {
+          console.warn("Peer Error", err);
+          if (err.type === 'peer-unavailable') {
+              alert("Kiosk Peer Unavailable. Is the device awake?");
+              setLoadingCamera(false);
+              setViewingCamera(null);
+          }
       });
 
       peerRef.current = peer;
@@ -420,13 +436,13 @@ const FleetManager = ({ fleet, onUpdateFleet }: { fleet: KioskRegistry[], onUpda
   const getSignalIcon = (strength: number) => { if (strength > 75) return <Wifi size={16} className="text-green-500" />; if (strength > 40) return <Wifi size={16} className="text-yellow-500" />; if (strength > 0) return <Wifi size={16} className="text-red-500" />; return <WifiOff size={16} className="text-slate-300" />; };
 
   return (
-    <div className="max-w-7xl mx-auto animate-fade-in relative">
+    <div className="max-w-7xl mx-auto animate-fade-in relative pb-20">
        <div className="flex justify-between items-center mb-8">
            <div><h2 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">Fleet Command</h2><p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">Active devices</p></div>
            <button onClick={handleAddNew} className="bg-slate-900 text-white px-4 py-2 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg flex items-center gap-2 hover:bg-slate-800 transition-all"><Plus size={16} /> Add Device</button>
        </div>
        
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
           {fleet.map((kiosk) => (
             <div key={kiosk.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between group hover:border-blue-400 transition-all hover:shadow-xl transform hover:-translate-y-1 h-full relative">
                <div className="flex items-start justify-between mb-4">
@@ -463,6 +479,68 @@ const FleetManager = ({ fleet, onUpdateFleet }: { fleet: KioskRegistry[], onUpda
                </button>
             </div>
           ))}
+       </div>
+       
+       {/* DOCUMENTATION: How It Works */}
+       <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 mt-12">
+            <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
+                <Info size={20} className="text-blue-600" />
+                How Kiosk Setup & Connection Works
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="relative">
+                    <div className="absolute top-0 left-4 bottom-0 w-0.5 bg-slate-200 -z-10"></div>
+                    <div className="flex gap-4 mb-6">
+                        <div className="w-8 h-8 rounded-full bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-500 text-xs shadow-sm">1</div>
+                        <div>
+                            <h4 className="font-bold text-slate-900 text-sm">Initialization</h4>
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                                When a new Kiosk loads for the first time, it generates a unique ID (e.g., LOC-001) in its local storage.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex gap-4">
+                        <div className="w-8 h-8 rounded-full bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-500 text-xs shadow-sm">2</div>
+                        <div>
+                            <h4 className="font-bold text-slate-900 text-sm">Registration</h4>
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                                The user enters a Shop Name. The Kiosk then writes this details to the global <strong>Supabase</strong> database.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="relative">
+                     <div className="flex gap-4 mb-6">
+                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs shadow-md">3</div>
+                        <div>
+                            <h4 className="font-bold text-slate-900 text-sm">The Bridge</h4>
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                                To make the Kiosk appear here in the Admin Hub, the Kiosk app automatically updates the central <code>store_config</code> file with its new ID and Name.
+                            </p>
+                        </div>
+                    </div>
+                     <div className="flex gap-4">
+                        <div className="w-8 h-8 rounded-full bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-500 text-xs shadow-sm">4</div>
+                        <div>
+                            <h4 className="font-bold text-slate-900 text-sm">Sync</h4>
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                                The Admin Hub listens for changes. Once the Kiosk saves, it pops up in this list instantly.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-xs text-slate-600">
+                    <strong className="block text-slate-900 mb-2 uppercase tracking-wide">Troubleshooting</strong>
+                    <ul className="list-disc pl-4 space-y-1">
+                        <li>If a device is not appearing, ensure it has internet access during setup.</li>
+                        <li>Click "Add Device" manually if the auto-sync fails.</li>
+                        <li>Camera access requires the Kiosk to be "Awake" (screensaver can be on, but browser active).</li>
+                    </ul>
+                </div>
+            </div>
        </div>
 
        {/* EDIT MODAL */}
@@ -512,8 +590,8 @@ const FleetManager = ({ fleet, onUpdateFleet }: { fleet: KioskRegistry[], onUpda
                        {loadingCamera ? (
                            <div className="text-center">
                                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                               <p className="text-blue-500 font-bold uppercase tracking-widest text-xs animate-pulse">Establishing Secure Connection...</p>
-                               <p className="text-slate-500 text-[10px] mt-2">Connecting to Peer: kiosk-pro-{viewingCamera.id}</p>
+                               <p className="text-blue-500 font-bold uppercase tracking-widest text-xs animate-pulse">Establishing P2P Connection...</p>
+                               <p className="text-slate-500 text-[10px] mt-2 font-mono">Dialing: kiosk-pro-{viewingCamera.id.replace(/[^a-zA-Z0-9-_]/g, '')}</p>
                            </div>
                        ) : (
                            <div className="w-full h-full relative group">
@@ -529,7 +607,7 @@ const FleetManager = ({ fleet, onUpdateFleet }: { fleet: KioskRegistry[], onUpda
                                {/* HUD Overlay */}
                                <div className="absolute bottom-4 left-4 font-mono text-green-500 text-xs opacity-80">
                                    REC [LIVE] <br/>
-                                   PEERJS: CONNECTED
+                                   PROTOCOL: PEERJS/WEBRTC
                                </div>
                            </div>
                        )}
@@ -559,12 +637,6 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
 
   const activeBrand = storeData?.brands.find(b => b.id === activeBrandId);
   const activeCategory = activeBrand?.categories.find(c => c.id === activeCategoryId);
-
-  const handleExit = () => {
-      // Force a real location change to ensure we leave the /admin route completely
-      // This solves the issue where PWA split builds might try to keep history state
-      window.location.href = '/'; 
-  };
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if(!e.target.files?.[0] || !storeData) return;
@@ -867,7 +939,10 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
                ))}
             </nav>
          </div>
-         <div className="flex items-center gap-2"><button onClick={handleExit} className="text-white/50 hover:text-white hover:underline text-[10px] font-bold uppercase tracking-wider mr-4">Go to Store Mode</button><div className="w-px h-6 bg-slate-700 mx-1"></div><button onClick={() => setSession(false)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 hover:scale-105 border-b-2 border-blue-800 active:border-b-0 active:translate-y-0.5 flex items-center gap-2"><LogOut size={14} /> Logout</button></div>
+         {/* REMOVED "Go to Store Mode" BUTTON - ONLY LOGOUT */}
+         <div className="flex items-center gap-2">
+             <button onClick={() => setSession(false)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 hover:scale-105 border-b-2 border-blue-800 active:border-b-0 active:translate-y-0.5 flex items-center gap-2"><LogOut size={14} /> Logout</button>
+         </div>
       </header>
       <main className="flex-1 overflow-hidden relative bg-slate-200">
          <div className="absolute inset-0 bg-slate-200 pointer-events-none z-0 opacity-50" style={{backgroundImage: 'radial-gradient(circle at 50% 50%, #e2e8f0 1px, transparent 1px)', backgroundSize: '24px 24px'}}></div>
@@ -905,8 +980,13 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
          {activeTab === 'ads' && storeData && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><AdManager ads={storeData.ads || { homeBottomLeft: [], homeBottomRight: [], homeSideVertical: [], screensaver: [] }} onUpdate={(newAds) => onUpdateData({ ...storeData, ads: newAds })} /></div> )}
          {activeTab === 'catalog' && storeData && (
              <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10">
-                 <div className="max-w-5xl mx-auto animate-fade-in space-y-8">
-                     <h2 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">Catalog & Branding</h2>
+                 <div className="max-w-5xl mx-auto animate-fade-in space-y-8 pb-12">
+                     <div className="flex items-center justify-between">
+                        <h2 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">Catalog & Branding</h2>
+                        <button onClick={() => onUpdateData({...storeData})} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95">
+                           <Save size={16} /> <span className="font-bold text-xs uppercase tracking-wider">Save Changes</span>
+                        </button>
+                     </div>
                      
                      <div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow">
                         <h3 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><Globe size={20} className="text-blue-500" /> Global Identity</h3>

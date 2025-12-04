@@ -9,10 +9,10 @@ interface ScreensaverProps {
 
 const ANIMATIONS = [
   'animate-ken-burns',
-  'animate-slow-zoom-out',
-  'animate-pan-left',
-  'animate-pan-right',
-  'animate-pop-in'
+  'animate-zoom-in-jump',
+  'animate-pop-rotate',
+  'animate-fade-drift',
+  'animate-bounce-scale'
 ];
 
 const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
@@ -53,7 +53,7 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
       // Pick a random animation for the next slide
       const nextAnim = ANIMATIONS[Math.floor(Math.random() * ANIMATIONS.length)];
       setCurrentAnimation(nextAnim);
-    }, 6000); // Fast, fun transitions every 6 seconds
+    }, 5000); // 5 seconds per slide for energy
 
     return () => clearInterval(interval);
   }, [playlist.length]);
@@ -69,8 +69,8 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
       onClick={onWake}
       className="fixed inset-0 z-[100] bg-black cursor-pointer overflow-hidden"
     >
-      <div key={currentIndex} className="absolute inset-0 w-full h-full">
-         {/* Full Screen Background Layer */}
+      <div key={currentIndex} className="absolute inset-0 w-full h-full flex items-center justify-center bg-black">
+         {/* Full Screen Layer - Free View (No heavy overlay) */}
          {isAd && content.type === 'video' ? (
              <video 
                src={content.url} 
@@ -81,65 +81,89 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
              <img 
                src={isAd ? content.url : content.imageUrl} 
                alt="Screensaver" 
-               className={`w-full h-full object-cover ${currentAnimation}`}
+               className={`w-full h-full object-cover origin-center ${currentAnimation}`}
              />
          )}
 
-         {/* Optional Subtle Gradient for text readability if product, but mostly clear */}
+         {/* Very subtle text at bottom, not obstructing view */}
          {!isAd && (
-             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end p-12 pb-20">
-                <h1 className="text-6xl md:text-8xl font-black text-white uppercase tracking-tighter drop-shadow-lg transform translate-y-4 opacity-0 animate-slide-up">
+             <div className="absolute bottom-10 right-10 flex flex-col items-end opacity-80 text-shadow-lg animate-fade-in">
+                <h1 className="text-4xl font-black text-white uppercase tracking-tighter drop-shadow-2xl">
                     {content.brandName}
                 </h1>
-                <h2 className="text-4xl md:text-5xl font-bold text-yellow-400 mt-2 transform translate-y-4 opacity-0 animate-slide-up-delay">
+                <h2 className="text-2xl font-bold text-yellow-400 drop-shadow-md">
                     {content.name}
                 </h2>
              </div>
          )}
          
-         {/* Fun overlay elements */}
-         <div className="absolute top-12 right-12 animate-pulse">
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-2 rounded-full font-bold uppercase tracking-widest text-sm shadow-xl">
-               Touch to Explore
+         {/* Floating Call to Action - Bouncing */}
+         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/30 text-white px-8 py-3 rounded-full font-bold uppercase tracking-widest text-lg shadow-2xl animate-pulse-slow opacity-0 animate-appear-delay">
+               Touch to Start
             </div>
          </div>
       </div>
 
       <style>{`
+        /* Ken Burns: Slow pan/zoom */
         @keyframes kenBurns {
-          0% { transform: scale(1); }
-          100% { transform: scale(1.15); }
-        }
-        @keyframes zoomOut {
-          0% { transform: scale(1.15); }
-          100% { transform: scale(1); }
-        }
-        @keyframes panLeft {
-          0% { transform: scale(1.1) translate(0,0); }
-          100% { transform: scale(1.1) translate(-2%, 0); }
-        }
-        @keyframes panRight {
-          0% { transform: scale(1.1) translate(0,0); }
-          100% { transform: scale(1.1) translate(2%, 0); }
-        }
-        @keyframes popIn {
-          0% { transform: scale(0.9); opacity: 0; }
-          10% { transform: scale(1); opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes slideUp {
-          0% { transform: translateY(20px); opacity: 0; }
-          100% { transform: translateY(0); opacity: 1; }
+          0% { transform: scale(1.1) translate(0,0); opacity: 0; }
+          10% { opacity: 1; }
+          100% { transform: scale(1.25) translate(-2%, -2%); opacity: 1; }
         }
 
-        .animate-ken-burns { animation: kenBurns 7s ease-out forwards; }
-        .animate-slow-zoom-out { animation: zoomOut 7s ease-out forwards; }
-        .animate-pan-left { animation: panLeft 7s linear forwards; }
-        .animate-pan-right { animation: panRight 7s linear forwards; }
-        .animate-pop-in { animation: popIn 6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        /* Zoom In Jump: Quick zoom in then settle */
+        @keyframes zoomInJump {
+          0% { transform: scale(0.5); opacity: 0; }
+          60% { transform: scale(1.05); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Pop Rotate: Pop in with slight tilt */
+        @keyframes popRotate {
+          0% { transform: scale(0.8) rotate(-5deg); opacity: 0; }
+          50% { transform: scale(1.05) rotate(2deg); opacity: 1; }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        /* Fade Drift: Classic fade with lateral movement */
+        @keyframes fadeDrift {
+          0% { transform: translateX(5%) scale(1.1); opacity: 0; }
+          20% { opacity: 1; }
+          100% { transform: translateX(-5%) scale(1.1); opacity: 1; }
+        }
+
+        /* Bounce Scale: Subtle bounce effect */
+        @keyframes bounceScale {
+            0% { transform: scale(0.95); opacity: 0; }
+            40% { transform: scale(1.02); opacity: 1; }
+            60% { transform: scale(0.98); }
+            80% { transform: scale(1.01); }
+            100% { transform: scale(1); }
+        }
         
-        .animate-slide-up { animation: slideUp 0.8s ease-out forwards 0.3s; }
-        .animate-slide-up-delay { animation: slideUp 0.8s ease-out forwards 0.5s; }
+        @keyframes pulseSlow {
+           0%, 100% { transform: scale(1); opacity: 0.8; }
+           50% { transform: scale(1.1); opacity: 1; }
+        }
+        
+        @keyframes appearDelay {
+            0% { opacity: 0; }
+            80% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        .animate-ken-burns { animation: kenBurns 6s ease-out forwards; }
+        .animate-zoom-in-jump { animation: zoomInJump 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .animate-pop-rotate { animation: popRotate 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+        .animate-fade-drift { animation: fadeDrift 6s linear forwards; }
+        .animate-bounce-scale { animation: bounceScale 2s ease-out forwards; }
+        
+        .animate-pulse-slow { animation: pulseSlow 3s infinite; }
+        .animate-appear-delay { animation: appearDelay 1s forwards; }
+        
+        .text-shadow-lg { text-shadow: 2px 2px 10px rgba(0,0,0,0.8); }
       `}</style>
     </div>
   );

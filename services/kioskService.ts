@@ -22,7 +22,8 @@ const getEnv = (key: string, fallback: string) => {
 const SUPABASE_URL = getEnv('VITE_SUPABASE_URL', 'YOUR_SUPABASE_PROJECT_URL');
 const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY', 'YOUR_SUPABASE_ANON_PUBLIC_KEY');
 
-let supabase: any = null;
+// Export supabase instance so other services can use it
+export let supabase: any = null;
 
 // Initialize helper (can be called from App.tsx)
 export const initSupabase = () => {
@@ -83,11 +84,11 @@ export const provisionKioskId = async (): Promise<string> => {
 
     let nextNum = 1;
     if (data && data.length > 0) {
-      const parsed = parseInt(data[0].id, 10);
+      const parsed = parseInt(data[0].id.replace('LOC-', ''), 10);
       if (!isNaN(parsed)) nextNum = parsed + 1;
     }
 
-    const nextId = nextNum.toString().padStart(3, '0');
+    const nextId = "LOC-" + nextNum.toString().padStart(3, '0');
     localStorage.setItem(STORAGE_KEY_ID, nextId);
     return nextId;
   } catch (e) {
@@ -112,6 +113,62 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
   const id = getKioskId();
   if (!id) return false;
   localStorage.setItem(STORAGE_KEY_NAME, shopName);
+  
+  // Register in DB
+  if (supabase) {
+      try {
+        const kioskData: KioskRegistry = {
+          id,
+          name: shopName,
+          status: 'online',
+          last_seen: new Date().toISOString(),
+          wifiStrength: 100,
+          ipAddress: '192.168.1.x', // Placeholder for actual IP logic if available
+          version: '1.0.4',
+          locationDescription: 'Newly Registered',
+          assignedZone: 'Unassigned'
+        };
+
+        // 1. Write to Telemetry Table (Keep Alive)
+        await supabase.from('kiosks').upsert({
+            id,
+            name: shopName,
+            status: 'online',
+            last_seen: new Date().toISOString(),
+            version: '1.0.4'
+        });
+
+        // 2. CRITICAL: Update the Global Store Config JSON so Admin Hub sees it in the list
+        const { data: currentConfig } = await supabase
+          .from('store_config')
+          .select('data')
+          .eq('id', 1)
+          .single();
+
+        if (currentConfig && currentConfig.data) {
+           const currentFleet = (currentConfig.data.fleet as KioskRegistry[]) || [];
+           
+           // Check if exists
+           const existingIndex = currentFleet.findIndex(k => k.id === id);
+           let newFleet = [...currentFleet];
+           
+           if (existingIndex >= 0) {
+               newFleet[existingIndex] = { ...newFleet[existingIndex], name: shopName, status: 'online', last_seen: new Date().toISOString() };
+           } else {
+               newFleet.push(kioskData);
+           }
+
+           await supabase
+             .from('store_config')
+             .update({ data: { ...currentConfig.data, fleet: newFleet } })
+             .eq('id', 1);
+        }
+
+      } catch(e) {
+        console.error("Failed to register kiosk in cloud", e);
+      }
+  }
+  
   return true;
 };
 
@@ -119,6 +176,20 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
 export const sendHeartbeat = async () => {
   const id = getKioskId();
   const name = getShopName();
-  if (!id || !name) return;
-  // In real implementation, send generic heartbeat to backend
+  if (!id || !name || !supabase) return;
+  
+  try {
+      // 1. Telemetry
+      await supabase.from('kiosks').upsert({
+          id,
+          last_seen: new Date().toISOString(),
+          status: 'online'
+      }, { onConflict: 'id' });
+
+      // 2. Optional: Update status in Store Config for Admin Hub visibility (Throttle this in production)
+      // We skip updating the heavy JSON on every heartbeat to prevent race conditions, 
+      // usually only update on startup or explicit status change.
+  } catch (e) {
+      console.warn("Heartbeat failed", e);
+  }
 };

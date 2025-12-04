@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import KioskApp from './components/KioskApp';
 import AdminDashboard from './components/AdminDashboard';
 import { generateStoreData, saveStoreData } from './services/geminiService';
+import { initSupabase, supabase } from './services/kioskService';
 import { StoreData } from './types';
 import { Loader2 } from 'lucide-react';
 
@@ -10,6 +11,7 @@ export default function App() {
   const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
   const [storeData, setStoreData] = useState<StoreData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // 1. Simple Router Logic
   useEffect(() => {
@@ -21,9 +23,12 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
 
-  // 2. Data Synchronization
+  // 2. Data Synchronization & Realtime
   useEffect(() => {
     const initData = async () => {
+      // Initialize Supabase Client
+      initSupabase();
+
       try {
         const data = await generateStoreData();
         setStoreData(data);
@@ -31,6 +36,31 @@ export default function App() {
         console.error("Failed to load data", e);
       } finally {
         setLoading(false);
+      }
+
+      // Setup Realtime Subscription
+      if (supabase) {
+          const channel = supabase
+            .channel('public:store_config')
+            .on(
+              'postgres_changes',
+              { event: 'UPDATE', schema: 'public', table: 'store_config', filter: 'id=eq.1' },
+              (payload: any) => {
+                console.log("Remote update received!", payload);
+                if (payload.new && payload.new.data) {
+                   setIsSyncing(true);
+                   setStoreData(payload.new.data);
+                   // Update local cache
+                   localStorage.setItem('kiosk_pro_store_data', JSON.stringify(payload.new.data));
+                   setTimeout(() => setIsSyncing(false), 1000);
+                }
+              }
+            )
+            .subscribe();
+
+          return () => {
+              supabase.removeChannel(channel);
+          };
       }
     };
     
@@ -46,6 +76,7 @@ export default function App() {
 
   const handleUpdateData = async (newData: StoreData) => {
     setStoreData(newData);
+    // This pushes to Supabase, which triggers the realtime event above for other devices
     await saveStoreData(newData);
   };
 
@@ -82,9 +113,17 @@ export default function App() {
 
   // --- ROUTE: KIOSK FRONT PAGE ---
   return (
-    <KioskApp 
-      storeData={storeData}
-      onGoToAdmin={() => handleNavigate('/admin')}
-    />
+    <>
+      {isSyncing && (
+         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-blue-600 text-white px-4 py-2 rounded-full shadow-xl flex items-center gap-2 animate-bounce">
+            <Loader2 className="animate-spin" size={16} />
+            <span className="text-xs font-bold uppercase tracking-widest">Receiving Update...</span>
+         </div>
+      )}
+      <KioskApp 
+        storeData={storeData}
+        onGoToAdmin={() => handleNavigate('/admin')}
+      />
+    </>
   );
 }
