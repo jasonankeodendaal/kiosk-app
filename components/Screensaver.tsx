@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { FlatProduct, AdItem } from '../types';
 
 interface ScreensaverProps {
@@ -19,18 +19,17 @@ const ANIMATIONS = [
 const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentAnimation, setCurrentAnimation] = useState(ANIMATIONS[0]);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Merge products and ads into a single playlist
   const playlist = useMemo(() => {
     const mixed: any[] = [];
     const adPool = [...ads];
     
-    // Create a rich playlist: Products + Ads mixed
+    // Create a rich playlist
     products.forEach((p, i) => {
         mixed.push({ type: 'product', data: p });
-        // Inject an ad every few items
-        if ((i + 1) % 3 === 0 && adPool.length > 0) {
+        // Inject an ad every 2 items for variety
+        if ((i + 1) % 2 === 0 && adPool.length > 0) {
             const ad = adPool.shift(); // take one
             if(ad) {
                 mixed.push({ type: 'ad', data: ad });
@@ -47,67 +46,37 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
     return mixed;
   }, [products, ads]);
 
-  const currentItem = playlist[currentIndex];
-  const isVideo = currentItem?.type === 'ad' && currentItem?.data?.type === 'video';
-
-  // Rotation Logic
   useEffect(() => {
     if (playlist.length === 0) return;
 
-    let timeout: NodeJS.Timeout;
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % playlist.length);
+      // Pick a random animation for the next slide
+      const nextAnim = ANIMATIONS[Math.floor(Math.random() * ANIMATIONS.length)];
+      setCurrentAnimation(nextAnim);
+    }, 5000); // 5 seconds per slide for energy
 
-    const nextSlide = () => {
-        setCurrentIndex((prev) => (prev + 1) % playlist.length);
-        const nextAnim = ANIMATIONS[Math.floor(Math.random() * ANIMATIONS.length)];
-        setCurrentAnimation(nextAnim);
-    };
-
-    if (isVideo) {
-        // If it's a video, the onEnded event on the <video> tag handles the transition
-        // But we set a failsafe timeout in case video stalls
-        timeout = setTimeout(nextSlide, 30000); // 30s max for video failsafe
-    } else {
-        // Standard image duration
-        timeout = setTimeout(nextSlide, 6000); // 6 seconds per slide
-    }
-
-    return () => clearTimeout(timeout);
-  }, [currentIndex, playlist.length, isVideo]);
-
-  // Movement Detection to Wake
-  useEffect(() => {
-    const handleActivity = () => onWake();
-    window.addEventListener('mousemove', handleActivity);
-    window.addEventListener('touchstart', handleActivity);
-    window.addEventListener('keydown', handleActivity);
-    return () => {
-        window.removeEventListener('mousemove', handleActivity);
-        window.removeEventListener('touchstart', handleActivity);
-        window.removeEventListener('keydown', handleActivity);
-    };
-  }, [onWake]);
+    return () => clearInterval(interval);
+  }, [playlist.length]);
 
   if (playlist.length === 0) return null;
 
-  const content = currentItem.data;
+  const currentItem = playlist[currentIndex];
   const isAd = currentItem.type === 'ad';
-
-  const handleVideoEnded = () => {
-      // Move to next immediately when video ends
-      setCurrentIndex((prev) => (prev + 1) % playlist.length);
-  };
+  const content = currentItem.data;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black cursor-none overflow-hidden">
+    <div 
+      onClick={onWake}
+      className="fixed inset-0 z-[100] bg-black cursor-pointer overflow-hidden"
+    >
       <div key={currentIndex} className="absolute inset-0 w-full h-full flex items-center justify-center bg-black">
-         
+         {/* Full Screen Layer - Free View (No heavy overlay) */}
+         {/* CHANGED: object-cover -> object-contain to shrink to fit */}
          {isAd && content.type === 'video' ? (
              <video 
-               ref={videoRef}
                src={content.url} 
-               autoPlay 
-               muted 
-               onEnded={handleVideoEnded}
+               autoPlay muted loop 
                className="w-full h-full object-contain"
              />
          ) : (
@@ -118,48 +87,84 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
              />
          )}
 
-         {/* Info Text (Only for Products) */}
+         {/* Very subtle text at bottom, not obstructing view */}
          {!isAd && (
-             <div className="absolute bottom-10 left-10 flex flex-col items-start opacity-90 text-shadow-lg animate-fade-in max-w-[80%]">
-                <h1 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter drop-shadow-2xl mb-2">
+             <div className="absolute bottom-10 right-10 flex flex-col items-end opacity-80 text-shadow-lg animate-fade-in">
+                <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter drop-shadow-2xl">
                     {content.brandName}
                 </h1>
-                <h2 className="text-xl md:text-3xl font-bold text-yellow-400 drop-shadow-md">
+                <h2 className="text-2xl md:text-4xl font-bold text-yellow-400 drop-shadow-md">
                     {content.name}
                 </h2>
-                <div className="h-1 w-24 bg-blue-500 mt-4"></div>
              </div>
          )}
+         
+         {/* Floating Call to Action - Bouncing */}
+         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none mix-blend-overlay">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/30 text-white px-8 py-3 rounded-full font-bold uppercase tracking-widest text-lg shadow-2xl animate-pulse-slow opacity-0 animate-appear-delay">
+               Touch to Start
+            </div>
+         </div>
       </div>
 
       <style>{`
+        /* Ken Burns: Slow pan/zoom - Adjusted to be subtle for contained images */
         @keyframes kenBurns {
           0% { transform: scale(1.0) translate(0,0); opacity: 0; }
           10% { opacity: 1; }
-          100% { transform: scale(1.1) translate(-2%, -2%); opacity: 1; }
+          100% { transform: scale(1.05) translate(-1%, -1%); opacity: 1; }
         }
+
+        /* Zoom In Jump: Quick zoom in then settle */
         @keyframes zoomInJump {
-          0% { transform: scale(0.8); opacity: 0; }
+          0% { transform: scale(0.5); opacity: 0; }
+          60% { transform: scale(1.02); opacity: 1; }
           100% { transform: scale(1); opacity: 1; }
         }
+
+        /* Pop Rotate: Pop in with slight tilt */
         @keyframes popRotate {
           0% { transform: scale(0.8) rotate(-2deg); opacity: 0; }
+          50% { transform: scale(1.02) rotate(1deg); opacity: 1; }
           100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
+
+        /* Fade Drift: Classic fade with lateral movement */
         @keyframes fadeDrift {
           0% { transform: translateX(2%) scale(1.0); opacity: 0; }
+          20% { opacity: 1; }
           100% { transform: translateX(-2%) scale(1.0); opacity: 1; }
         }
+
+        /* Bounce Scale: Subtle bounce effect */
         @keyframes bounceScale {
             0% { transform: scale(0.95); opacity: 0; }
-            50% { transform: scale(1.02); opacity: 1; }
+            40% { transform: scale(1.02); opacity: 1; }
+            60% { transform: scale(0.98); }
+            80% { transform: scale(1.01); }
             100% { transform: scale(1); }
         }
-        .animate-ken-burns { animation: kenBurns 7s ease-out forwards; }
-        .animate-zoom-in-jump { animation: zoomInJump 6s ease-out forwards; }
-        .animate-pop-rotate { animation: popRotate 6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
-        .animate-fade-drift { animation: fadeDrift 7s linear forwards; }
-        .animate-bounce-scale { animation: bounceScale 7s ease-out forwards; }
+        
+        @keyframes pulseSlow {
+           0%, 100% { transform: scale(1); opacity: 0.8; }
+           50% { transform: scale(1.1); opacity: 1; }
+        }
+        
+        @keyframes appearDelay {
+            0% { opacity: 0; }
+            80% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        .animate-ken-burns { animation: kenBurns 6s ease-out forwards; }
+        .animate-zoom-in-jump { animation: zoomInJump 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .animate-pop-rotate { animation: popRotate 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+        .animate-fade-drift { animation: fadeDrift 6s linear forwards; }
+        .animate-bounce-scale { animation: bounceScale 2s ease-out forwards; }
+        
+        .animate-pulse-slow { animation: pulseSlow 3s infinite; }
+        .animate-appear-delay { animation: appearDelay 1s forwards; }
+        
         .text-shadow-lg { text-shadow: 2px 2px 10px rgba(0,0,0,0.8); }
       `}</style>
     </div>
