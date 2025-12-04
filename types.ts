@@ -1,5 +1,4 @@
 
-
 export interface Dimensions {
   width: string;
   height: string;
@@ -36,12 +35,22 @@ export interface Brand {
   categories: Category[];
 }
 
+export interface Pamphlet {
+  id: string;
+  title: string;
+  startDate?: string; // ISO Date
+  endDate?: string; // ISO Date
+  pdfUrl?: string;
+  pages: string[]; // Generated images
+}
+
 export interface HeroConfig {
   title: string;
   subtitle: string;
   backgroundImageUrl?: string;
   logoUrl?: string;
   websiteUrl?: string;
+  pamphlet?: Pamphlet; // The main "Showcase" pamphlet
 }
 
 // New Catalogue interface for flexible catalog management
@@ -50,9 +59,9 @@ export interface Catalogue {
   brandId?: string; // Optional: Links to a specific brand. If not present, it's a global catalog.
   title: string;
   year?: number;
-  month?: number; // 1-12 (e.g., 1 for January, 12 for December)
-  pdfUrl?: string; // The raw PDF data URL (if uploaded as PDF)
-  pages: string[]; // Array of images generated from the PDF or uploaded directly
+  month?: number; // 1-12
+  pdfUrl?: string; 
+  pages: string[]; 
 }
 
 export interface AdItem {

@@ -8,7 +8,6 @@ import {
   isKioskConfigured, 
   sendHeartbeat, 
   setCustomKioskId,
-  getShopName,
   checkSupabaseConnection
 } from '../services/kioskService';
 import BrandGrid from './BrandGrid';
@@ -17,7 +16,7 @@ import ProductList from './ProductList';
 import ProductDetail from './ProductDetail';
 import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
-import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, Cloud, CloudOff, Database } from 'lucide-react';
+import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, ShieldCheck, CloudOff, Database } from 'lucide-react';
 
 // UPDATED TIMEOUT: 1 Minute = 60,000 ms
 const IDLE_TIMEOUT = 60000;
@@ -272,33 +271,32 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
 
        {/* Main Content Stack (Flex Grow) */}
        <div className="flex-1 overflow-hidden relative flex flex-col">
-          {/* Top Bar / Header could go here or be part of components */}
           
           <div className="flex-1 overflow-hidden relative">
              {!activeBrand ? (
                <BrandGrid 
                  brands={storeData.brands} 
                  heroConfig={storeData.hero}
-                 globalCatalog={storeData.catalogues?.find(c => !c.brandId)} // Pass global catalog
+                 globalCatalog={storeData.catalogues?.find(c => !c.brandId)}
                  ads={storeData.ads}
                  onSelectBrand={setActiveBrand}
                  onViewGlobalCatalog={(pages) => { setFlipbookPages(pages); setShowFlipbook(true); }}
-                 onExport={() => {}} // Remove or implement if needed
+                 onExport={() => {}}
                />
              ) : !activeCategory ? (
                <CategoryGrid 
                  brand={activeBrand} 
+                 storeCatalogs={storeData.catalogues || []}
                  onSelectCategory={setActiveCategory} 
                  onBack={() => setActiveBrand(null)} 
+                 onViewCatalog={(pages) => { setFlipbookPages(pages); setShowFlipbook(true); }}
                />
              ) : !activeProduct ? (
                <ProductList 
                  category={activeCategory} 
                  brand={activeBrand}
-                 storeCatalogs={storeData.catalogues || []}
                  onSelectProduct={setActiveProduct} 
                  onBack={() => setActiveCategory(null)}
-                 onViewCatalog={(pages) => { setFlipbookPages(pages); setShowFlipbook(true); }}
                />
              ) : (
                <ProductDetail 
