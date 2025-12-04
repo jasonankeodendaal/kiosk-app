@@ -329,14 +329,14 @@ vercel --prod`}
                                 id="supabase-sql"
                                 label="SQL Editor"
                                 code={`-- 1. Store Config Table
-create table public.store_config (
+create table if not exists public.store_config (
   id bigint primary key,
   data jsonb,
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
 
 -- 2. Kiosk Telemetry Table
-create table public.kiosks (
+create table if not exists public.kiosks (
   id text primary key,
   name text,
   status text,
@@ -350,8 +350,10 @@ create table public.kiosks (
   restart_requested boolean default false
 );
 
--- 3. Initial Data Seed
-insert into public.store_config (id, data) values (1, '{}'::jsonb);
+-- 3. Initial Data Seed (Only if not exists)
+insert into public.store_config (id, data) 
+select 1, '{}'::jsonb
+where not exists (select 1 from public.store_config where id = 1);
 
 -- 4. Enable Realtime (For Auto-Sync)
 alter publication supabase_realtime add table public.store_config;

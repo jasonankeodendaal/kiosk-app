@@ -1,4 +1,5 @@
 
+
 import { StoreData } from "../types";
 import { supabase, getEnv, initSupabase } from "./kioskService";
 
@@ -398,7 +399,14 @@ const generateStoreData = async (): Promise<StoreData> => {
                   catalogues: rawData.catalogues || [],
                   screensaverSettings: { ...DEFAULT_DATA.screensaverSettings, ...(rawData.screensaverSettings || {}) }
               };
-              localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(mergedData));
+              
+              // Safe Save to LocalStorage
+              try {
+                  localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(mergedData));
+              } catch (e) {
+                  console.warn("LocalStorage quota exceeded during fetch. Skipping cache update.");
+              }
+              
               return mergedData;
           }
       } catch (e) {
@@ -415,7 +423,11 @@ const generateStoreData = async (): Promise<StoreData> => {
               const remoteData = await res.json();
               if (remoteData && Object.keys(remoteData).length > 0) {
                    const merged = { ...DEFAULT_DATA, ...remoteData };
-                   localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(merged));
+                   try {
+                       localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(merged));
+                   } catch(e) {
+                       console.warn("LocalStorage full.");
+                   }
                    return merged;
               }
           }
@@ -431,7 +443,11 @@ const generateStoreData = async (): Promise<StoreData> => {
       const parsed = JSON.parse(stored);
       return parsed;
     }
-    localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(DEFAULT_DATA));
+    try {
+        localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(DEFAULT_DATA));
+    } catch(e) {
+        // Ignore quota error for default data
+    }
     return DEFAULT_DATA;
   } catch (e) {
     console.error("Failed to load local data", e);
@@ -445,7 +461,12 @@ const saveStoreData = async (data: StoreData): Promise<void> => {
     const apiUrl = getEnv('VITE_API_URL', getEnv('NEXT_PUBLIC_API_URL', ''));
 
     // Always save to Local Storage first (Safety)
-    localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(data));
+    // WRAPPED IN TRY/CATCH TO PREVENT QUOTA CRASH
+    try {
+        localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(data));
+    } catch (e) {
+        console.warn("CRITICAL: LocalStorage Quota Exceeded. Data saved to memory but not cached locally.");
+    }
 
     // Ensure Supabase is init
     if (!supabase) initSupabase();

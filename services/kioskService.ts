@@ -1,4 +1,5 @@
 
+
 import { createClient } from '@supabase/supabase-js';
 import { KioskRegistry } from '../types';
 
@@ -257,7 +258,10 @@ export const sendHeartbeat = async (snapshotBase64?: string) => {
 // 8. NEW: Upload File to Supabase Storage Bucket
 export const uploadFileToStorage = async (file: File): Promise<string | null> => {
     if (!supabase) initSupabase();
-    if (!supabase) return null;
+    if (!supabase) {
+        console.error("Supabase client not initialized.");
+        return null;
+    }
 
     try {
         const fileExt = file.name.split('.').pop();
@@ -271,7 +275,7 @@ export const uploadFileToStorage = async (file: File): Promise<string | null> =>
             .upload(filePath, file);
 
         if (error) {
-            console.warn("Storage upload failed (Bucket 'kiosk-media' might not exist):", error.message);
+            console.warn(`Storage upload failed. Ensure bucket 'kiosk-media' exists and is Public. Error: ${error.message}`);
             return null;
         }
 

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -128,7 +129,14 @@ const FileUpload = ({
                return url;
            }
 
-           console.log("Cloud Upload Failed or Skipped. Falling back to Base64.");
+           console.warn("Cloud Upload Failed.");
+           
+           // SAFETY CHECK: If file is too large for local storage fallback
+           if (file.size > 2 * 1024 * 1024) { // 2MB Limit
+               throw new Error(`File ${file.name} is too large for local fallback (Limit 2MB). Please check Supabase Storage configuration.`);
+           }
+
+           console.log("Falling back to Base64 (Small File).");
            return new Promise((resolve) => {
               const reader = new FileReader();
               reader.onloadend = () => resolve(reader.result as string);
@@ -151,9 +159,9 @@ const FileUpload = ({
               setUploadProgress(100);
               onUpload(result, fileType);
           }
-      } catch (err) {
+      } catch (err: any) {
           console.error("Upload failed", err);
-          alert("Upload failed. File might be too large.");
+          alert(`Upload failed: ${err.message || 'Unknown error'}`);
       } finally {
           setTimeout(() => {
               setLocalProcessing(false);
@@ -216,11 +224,7 @@ const FileUpload = ({
   );
 };
 
-// ... (BulkImporter and other modals unchanged) ...
-
-// ... (KioskEditorModal, CameraViewerModal, DataManagerModal unchanged) ...
-
-const BulkImporter = ({ onImport, onStatus }: { onImport: (data: Partial<StoreData>) => void, onStatus: (msg: string) => void }) => {
+const BulkImporter = ({ onImport, onStatus, targetBrandName }: { onImport: (data: Partial<StoreData>) => void, onStatus: (msg: string) => void, targetBrandName?: string }) => {
     const [isProcessing, setIsProcessing] = useState(false);
 
     const handleFolderSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -245,7 +249,13 @@ const BulkImporter = ({ onImport, onStatus }: { onImport: (data: Partial<StoreDa
              // Try cloud storage first
              const url = await uploadFileToStorage(file);
              if (url) return url;
-             // Fallback to base64
+             
+             // If cloud fails, check size before fallback
+             if (file.size > 2 * 1024 * 1024) { // 2MB Limit
+                 throw new Error(`File ${file.name} is too large (>2MB) and Cloud Storage failed. Import aborted to prevent crash.`);
+             }
+
+             // Fallback to base64 for small files
              return new Promise((resolve) => {
                  const reader = new FileReader();
                  reader.onload = (e) => resolve(e.target?.result as string || '');
@@ -254,7 +264,6 @@ const BulkImporter = ({ onImport, onStatus }: { onImport: (data: Partial<StoreDa
         };
 
         // 1. Group files by path
-        // Expected Path: Brand/Category/Product/file.ext
         const brandsMap: Record<string, Brand> = {};
         
         try {
@@ -263,33 +272,43 @@ const BulkImporter = ({ onImport, onStatus }: { onImport: (data: Partial<StoreDa
 
             for (const file of files) {
                 const pathParts = file.webkitRelativePath ? file.webkitRelativePath.split('/') : [];
-                // Remove root folder from logic usually
-                // Format: Root/Brand/Category/Product/file
-                if (pathParts.length < 3) continue; // Needs at least Root/Brand/file or Root/Brand/Category/file
-
-                const brandName = pathParts[1];
                 
-                // If it's a file directly in Brand folder (e.g. logo.png)
-                if (pathParts.length === 3) {
-                     // Handle Brand Assets
-                     if (!brandsMap[brandName]) {
-                         brandsMap[brandName] = { id: generateId('b'), name: brandName, categories: [], logoUrl: '' };
-                     }
-                     if (file.name.toLowerCase().includes('logo') || file.name.toLowerCase().includes('icon')) {
-                         onStatus(`Uploading logo for ${brandName}...`);
-                         brandsMap[brandName].logoUrl = await uploadAsset(file);
-                     }
-                     continue;
-                }
+                let brandName = '', categoryName = '', productName = '';
+                
+                // Logic Separation: Single Brand vs Global Import
+                if (targetBrandName) {
+                    // MODE: TARGET BRAND
+                    // Expected Path: RootFolder / Category / Product / file.ext
+                    // Example: "Samsung_Data" / "Smartphones" / "Galaxy S24" / "image.jpg"
+                    if (pathParts.length < 4) continue;
+                    
+                    brandName = targetBrandName;
+                    categoryName = pathParts[1];
+                    productName = pathParts[2];
+                } else {
+                    // MODE: GLOBAL IMPORT
+                    // Expected Path: RootFolder / Brand / Category / Product / file.ext
+                    // Example: "My_Import" / "Samsung" / "Smartphones" / "Galaxy S24" / "image.jpg"
+                    if (pathParts.length < 5) {
+                        // Check for Brand Assets (Root/Brand/logo.png)
+                        if (pathParts.length === 3) {
+                             const bName = pathParts[1];
+                             if (!brandsMap[bName]) {
+                                 brandsMap[bName] = { id: generateId('b'), name: bName, categories: [], logoUrl: '' };
+                             }
+                             if (file.name.toLowerCase().includes('logo') || file.name.toLowerCase().includes('icon')) {
+                                 onStatus(`Uploading logo for ${bName}...`);
+                                 brandsMap[bName].logoUrl = await uploadAsset(file);
+                             }
+                        }
+                        continue;
+                    }
 
-                const categoryName = pathParts[2];
-                // If file in Category folder
-                if (pathParts.length === 4) {
-                    continue;
+                    brandName = pathParts[1];
+                    categoryName = pathParts[2];
+                    productName = pathParts[3];
                 }
                 
-                const productName = pathParts[3];
-                // Product level files
                 const key = `${brandName}|${categoryName}|${productName}`;
                 if (!fileGroups[key]) fileGroups[key] = [];
                 fileGroups[key].push(file);
@@ -389,9 +408,10 @@ const BulkImporter = ({ onImport, onStatus }: { onImport: (data: Partial<StoreDa
             onImport({ brands: newBrands });
             onStatus(`Completed! Imported ${newBrands.length} brands.`);
 
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            onStatus("Error during import.");
+            onStatus(`Error: ${err.message}`);
+            alert(err.message);
         } finally {
             setIsProcessing(false);
         }
@@ -401,10 +421,13 @@ const BulkImporter = ({ onImport, onStatus }: { onImport: (data: Partial<StoreDa
         <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors">
              <div className="flex flex-col items-center gap-2">
                  {isProcessing ? <Loader2 className="animate-spin text-blue-600" size={32} /> : <FolderInput className="text-slate-400" size={32} />}
-                 <h4 className="font-bold text-slate-900 uppercase text-xs tracking-wider">Smart Folder Import</h4>
+                 <h4 className="font-bold text-slate-900 uppercase text-xs tracking-wider">
+                     {targetBrandName ? `Import to ${targetBrandName}` : 'Smart Folder Import'}
+                 </h4>
                  <p className="text-[10px] text-slate-500 max-w-xs mx-auto">
-                    Select a root folder on your PC containing Brand Folders.
-                    <br/>Structure: Brand &gt; Category &gt; Product &gt; Files (info.txt, images)
+                    {targetBrandName 
+                        ? `Select folder containing Categories > Products.` 
+                        : `Select root folder containing Brands > Categories > Products.`}
                  </p>
                  <label className={`mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold uppercase text-[10px] cursor-pointer transition-colors ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
                      {isProcessing ? 'Importing...' : 'Select Folder'}
@@ -424,7 +447,32 @@ const BulkImporter = ({ onImport, onStatus }: { onImport: (data: Partial<StoreDa
     );
 };
 
-// ... (KioskEditorModal, CameraViewerModal, DataManagerModal, HeroEditor, AdsManager, CatalogueManager, InputField, ProductEditor, ScreensaverEditor - all remain same) ...
+// ... (KioskEditorModal, CameraViewerModal, DataManagerModal unchanged) ...
+
+const BrandImportModal = ({ brand, onImport, onClose }: { brand: Brand, onImport: (d: Partial<StoreData>) => void, onClose: () => void }) => {
+    const [status, setStatus] = useState("");
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
+                 <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
+                    <h3 className="font-bold text-lg flex items-center gap-2"><FolderInput size={20}/> Bulk Import: {brand.name}</h3>
+                    <button onClick={onClose}><X size={20} /></button>
+                 </div>
+                 <div className="p-6">
+                     <BulkImporter onImport={onImport} onStatus={setStatus} targetBrandName={brand.name} />
+                     {status && (
+                        <div className="mt-4 p-3 bg-slate-900 text-white text-[10px] font-mono rounded-lg max-h-32 overflow-y-auto">
+                            <span className="text-green-400 font-bold">&gt;</span> {status}
+                        </div>
+                    )}
+                 </div>
+             </div>
+        </div>
+    );
+};
+
+// ... (DataManagerModal, HeroEditor, AdsManager, CatalogueManager, InputField, ProductEditor, ScreensaverEditor - all remain same) ...
 const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, onSave: (k: KioskRegistry) => void, onClose: () => void }) => {
     const [data, setData] = useState(kiosk);
 
@@ -626,7 +674,10 @@ const DataManagerModal = ({ storeData, onImport, onClose }: { storeData: StoreDa
     );
 };
 
+// ... (HeroEditor, AdsManager, CatalogueManager, InputField, ProductEditor, ScreensaverEditor - remain same) ...
+
 const HeroEditor = ({ data, onUpdate }: { data: HeroConfig, onUpdate: (h: HeroConfig) => void }) => {
+    // ... same as before
     const [localData, setLocalData] = useState<HeroConfig>(data);
     const [hasChanges, setHasChanges] = useState(false);
 
@@ -697,6 +748,7 @@ const HeroEditor = ({ data, onUpdate }: { data: HeroConfig, onUpdate: (h: HeroCo
 };
 
 const AdsManager = ({ ads, onUpdate }: { ads: AdConfig, onUpdate: (a: AdConfig) => void }) => {
+    // ... same as before
     const [localAds, setLocalAds] = useState<AdConfig>(ads);
     const [hasChanges, setHasChanges] = useState(false);
 
@@ -784,6 +836,7 @@ const AdsManager = ({ ads, onUpdate }: { ads: AdConfig, onUpdate: (a: AdConfig) 
 };
 
 const CatalogueManager = ({ catalogues, onUpdate, mode = 'global', brandId }: { catalogues: Catalogue[], onUpdate: (c: Catalogue[]) => void, mode?: 'global' | 'brand', brandId?: string }) => {
+    // ... same as before
     const [localCatalogues, setLocalCatalogues] = useState<Catalogue[]>(catalogues);
     const [hasChanges, setHasChanges] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -861,6 +914,7 @@ const InputField = ({ label, val, onChange, placeholder, isArea = false, half = 
 );
 
 const ProductEditor = ({ product, onSave, onCancel }: any) => {
+    // ... same as before
     const [formData, setFormData] = useState<Product>(product || { id: generateId('p'), name: '', sku: '', description: '', terms: '', imageUrl: '', galleryUrls: [], videoUrl: '', manualUrl: '', manualImages: [], specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' } });
     const [activeTab, setActiveTab] = useState<'general' | 'specs' | 'media' | 'terms'>('general');
     const [specKey, setSpecKey] = useState('');
@@ -930,6 +984,7 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
 };
 
 const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUpdate: (d: StoreData) => void }) => {
+    // ... same as before
     const [localSettings, setLocalSettings] = useState<ScreensaverSettings>(storeData.screensaverSettings || { idleTimeout: 60, imageDuration: 8, muteVideos: false, showProductImages: true, showProductVideos: true, showPamphlets: true, showCustomAds: true });
     const [localAds, setLocalAds] = useState<AdItem[]>(storeData.ads?.screensaver || []);
     const [hasChanges, setHasChanges] = useState(false);
@@ -990,6 +1045,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [showDataManager, setShowDataManager] = useState(false);
+  const [showBrandImport, setShowBrandImport] = useState(false);
   const [editingKiosk, setEditingKiosk] = useState<KioskRegistry | null>(null);
   const [viewingCameraKiosk, setViewingCameraKiosk] = useState<KioskRegistry | null>(null);
   const [activeView, setActiveView] = useState<'dashboard' | 'inventory' | 'marketing' | 'screensaver'>('dashboard');
@@ -1012,6 +1068,52 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
   const handleUpdateKiosk = (updatedKiosk: KioskRegistry) => { if(!storeData?.fleet) return; const newFleet = storeData.fleet.map(k => k.id === updatedKiosk.id ? updatedKiosk : k); onUpdateData({ ...storeData, fleet: newFleet }); setEditingKiosk(null); };
   const handleRequestSnapshot = (kiosk: KioskRegistry) => { if (!storeData?.fleet) return; const newFleet = storeData.fleet.map(k => k.id === kiosk.id ? { ...k, requestSnapshot: true } : k); onUpdateData({ ...storeData, fleet: newFleet }); };
   const handleRequestReboot = (kiosk: KioskRegistry) => { if (!storeData?.fleet) return; if (confirm(`Are you sure you want to REBOOT kiosk ${kiosk.name}?`)) { const newFleet = storeData.fleet.map(k => k.id === kiosk.id ? { ...k, restartRequested: true } : k); onUpdateData({ ...storeData, fleet: newFleet }); } };
+
+  // New logic for merging imported brand data
+  const handleBrandImportMerge = (partialData: Partial<StoreData>) => {
+      if (!activeBrand || !partialData.brands || partialData.brands.length === 0) return;
+      
+      const importedBrand = partialData.brands[0]; // Since targetBrandName was used, we expect 1 result
+      
+      const updatedBrands = storeData?.brands.map(existingBrand => {
+          if (existingBrand.id !== activeBrand.id) return existingBrand;
+          
+          // Merge Categories
+          const mergedCategories = [...existingBrand.categories];
+          
+          importedBrand.categories.forEach(importedCat => {
+              const catIndex = mergedCategories.findIndex(c => c.name === importedCat.name);
+              
+              if (catIndex === -1) {
+                  // New Category
+                  mergedCategories.push(importedCat);
+              } else {
+                  // Merge Products within existing category
+                  const existingCat = mergedCategories[catIndex];
+                  const mergedProducts = [...existingCat.products];
+                  
+                  importedCat.products.forEach(importedProd => {
+                      const prodIndex = mergedProducts.findIndex(p => p.name === importedProd.name);
+                      if (prodIndex === -1) {
+                          mergedProducts.push(importedProd);
+                      } else {
+                          // Update existing product
+                          mergedProducts[prodIndex] = importedProd;
+                      }
+                  });
+                  
+                  mergedCategories[catIndex] = { ...existingCat, products: mergedProducts };
+              }
+          });
+          
+          return { ...existingBrand, categories: mergedCategories };
+      });
+
+      if (updatedBrands) {
+          onUpdateData({ ...storeData!, brands: updatedBrands });
+          setShowBrandImport(false);
+      }
+  };
 
   if (editingProduct || isCreatingProduct) return <ProductEditor product={editingProduct} onSave={handleSaveProduct} onCancel={() => { setEditingProduct(null); setIsCreatingProduct(false); }} />;
   if (showSetup) return <SetupGuide onClose={() => setShowSetup(false)} />;
@@ -1087,7 +1189,11 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                 <div className="animate-fade-in">
                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
                        <div className="flex items-center gap-4">{activeBrand.logoUrl && <img src={activeBrand.logoUrl} className="w-16 h-16 object-contain bg-white rounded-lg border border-slate-200 p-2" />}<h2 className="text-3xl font-black text-slate-900">{activeBrand.name}</h2></div>
-                       <div className="flex gap-2 w-full md:w-auto"><button onClick={() => { const newName = prompt("Rename Brand", activeBrand.name); if(newName) { const updated = storeData!.brands.map(b => b.id === activeBrand.id ? {...b, name: newName} : b); onUpdateData({...storeData!, brands: updated}); } }} className="flex-1 md:flex-none p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 text-xs font-bold uppercase text-slate-600"><Edit2 size={16} /> Rename</button><button onClick={() => { if(confirm("Delete this brand?")) { const updated = storeData!.brands.filter(b => b.id !== activeBrand.id); onUpdateData({...storeData!, brands: updated}); setActiveBrandId(null); } }} className="flex-1 md:flex-none p-2 bg-white border border-slate-200 rounded-lg hover:bg-red-50 text-red-500 flex items-center justify-center gap-2 text-xs font-bold uppercase"><Trash2 size={16} /> Delete</button></div>
+                       <div className="flex gap-2 w-full md:w-auto">
+                           <button onClick={() => setShowBrandImport(true)} className="flex-1 md:flex-none p-2 bg-white border border-slate-200 rounded-lg hover:bg-purple-50 hover:border-purple-200 hover:text-purple-600 flex items-center justify-center gap-2 text-xs font-bold uppercase text-slate-600 transition-colors"><FolderInput size={16} /> Bulk Import</button>
+                           <button onClick={() => { const newName = prompt("Rename Brand", activeBrand.name); if(newName) { const updated = storeData!.brands.map(b => b.id === activeBrand.id ? {...b, name: newName} : b); onUpdateData({...storeData!, brands: updated}); } }} className="flex-1 md:flex-none p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 text-xs font-bold uppercase text-slate-600"><Edit2 size={16} /> Rename</button>
+                           <button onClick={() => { if(confirm("Delete this brand?")) { const updated = storeData!.brands.filter(b => b.id !== activeBrand.id); onUpdateData({...storeData!, brands: updated}); setActiveBrandId(null); } }} className="flex-1 md:flex-none p-2 bg-white border border-slate-200 rounded-lg hover:bg-red-50 text-red-500 flex items-center justify-center gap-2 text-xs font-bold uppercase"><Trash2 size={16} /> Delete</button>
+                       </div>
                    </div>
                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8"><h4 className="font-bold text-slate-900 text-xs uppercase tracking-wide mb-4 flex items-center gap-2"><ImageIcon size={14} className="text-blue-500" /> Brand Identity</h4><FileUpload label="Brand Logo (Transparent PNG)" currentUrl={activeBrand.logoUrl} onUpload={(url) => { const updated = storeData!.brands.map(b => b.id === activeBrand.id ? {...b, logoUrl: url as string} : b); onUpdateData({...storeData!, brands: updated}); }} /></div>
                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
@@ -1117,6 +1223,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
        {editingKiosk && (<KioskEditorModal kiosk={editingKiosk} onClose={() => setEditingKiosk(null)} onSave={handleUpdateKiosk} />)}
        {viewingCameraKiosk && (<CameraViewerModal kiosk={viewingCameraKiosk} onClose={() => setViewingCameraKiosk(null)} onRequestSnapshot={handleRequestSnapshot} />)}
        {showDataManager && (<DataManagerModal storeData={storeData!} onImport={onUpdateData} onClose={() => setShowDataManager(false)} />)}
+       {showBrandImport && activeBrand && (<BrandImportModal brand={activeBrand} onImport={handleBrandImportMerge} onClose={() => setShowBrandImport(false)} />)}
     </div>
   );
 };
