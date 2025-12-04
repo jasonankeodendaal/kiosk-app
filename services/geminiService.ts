@@ -208,30 +208,12 @@ const DEFAULT_DATA: StoreData = {
   ]
 };
 
-// 1. Fetch Data (Priority: API/Hub -> Supabase -> Local Cache)
+// 1. Fetch Data - STRATEGY: SUPABASE FIRST
 const generateStoreData = async (): Promise<StoreData> => {
   // Check both standard Vite and Vercel/Next.js environment variables
   const apiUrl = getEnv('VITE_API_URL', getEnv('NEXT_PUBLIC_API_URL', ''));
 
-  // A. Try API / PC Hub (Strategy A)
-  if (apiUrl || !supabase) {
-      try {
-          const endpoint = apiUrl ? `${apiUrl}/api/config` : '/api/config';
-          const res = await fetch(endpoint);
-          if (res.ok) {
-              const remoteData = await res.json();
-              if (remoteData && Object.keys(remoteData).length > 0) {
-                   const merged = { ...DEFAULT_DATA, ...remoteData };
-                   localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(merged));
-                   return merged;
-              }
-          }
-      } catch (e) {
-          console.warn("Hub API fetch failed, trying next strategy...", e);
-      }
-  }
-
-  // B. Try Supabase (Strategy B)
+  // A. Try Supabase FIRST (Primary Source)
   if (supabase) {
       try {
           const { data, error } = await supabase
@@ -260,14 +242,29 @@ const generateStoreData = async (): Promise<StoreData> => {
       }
   }
 
+  // B. Try API / PC Hub (Secondary Source / Local Dev)
+  if (apiUrl) {
+      try {
+          const endpoint = apiUrl ? `${apiUrl}/api/config` : '/api/config';
+          const res = await fetch(endpoint);
+          if (res.ok) {
+              const remoteData = await res.json();
+              if (remoteData && Object.keys(remoteData).length > 0) {
+                   const merged = { ...DEFAULT_DATA, ...remoteData };
+                   localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(merged));
+                   return merged;
+              }
+          }
+      } catch (e) {
+          console.warn("Hub API fetch failed", e);
+      }
+  }
+
   // C. Fallback to Local Storage (Offline Mode)
   try {
     const stored = localStorage.getItem(STORAGE_KEY_DATA);
     if (stored) {
-      // Merge with default to assume structure is always valid even if local data is old
       const parsed = JSON.parse(stored);
-      // Optional: Force overwrite with default if needed for testing reset
-      // return { ...DEFAULT_DATA, ...parsed };
       return parsed;
     }
     localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(DEFAULT_DATA));
@@ -278,13 +275,27 @@ const generateStoreData = async (): Promise<StoreData> => {
   }
 };
 
-// 2. Save Data (Strict Cloud First - Never fallback to local on failure)
+// 2. Save Data - STRATEGY: SUPABASE FIRST
 const saveStoreData = async (data: StoreData): Promise<void> => {
     let saved = false;
     const apiUrl = getEnv('VITE_API_URL', getEnv('NEXT_PUBLIC_API_URL', ''));
 
-    // A. Try API / PC Hub
-    if (apiUrl || !supabase) {
+    // A. Try Supabase
+    if (supabase) {
+        try {
+            const { error } = await supabase
+                .from('store_config')
+                .upsert({ id: 1, data: data });
+            
+            if (error) throw error;
+            saved = true;
+        } catch (e) {
+            console.warn("Supabase save failed", e);
+        }
+    }
+
+    // B. Try API / PC Hub (If Supabase failed or not available)
+    if (!saved && apiUrl) {
         try {
             const endpoint = apiUrl ? `${apiUrl}/api/update` : '/api/update';
             const res = await fetch(endpoint, {
@@ -298,26 +309,12 @@ const saveStoreData = async (data: StoreData): Promise<void> => {
         }
     }
 
-    // B. Try Supabase
-    if (!saved && supabase) {
-        try {
-            const { error } = await supabase
-                .from('store_config')
-                .upsert({ id: 1, data: data });
-            
-            if (error) throw error;
-            saved = true;
-        } catch (e) {
-            console.warn("Supabase save failed", e);
-        }
-    }
-
     // C. Handle Result
     if (saved) {
         localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(data));
         console.log("Data synced to Remote successfully");
     } else {
-        throw new Error("Connection Failed: Could not sync to Server or Database. Changes not saved locally.");
+        throw new Error("Connection Failed: Could not sync to Database. Changes not saved remotely.");
     }
 };
 

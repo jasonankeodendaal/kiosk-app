@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState } from 'react';
 import { Brand, Catalogue, HeroConfig, AdConfig, AdItem } from '../types';
 import { BookOpen, Globe, ChevronRight, MonitorPlay, MonitorStop } from 'lucide-react';
@@ -71,7 +72,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 overflow-y-auto animate-fade-in">
+    <div className="flex flex-col h-full bg-slate-50 overflow-y-auto animate-fade-in pb-24">
       
       {/* Header - Simplified to just screensaver toggle */}
       <div className="bg-white border-b border-slate-200 p-2 md:p-4 shadow-sm flex items-center justify-end shrink-0 relative z-50">

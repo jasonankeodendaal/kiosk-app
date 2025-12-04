@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -329,7 +330,8 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
   );
 
   return (
-    <div className="h-full w-full relative bg-slate-100 overflow-hidden flex flex-col">
+    // Use 100dvh to handle mobile browser address bars pushing content off screen
+    <div className="h-[100dvh] w-full relative bg-slate-100 overflow-hidden flex flex-col">
        {/* Hidden video element for snapshots - Silent Capture */}
        <video ref={videoRef} autoPlay playsInline muted className="fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none" />
 
