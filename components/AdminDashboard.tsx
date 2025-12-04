@@ -818,6 +818,49 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
                   }
               }
           }
+          
+          // Case: Shallow Product Data (BrandName/CategoryName/Image.jpg)
+          // Interprets filename as product name
+          if (parts.length === 3) {
+              const brandName = parts[0];
+              const catName = parts[1];
+              const fileName = parts[2];
+              
+              // Only process images/videos
+              if (!fileName.match(/\.(jpg|jpeg|png|webp|mp4|webm)$/i)) continue;
+
+              const brand = getOrCreateBrand(brandName);
+              let category = brand.categories.find(c => c.name === catName);
+              if (!category) {
+                  category = { id: generateId('c'), name: catName, products: [], icon: 'Box' };
+                  brand.categories.push(category);
+              }
+              
+              // Remove extension for product name
+              const prodName = fileName.replace(/\.[^/.]+$/, "");
+              let product = category.products.find(p => p.name === prodName);
+              
+              if (!product) {
+                   product = {
+                      id: generateId('p'),
+                      name: prodName,
+                      description: '',
+                      specs: {},
+                      features: [],
+                      dimensions: { width: '', height: '', depth: '', weight: '' },
+                      imageUrl: '',
+                      galleryUrls: []
+                   };
+                   category.products.push(product);
+              }
+              
+              const base64 = await readFileAsBase64(blob);
+              if (fileName.match(/\.(mp4|webm)$/i)) {
+                  product.videoUrl = base64;
+              } else {
+                  product.imageUrl = base64;
+              }
+          }
       }
 
       // 4. Reconstruct Array
@@ -860,7 +903,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
 
           // Second pass: get all blobs
           contents.forEach((relativePath, fileEntry) => {
-              if (!fileEntry.dir && !relativePath.endsWith('.json') && !relativePath.includes('__MACOSX')) {
+              if (!fileEntry.dir && !relativePath.endsWith('.json') && !relativePath.includes('__MACOSX') && !relativePath.includes('.DS_Store')) {
                   filePromises.push((async () => {
                       const blob = await fileEntry.async('blob');
                       fileMap.set(relativePath, blob);
@@ -1034,6 +1077,19 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
 
          {/* Actions Area */}
          <div className="flex items-center gap-2 shrink-0">
+             {/* MANUAL SYNC BUTTON */}
+             <button 
+                onClick={async () => {
+                    if (confirm("Force sync latest data from cloud?")) {
+                       window.location.reload();
+                    }
+                }}
+                className="bg-slate-800 text-white p-2 rounded-lg hover:bg-slate-700 transition-all border border-slate-700 flex items-center"
+                title="Force Sync"
+             >
+                <RotateCcw size={14} />
+             </button>
+
              {/* GLOBAL SAVE BUTTON */}
              <button 
                 onClick={handleGlobalSave}
@@ -1161,7 +1217,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
              </div>
          )}
          {activeTab === 'fleet' && storeData && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><FleetManager fleet={storeData.fleet || []} onUpdateFleet={(f) => onUpdateData({ ...storeData, fleet: f })} onSaveGlobal={handleGlobalSave} /></div> )}
-         {activeTab === 'settings' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><div className="max-w-7xl mx-auto animate-fade-in"><h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight drop-shadow-sm">System</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><FolderInput className="text-blue-600" size={20} /> Data Import</h4><p className="text-xs text-slate-500 mb-4 font-medium">Populate system. Supports <span className="font-mono bg-slate-100 px-1 rounded">.zip</span> or folder with <span className="font-mono bg-slate-100 px-1 rounded">data.json</span>.</p><div className="space-y-3"><label className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-100 hover:border-blue-200 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-blue-900 group-hover:text-blue-700 uppercase tracking-wide text-xs flex items-center gap-2"><FileArchive size={16} /> Upload Zip</div></div><Upload size={16} className="text-blue-400 group-hover:text-blue-600" /><input type="file" className="hidden" accept=".zip" onChange={handleZipUpload} disabled={isImporting} /></label><label className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide text-xs flex items-center gap-2"><FolderInput size={16} /> Convert Folder & Upload</div><p className="text-[9px] text-slate-500 mt-1">Folder Structure: Brand/Category/Product/image.jpg</p></div><Download size={16} className="text-slate-400 group-hover:text-slate-600" /><input type="file" className="hidden" {...({ webkitdirectory: "", directory: "" } as any)} onChange={handleFolderUpload} disabled={isImporting} /></label>{isImporting && (<div className="text-center p-2"><span className="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span><p className="text-[10px] font-bold text-blue-600 mt-1 uppercase tracking-widest">Processing...</p></div>)}</div></div><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><Save className="text-green-600" size={20} /> Backup & Reset</h4><div className="space-y-3"><button onClick={handleDownloadBackup} className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl border border-green-100 hover:border-green-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-green-800 group-hover:text-green-900 uppercase tracking-wide text-xs">Download Full Asset Backup (Zip)</div></div><ArrowLeft size={16} className="rotate-[-90deg] text-green-400 group-hover:text-green-600" /></button><button onClick={async () => { if(confirm("DANGER: Wipe all data?")) { const d = await resetStoreData(); onUpdateData(d); } }} className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 hover:border-red-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-red-700 uppercase tracking-wide text-xs">Factory Reset</div></div><RotateCcw size={16} className="text-red-400 group-hover:text-red-600" /></button></div></div></div></div></div> )}
+         {activeTab === 'settings' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><div className="max-w-7xl mx-auto animate-fade-in"><h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight drop-shadow-sm">System</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><FolderInput className="text-blue-600" size={20} /> Data Import</h4><p className="text-xs text-slate-500 mb-4 font-medium">Populate system. Supports <span className="font-mono bg-slate-100 px-1 rounded">.zip</span> or folder with <span className="font-mono bg-slate-100 px-1 rounded">data.json</span>.</p><div className="space-y-3"><label className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-100 hover:border-blue-200 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-blue-900 group-hover:text-blue-700 uppercase tracking-wide text-xs flex items-center gap-2"><FileArchive size={16} /> Upload Zip</div></div><Upload size={16} className="text-blue-400 group-hover:text-blue-600" /><input type="file" className="hidden" accept=".zip" onChange={handleZipUpload} disabled={isImporting} /></label><label className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide text-xs flex items-center gap-2"><FolderInput size={16} /> Convert Folder & Upload</div><p className="text-[9px] text-slate-500 mt-1">Folder Structure: Brand/Category/Product/image.jpg</p></div><Download size={16} className="text-slate-400 group-hover:text-slate-600" /><input type="file" className="hidden" {...({ webkitdirectory: "", directory: "" } as any)} onChange={handleFolderUpload} disabled={isImporting} /></label>{isImporting && (<div className="text-center p-2"><span className="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span><p className="text-[10px] font-bold text-blue-600 mt-1 uppercase tracking-widest">Processing Import...</p></div>)}</div></div><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><Save className="text-green-600" size={20} /> Backup & Reset</h4><div className="space-y-3"><button onClick={handleDownloadBackup} className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl border border-green-100 hover:border-green-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-green-800 group-hover:text-green-900 uppercase tracking-wide text-xs">Download Full Asset Backup (Zip)</div></div><ArrowLeft size={16} className="rotate-[-90deg] text-green-400 group-hover:text-green-600" /></button><button onClick={async () => { if(confirm("DANGER: Wipe all data?")) { const d = await resetStoreData(); onUpdateData(d); } }} className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 hover:border-red-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-red-700 uppercase tracking-wide text-xs">Factory Reset</div></div><RotateCcw size={16} className="text-red-400 group-hover:text-red-600" /></button></div></div></div></div></div> )}
       </main>
     </div>
   );

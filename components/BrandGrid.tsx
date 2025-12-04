@@ -206,7 +206,8 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
 
             {/* Catalog Actions & Website Button */}
             <div className="flex flex-wrap items-center gap-4">
-                {catalog && catalog.pages.length > 0 && (
+                {/* ALWAYS SHOW CATALOG BUTTON if pages exist */}
+                {catalog && catalog.pages && catalog.pages.length > 0 && (
                     <button 
                         onClick={onViewCatalog}
                         className="flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold uppercase tracking-wider text-sm shadow-xl shadow-blue-600/30 transition-all hover:-translate-y-1 animate-pulse-slow ring-4 ring-blue-600/20"
@@ -217,7 +218,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
                 
                 {/* Download PDF / View Website Buttons */}
                 <div className="flex items-center gap-3">
-                     {catalog && catalog.pages.length > 0 && (
+                     {catalog && catalog.pages && catalog.pages.length > 0 && (
                          <button 
                             onClick={handleDownloadPdf}
                             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-4 rounded-xl font-bold uppercase tracking-wider text-sm backdrop-blur-sm border border-white/20 transition-all"

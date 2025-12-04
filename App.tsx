@@ -80,9 +80,19 @@ export default function App() {
   }, []);
 
   const handleUpdateData = async (newData: StoreData) => {
+    // Immediate Local Update for UI snappiness
     setStoreData(newData);
-    // This pushes to Supabase, which triggers the realtime event above for other devices
-    await saveStoreData(newData);
+    setIsSyncing(true);
+    
+    try {
+        // Push to Supabase
+        await saveStoreData(newData);
+    } catch (e) {
+        console.error("Sync failed", e);
+        alert("Saved locally but failed to sync to cloud. Check connection.");
+    } finally {
+        setTimeout(() => setIsSyncing(false), 500);
+    }
   };
 
   const handleNavigate = (path: string) => {
@@ -122,7 +132,7 @@ export default function App() {
       {isSyncing && (
          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-blue-600 text-white px-4 py-2 rounded-full shadow-xl flex items-center gap-2 animate-bounce">
             <Loader2 className="animate-spin" size={16} />
-            <span className="text-xs font-bold uppercase tracking-widest">Receiving Update...</span>
+            <span className="text-xs font-bold uppercase tracking-widest">Syncing...</span>
          </div>
       )}
       <KioskApp 
