@@ -419,13 +419,17 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
       </div>
       <Footer onToggleScreensaver={() => setIsScreensaverEnabled(!isScreensaverEnabled)} isScreensaverEnabled={isScreensaverEnabled} />
       
-      {/* Creator Floating Icon - Fixed Bottom Left */}
+      {/* Creator Floating Icon - Fixed Bottom Left - FREE VIEW (No Box) */}
       <button 
         onClick={() => setShowCreator(true)}
-        className="fixed bottom-4 left-4 z-[60] w-12 h-12 rounded-full overflow-hidden border-2 border-white/50 shadow-xl bg-slate-900 transition-transform hover:scale-110 active:scale-95 animate-fade-in group"
+        className="fixed bottom-4 left-4 z-[60] w-14 h-14 transition-transform hover:scale-110 active:scale-95 animate-fade-in group focus:outline-none"
         title="Creator Details"
       >
-         <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" alt="Creator" className="w-full h-full object-cover group-hover:opacity-80 transition-opacity" />
+         <img 
+            src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" 
+            alt="Creator" 
+            className="w-full h-full object-contain drop-shadow-2xl filter hover:brightness-110 transition-all" 
+         />
       </button>
     </div>
   );
