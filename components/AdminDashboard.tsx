@@ -3,11 +3,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, Cloud, Database
 } from 'lucide-react';
-import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue } from '../types'; // Import Catalogue
+import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue } from '../types';
 import { resetStoreData } from '../services/geminiService';
-import SetupGuide from './SetupGuide'; // NEW IMPORT
+import { checkSupabaseConnection } from '../services/kioskService';
+import SetupGuide from './SetupGuide';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
 import Peer from 'peerjs';
@@ -338,7 +339,6 @@ const AdManager = ({ ads, onUpdate, onSaveGlobal }: { ads: AdConfig, onUpdate: (
     );
 };
 
-// NEW COMPONENT: AdminCatalogManager
 const AdminCatalogManager = ({ storeData, onUpdateData, onSaveGlobal }: { storeData: StoreData, onUpdateData: (d: StoreData) => void, onSaveGlobal: () => void }) => {
     const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
     const [editingCatalog, setEditingCatalog] = useState<Catalogue | null>(null);
@@ -896,6 +896,33 @@ const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegi
   );
 }
 
+// Wrapper for simple editing
+const SimpleEditor = ({ type, initialData, onSave, onCancel }: any) => {
+    const [name, setName] = useState(initialData?.name || '');
+    const [logoUrl, setLogoUrl] = useState(initialData?.logoUrl || '');
+    
+    return (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white p-8 rounded-2xl w-full max-w-md shadow-2xl animate-fade-in">
+                <h3 className="text-xl font-black text-slate-900 mb-6 capitalize">{initialData ? `Edit ${type}` : `New ${type}`}</h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Name</label>
+                        <input className="w-full p-3 border border-slate-300 rounded-xl font-bold" value={name} onChange={e => setName(e.target.value)} placeholder="Enter name..." />
+                    </div>
+                    {type === 'brand' && (
+                         <FileUpload label="Brand Logo" currentUrl={logoUrl} onUpload={(d) => setLogoUrl(d)} />
+                    )}
+                </div>
+                <div className="flex justify-end gap-2 mt-6">
+                    <button onClick={onCancel} className="px-4 py-2 text-slate-500 font-bold text-xs uppercase hover:bg-slate-100 rounded-lg">Cancel</button>
+                    <button onClick={() => onSave({ ...(initialData || { id: generateId(type === 'brand' ? 'b' : 'c'), products: [], categories: [] }), name, logoUrl })} className="px-6 py-2 bg-blue-600 text-white font-bold text-xs uppercase rounded-lg shadow-lg hover:bg-blue-700">Save</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- MAIN LAYOUT ---
 export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void }) => {
   const [session, setSession] = useState(false);
@@ -905,12 +932,17 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<{ type: 'brand'|'category'|'product', data?: any } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
-  // Removed isProcessingPdf from here, moved to AdminCatalogManager
   const [isSaving, setIsSaving] = useState(false);
-  const [showSetupGuide, setShowSetupGuide] = useState(false); // NEW STATE for Setup Guide
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [supabaseConnected, setSupabaseConnected] = useState(false);
 
   const activeBrand = storeData?.brands.find(b => b.id === activeBrandId);
   const activeCategory = activeBrand?.categories.find(c => c.id === activeCategoryId);
+
+  // Check Supabase on Mount
+  useEffect(() => {
+     checkSupabaseConnection().then(setSupabaseConnected);
+  }, []);
 
   // Global Save Handler
   const handleGlobalSave = async () => {
@@ -920,41 +952,26 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
       setTimeout(() => setIsSaving(false), 1000);
   };
 
-  // Removed handlePdfUpload and handleCatalogImagesUpload from AdminDashboard, moved to AdminCatalogManager
-
-  // --- IMPORT LOGIC: ZIP & FOLDER ---
   const processFilesToStoreData = async (fileMap: Map<string, Blob>, rootJson?: StoreData) => {
-      // 1. Determine Structure Root
-      // Browsers often include the selected folder name as the root (e.g. "MyBackup/BrandA/...")
-      // We need to strip this so that BrandA is at index 0.
       const paths: string[] = Array.from(fileMap.keys());
       if (paths.length === 0) return storeData || { ...resetStoreData() } as any;
 
       const firstPathParts = paths[0].split('/');
       let rootDirToStrip = "";
-      
-      // Heuristic: If all files start with the same first folder name, that's the "container" folder.
       if (firstPathParts.length > 1) {
           const potentialRoot = firstPathParts[0];
           const allShareRoot = paths.every(p => p.startsWith(potentialRoot + '/'));
-          if (allShareRoot) {
-              rootDirToStrip = potentialRoot;
-              console.log(`Detected root directory to strip: ${rootDirToStrip}`);
-          }
+          if (allShareRoot) rootDirToStrip = potentialRoot;
       }
 
-      // 2. Start with existing or imported JSON
-      // If we imported a JSON file, use it as the base. Otherwise, clear brands to rebuild.
       let newData: StoreData = rootJson || { 
           ...storeData, 
           brands: [], 
-          catalogues: [], // Initialize catalogues array
+          catalogues: [], 
           hero: storeData?.hero || { title: 'Welcome', subtitle: '' }
       } as StoreData;
 
-      // We maintain a map for O(1) lookups during reconstruction
       const brandsMap = new Map<string, Brand>();
-      // Pre-populate if we have JSON data
       if (newData.brands) newData.brands.forEach(b => brandsMap.set(b.name, b));
 
       const getOrCreateBrand = (name: string) => {
@@ -963,22 +980,15 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
           return b;
       }
 
-      // 3. Iterate Files
       for (const [rawPath, blob] of fileMap.entries()) {
-          // Normalize Path (Remove root dir if detected)
-          let cleanPath = rawPath.replace(/\\/g, '/'); // Fix Windows slashes
-          if (rootDirToStrip && cleanPath.startsWith(rootDirToStrip + '/')) {
-              cleanPath = cleanPath.substring(rootDirToStrip.length + 1);
-          }
-          
-          const parts = cleanPath.split('/'); // Keep .filter out to see hidden files? No, filter good.
-          const validParts = parts.filter(p => p && p !== '.' && p !== '__MACOSX');
-          if (validParts.length === 0) continue;
+          let cleanPath = rawPath.replace(/\\/g, '/');
+          if (rootDirToStrip && cleanPath.startsWith(rootDirToStrip + '/')) cleanPath = cleanPath.substring(rootDirToStrip.length + 1);
+          const parts = cleanPath.split('/').filter(p => p && p !== '.' && p !== '__MACOSX');
+          if (parts.length === 0) continue;
 
-          // Special Folder: Catalogues (NEW)
-          if (validParts[0].toLowerCase() === 'catalogues') {
-               if (validParts.length >= 3 && validParts[1] && validParts[2].match(/\.(jpg|jpeg|png|webp)$/i)) {
-                   const catalogTitle = validParts[1];
+          if (parts[0].toLowerCase() === 'catalogues') {
+               if (parts.length >= 3 && parts[1] && parts[2].match(/\.(jpg|jpeg|png|webp)$/i)) {
+                   const catalogTitle = parts[1];
                    let currentCatalog = newData.catalogues?.find(c => c.title === catalogTitle);
                    if (!currentCatalog) {
                        currentCatalog = { id: generateId('cat'), title: catalogTitle, pages: [] };
@@ -988,9 +998,8 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                    const base64 = await readFileAsBase64(blob);
                    currentCatalog.pages.push(base64);
                }
-               // Also handle a catalog info.json if present
-               if (validParts.length === 3 && validParts[2].toLowerCase() === 'info.json') {
-                   const catalogTitle = validParts[1];
+               if (parts.length === 3 && parts[2].toLowerCase() === 'info.json') {
+                   const catalogTitle = parts[1];
                    let currentCatalog = newData.catalogues?.find(c => c.title === catalogTitle);
                    if (!currentCatalog) {
                        currentCatalog = { id: generateId('cat'), title: catalogTitle, pages: [] };
@@ -999,142 +1008,46 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                    }
                    const text = await blob.text();
                    const info = JSON.parse(text);
-                   Object.assign(currentCatalog, info); // Merge info
-                   if (!currentCatalog.id) currentCatalog.id = generateId('cat'); // Ensure ID if not in info.json
+                   Object.assign(currentCatalog, info);
+                   if (!currentCatalog.id) currentCatalog.id = generateId('cat');
                }
                continue;
           }
 
-          // Case: Brand Logo (BrandName/logo.png)
-          // Depth 0: BrandName
-          // Depth 1: File
-          if (validParts.length === 2 && validParts[1].toLowerCase().includes('logo')) {
-              const brandName = validParts[0];
-              const brand = getOrCreateBrand(brandName);
+          if (parts.length === 2 && parts[1].toLowerCase().includes('logo')) {
+              const brand = getOrCreateBrand(parts[0]);
               brand.logoUrl = await readFileAsBase64(blob);
               continue;
           }
 
-          // Case: Product Data (BrandName/CategoryName/ProductName/file.ext)
-          // Depth 0: Brand
-          // Depth 1: Category
-          // Depth 2: Product
-          // Depth 3: File
-          if (validParts.length >= 4) {
-              const brandName = validParts[0];
-              const catName = validParts[1];
-              const prodName = validParts[2];
-              const fileName = validParts[3].toLowerCase();
-
-              const brand = getOrCreateBrand(brandName);
-              
-              let category = brand.categories.find(c => c.name === catName);
-              if (!category) { 
-                  category = { id: generateId('c'), name: catName, products: [], icon: 'Box' }; 
-                  brand.categories.push(category); 
-              }
-
-              let product = category.products.find(p => p.name === prodName);
-              if (!product) { 
-                  product = { 
-                      id: generateId('p'), 
-                      name: prodName, 
-                      description: 'Imported Product', 
-                      specs: {}, 
-                      features: [], 
-                      dimensions: { width: '', height: '', depth: '', weight: '' }, 
-                      imageUrl: '', 
-                      galleryUrls: [] 
-                  }; 
-                  category.products.push(product); 
-              }
-
-              // Read File Content
-              // Only read text for small config files to avoid memory spikes
-              if (fileName.endsWith('.txt') || fileName.endsWith('.json')) {
-                   // Optional: Parse description/specs from text files later
-                   continue;
-              }
-
+          if (parts.length >= 4) {
+              const brand = getOrCreateBrand(parts[0]);
+              let category = brand.categories.find(c => c.name === parts[1]);
+              if (!category) { category = { id: generateId('c'), name: parts[1], products: [], icon: 'Box' }; brand.categories.push(category); }
+              let product = category.products.find(p => p.name === parts[2]);
+              if (!product) { product = { id: generateId('p'), name: parts[2], description: 'Imported', specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' }, imageUrl: '', galleryUrls: [] }; category.products.push(product); }
+              const fileName = parts[3].toLowerCase();
+              if (fileName.endsWith('.txt') || fileName.endsWith('.json')) continue;
               const base64 = await readFileAsBase64(blob);
-
-              if (fileName.includes('main') || fileName.includes('cover') || (!product.imageUrl && fileName.match(/\.(jpg|jpeg|png|webp)$/))) {
-                  product.imageUrl = base64;
-              } else if (fileName.match(/\.(mp4|webm)$/)) {
-                  product.videoUrl = base64;
-              } else if (fileName.match(/\.(jpg|jpeg|png|webp)$/)) {
-                  // Avoid duplicate of main image
-                  if (base64 !== product.imageUrl) {
-                      // Prevent duplicates in gallery
-                      if (!product.galleryUrls?.includes(base64)) {
-                          product.galleryUrls = [...(product.galleryUrls || []), base64];
-                      }
-                  }
-              }
+              if (fileName.includes('main') || fileName.includes('cover') || (!product.imageUrl && fileName.match(/\.(jpg|jpeg|png|webp)$/))) product.imageUrl = base64;
+              else if (fileName.match(/\.(mp4|webm)$/)) product.videoUrl = base64;
+              else if (fileName.match(/\.(jpg|jpeg|png|webp)$/) && base64 !== product.imageUrl && !product.galleryUrls?.includes(base64)) product.galleryUrls = [...(product.galleryUrls || []), base64];
           }
           
-          // Case: Shallow Product Data (BrandName/CategoryName/Image.jpg)
-          // Interprets filename as product name
-          if (validParts.length === 3) {
-              const brandName = validParts[0];
-              const catName = validParts[1];
-              const fileName = validParts[2];
-              
-              // Only process images/videos
-              if (!fileName.match(/\.(jpg|jpeg|png|webp|mp4|webm)$/i)) continue;
-
-              const brand = getOrCreateBrand(brandName);
-              let category = brand.categories.find(c => c.name === catName);
-              if (!category) {
-                  category = { id: generateId('c'), name: catName, products: [], icon: 'Box' };
-                  brand.categories.push(category);
-              }
-              
-              // Remove extension for product name
-              const prodName = fileName.replace(/\.[^/.]+$/, "");
+          if (parts.length === 3) {
+              if (!parts[2].match(/\.(jpg|jpeg|png|webp|mp4|webm)$/i)) continue;
+              const brand = getOrCreateBrand(parts[0]);
+              let category = brand.categories.find(c => c.name === parts[1]);
+              if (!category) { category = { id: generateId('c'), name: parts[1], products: [], icon: 'Box' }; brand.categories.push(category); }
+              const prodName = parts[2].replace(/\.[^/.]+$/, "");
               let product = category.products.find(p => p.name === prodName);
-              
-              if (!product) {
-                   product = {
-                      id: generateId('p'),
-                      name: prodName,
-                      description: '',
-                      specs: {},
-                      features: [],
-                      dimensions: { width: '', height: '', depth: '', weight: '' },
-                      imageUrl: '',
-                      galleryUrls: []
-                   };
-                   category.products.push(product);
-              }
-              
+              if (!product) { product = { id: generateId('p'), name: prodName, description: '', specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' }, imageUrl: '', galleryUrls: [] }; category.products.push(product); }
               const base64 = await readFileAsBase64(blob);
-              if (fileName.match(/\.(mp4|webm)$/i)) {
-                  product.videoUrl = base64;
-              } else {
-                  product.imageUrl = base64;
-              }
+              if (parts[2].match(/\.(mp4|webm)$/i)) product.videoUrl = base64; else product.imageUrl = base64;
           }
       }
-
-      // 4. Reconstruct Array
       newData.brands = Array.from(brandsMap.values());
-      
-      // Sort Catalog Pages (if any)
-      if (newData.catalogues) {
-          newData.catalogues.forEach(catalog => {
-              if (catalog.pages) {
-                  catalog.pages.sort((a, b) => {
-                      // Assuming "page_001.jpg" format, extract number for sorting
-                      const numA = parseInt(a.match(/_(\d+)\./)?.[1] || '0');
-                      const numB = parseInt(b.match(/_(\d+)\./)?.[1] || '0');
-                      return numA - numB;
-                  });
-              }
-          });
-      }
-
-      console.log("Reconstructed Store Data:", newData);
+      if (newData.catalogues) newData.catalogues.forEach(c => c.pages?.sort((a, b) => (parseInt(a.match(/_(\d+)\./)?.[1] || '0') - parseInt(b.match(/_(\d+)\./)?.[1] || '0'))));
       return newData;
   };
 
@@ -1146,45 +1059,15 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
           const contents = await zip.loadAsync(e.target.files[0]);
           const fileMap = new Map<string, Blob>();
           let rootJson: StoreData | undefined;
-
-          // Extract Data
-          const filePromises: Promise<void>[] = [];
-
-          // First pass: look for JSON
-          // We check root and one level deep for the config json
-          let jsonFile = contents.file("store_config.json");
-          if (!jsonFile) {
-               // Try finding it inside a subfolder
-               const deepJson = Object.keys(contents.files).find(path => path.endsWith("store_config.json"));
-               if (deepJson) jsonFile = contents.file(deepJson);
-          }
-
-          if (jsonFile) {
-               const text = await jsonFile.async("text");
-               if (text) rootJson = JSON.parse(text);
-          }
-
-          // Second pass: get all blobs
-          contents.forEach((relativePath, fileEntry) => {
-              if (!fileEntry.dir && !relativePath.endsWith('.json') && !relativePath.includes('__MACOSX') && !relativePath.includes('.DS_Store')) {
-                  filePromises.push((async () => {
-                      const blob = await fileEntry.async('blob');
-                      fileMap.set(relativePath, blob);
-                  })());
-              }
-          });
-          
-          await Promise.all(filePromises);
-
+          let jsonFile = contents.file("store_config.json") || contents.file(Object.keys(contents.files).find(p => p.endsWith("store_config.json")) || "");
+          if (jsonFile) { const text = await jsonFile.async("text"); if (text) rootJson = JSON.parse(text); }
+          const promises: Promise<void>[] = [];
+          contents.forEach((path, entry) => { if(!entry.dir && !path.endsWith('.json') && !path.includes('__MACOSX')) promises.push(entry.async('blob').then(b => { fileMap.set(path, b); })); });
+          await Promise.all(promises);
           const newData = await processFilesToStoreData(fileMap, rootJson);
           onUpdateData(newData);
-          alert("Import Successful! System populated.");
-      } catch (e) {
-          console.error(e);
-          alert("Import Failed: " + e);
-      } finally {
-          setIsImporting(false);
-      }
+          alert("Import Successful!");
+      } catch (e) { console.error(e); alert("Import Failed"); } finally { setIsImporting(false); }
   };
 
   const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1192,23 +1075,11 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
       setIsImporting(true);
       try {
           const fileMap = new Map<string, Blob>();
-          // 'webkitRelativePath' gives us "Folder/Subfolder/File.png"
-          for (let i = 0; i < e.target.files.length; i++) {
-              const file = e.target.files[i];
-              if (file.webkitRelativePath) {
-                  fileMap.set(file.webkitRelativePath, file);
-              }
-          }
-          
+          for (let i = 0; i < e.target.files.length; i++) { if (e.target.files[i].webkitRelativePath) fileMap.set(e.target.files[i].webkitRelativePath, e.target.files[i]); }
           const newData = await processFilesToStoreData(fileMap);
           onUpdateData(newData);
-          alert("Folder Import Successful! System Rebuilt.");
-      } catch (e) {
-           console.error(e);
-           alert("Folder Import Failed");
-      } finally {
-          setIsImporting(false);
-      }
+          alert("Folder Import Successful!");
+      } catch (e) { console.error(e); alert("Folder Import Failed"); } finally { setIsImporting(false); }
   };
 
   const handleDownloadBackup = async () => {
@@ -1216,239 +1087,266 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
     setIsSaving(true);
     try {
         const zip = new JSZip();
-        
-        // 1. Save Structure JSON (Full backup with base64 for easy restore)
         zip.file("store_config.json", JSON.stringify(storeData, null, 2));
-
-        // 2. Create Categorized Folder Structure
-        // Folder: Brand Name
         storeData.brands.forEach(brand => {
-            // Sanitize names for folders
-            const safeBrandName = brand.name.replace(/[^a-z0-9]/gi, '_');
-            const brandFolder = zip.folder(safeBrandName);
-            
-            // Logo
-            if (brand.logoUrl && brand.logoUrl.startsWith('data:')) {
-                const blob = dataURItoBlob(brand.logoUrl);
-                if (blob) brandFolder?.file("logo.png", blob);
-            }
-
-            // Folder: Category Name
+            const bFolder = zip.folder(brand.name.replace(/[^a-z0-9]/gi, '_'));
+            if (brand.logoUrl?.startsWith('data:')) bFolder?.file("logo.png", dataURItoBlob(brand.logoUrl)!);
             brand.categories.forEach(cat => {
-                const safeCatName = cat.name.replace(/[^a-z0-9]/gi, '_');
-                const catFolder = brandFolder?.folder(safeCatName);
-                
-                // Folder: Product Name
+                const cFolder = bFolder?.folder(cat.name.replace(/[^a-z0-9]/gi, '_'));
                 cat.products.forEach(prod => {
-                    const safeProdName = prod.name.replace(/[^a-z0-9]/gi, '_');
-                    const prodFolder = catFolder?.folder(safeProdName);
-                    
-                    // Product Details Text
-                    prodFolder?.file("info.txt", 
-                        `Name: ${prod.name}\nDescription: ${prod.description}\nSKU: ${prod.sku}\nSpecs: ${JSON.stringify(prod.specs, null, 2)}`
-                    );
-
-                    // Images
-                    if (prod.imageUrl && prod.imageUrl.startsWith('data:')) {
-                         const blob = dataURItoBlob(prod.imageUrl);
-                         if (blob) prodFolder?.file("main_image.png", blob);
-                    }
-                    if (prod.videoUrl && prod.videoUrl.startsWith('data:')) {
-                         const blob = dataURItoBlob(prod.videoUrl);
-                         // Try to guess extension from mime, default to mp4
-                         const ext = prod.videoUrl.includes('video/webm') ? 'webm' : 'mp4';
-                         if (blob) prodFolder?.file(`video.${ext}`, blob);
-                    }
-                    prod.galleryUrls?.forEach((url, idx) => {
-                         if (url.startsWith('data:')) {
-                             const blob = dataURItoBlob(url);
-                             if (blob) prodFolder?.file(`gallery_${idx + 1}.png`, blob);
-                         }
-                    });
+                    const pFolder = cFolder?.folder(prod.name.replace(/[^a-z0-9]/gi, '_'));
+                    pFolder?.file("info.txt", `Name: ${prod.name}\nSKU: ${prod.sku}`);
+                    if (prod.imageUrl?.startsWith('data:')) pFolder?.file("main_image.png", dataURItoBlob(prod.imageUrl)!);
+                    prod.galleryUrls?.forEach((url, i) => { if(url.startsWith('data:')) pFolder?.file(`gallery_${i+1}.png`, dataURItoBlob(url)!); });
                 });
             });
         });
-
-        // 3. Extract Catalogues (NEW)
-        if (storeData.catalogues && storeData.catalogues.length > 0) {
-            const allCatalogsFolder = zip.folder("catalogues");
-            storeData.catalogues.forEach((catalog) => {
-                const safeCatalogName = catalog.title.replace(/[^a-z0-9]/gi, '_');
-                const catalogFolder = allCatalogsFolder?.folder(safeCatalogName);
-                
-                catalogFolder?.file("info.json", JSON.stringify({
-                    title: catalog.title,
-                    brandId: catalog.brandId,
-                    year: catalog.year,
-                    month: catalog.month,
-                    pdfUrl: catalog.pdfUrl // If original PDF was URL
-                }, null, 2));
-
-                catalog.pages.forEach((page, idx) => {
-                    if (page.startsWith('data:')) {
-                        const blob = dataURItoBlob(page);
-                        // Zero pad for correct sorting: page_001.jpg
-                        const padIdx = (idx + 1).toString().padStart(3, '0');
-                        if (blob) catalogFolder?.file(`page_${padIdx}.jpg`, blob);
-                    }
-                });
-            });
-        }
-
-        // Generate
         const content = await zip.generateAsync({ type: "blob" });
-        const url = URL.createObjectURL(content);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `kiosk_backup_${new Date().toISOString().split('T')[0]}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-
-    } catch (e) {
-        console.error("Backup failed", e);
-        alert("Backup generation failed.");
-    } finally {
-        setIsSaving(false);
-    }
+        const a = document.createElement("a"); a.href = URL.createObjectURL(content); a.download = `backup.zip`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    } catch (e) { alert("Backup failed"); } finally { setIsSaving(false); }
   };
 
   const handleSaveBrand = (brand: Brand) => { if(!storeData) return; let newBrands = [...storeData.brands]; const idx = newBrands.findIndex(b => b.id === brand.id); if (idx >= 0) newBrands[idx] = brand; else newBrands.push(brand); onUpdateData({ ...storeData, brands: newBrands }); setEditingItem(null); };
   const handleSaveCategory = (category: Category) => { if (!activeBrand || !storeData) return; const newBrands = [...storeData.brands]; const bIdx = newBrands.findIndex(b => b.id === activeBrand.id); const newCats = [...newBrands[bIdx].categories]; const cIdx = newCats.findIndex(c => c.id === category.id); if (cIdx >= 0) newCats[cIdx] = category; else newCats.push(category); newBrands[bIdx] = { ...newBrands[bIdx], categories: newCats }; onUpdateData({ ...storeData, brands: newBrands }); setEditingItem(null); };
-  const handleSaveProduct = (product: Product) => { if (!activeBrand || !activeCategory || !storeData) return; const newBrands = [...storeData.brands]; const bIdx = newBrands.findIndex(b => b.id === activeBrand.id); const newCats = [...newBrands[bIdx].categories]; const cIdx = newCats.findIndex(c => c.id === activeCategory.id); const newProds = [...newCats[cIdx].products]; const pIdx = newProds.findIndex(p => p.id === product.id); if (pIdx >= 0) newProds[pIdx] = product; else newProds.push(product); newCats[cIdx] = { ...newCats[cIdx], products: newProds }; newBrands[bIdx] = { ...newBrands[bIdx], categories: newCats }; onUpdateData({ ...storeData, brands: newBrands }); setEditingItem(null); };
-  const deleteItem = (type: 'brand'|'category'|'product', id: string) => { if(!storeData || !confirm("Delete item?")) return; const newBrands = [...storeData.brands]; if(type === 'brand') { onUpdateData({ ...storeData, brands: newBrands.filter(b => b.id !== id) }); } else if (type === 'category' && activeBrand) { const bIdx = newBrands.findIndex(b => b.id === activeBrand.id); newBrands[bIdx].categories = newBrands[bIdx].categories.filter(c => c.id !== id); onUpdateData({ ...storeData, brands: newBrands }); } else if (type === 'product' && activeBrand && activeCategory) { const bIdx = newBrands.findIndex(b => b.id === activeBrand.id); const cIdx = newBrands[bIdx].categories.findIndex(c => c.id === activeCategory.id); newBrands[bIdx].categories[cIdx].products = newBrands[bIdx].categories[cIdx].products.filter(p => p.id !== id); onUpdateData({ ...storeData, brands: newBrands }); } };
+  const handleSaveProduct = (product: Product) => {
+    if (!activeBrand || !activeCategory || !storeData) return;
+    const newBrands = [...storeData.brands];
+    const bIdx = newBrands.findIndex(b => b.id === activeBrand.id);
+    if (bIdx === -1) return;
+    const newCats = [...newBrands[bIdx].categories];
+    const cIdx = newCats.findIndex(c => c.id === activeCategory.id);
+    if (cIdx === -1) return;
+    const newProds = [...newCats[cIdx].products];
+    const pIdx = newProds.findIndex(p => p.id === product.id);
+    if (pIdx >= 0) newProds[pIdx] = product; else newProds.push(product);
+    newCats[cIdx] = { ...newCats[cIdx], products: newProds };
+    newBrands[bIdx] = { ...newBrands[bIdx], categories: newCats };
+    onUpdateData({ ...storeData, brands: newBrands });
+    setEditingItem(null);
+  };
 
-  if (!session) return <div className="h-full relative bg-slate-900"><div className="absolute top-6 left-6 text-white/50 hover:text-white flex items-center gap-2 z-10 font-bold uppercase tracking-widest text-xs pointer-events-none select-none"><Monitor size={16} /> Admin Secured Area</div><Auth setSession={setSession} /></div>;
+  const deleteItem = (type: 'brand'|'category'|'product', id: string) => {
+    if(!storeData || !confirm("Delete item?")) return;
+    const newBrands = [...storeData.brands];
+    if(type === 'brand') {
+       onUpdateData({ ...storeData, brands: newBrands.filter(b => b.id !== id) });
+    } else if (type === 'category' && activeBrand) {
+       const bIdx = newBrands.findIndex(b => b.id === activeBrand.id);
+       if (bIdx > -1) {
+           newBrands[bIdx].categories = newBrands[bIdx].categories.filter(c => c.id !== id);
+           onUpdateData({ ...storeData, brands: newBrands });
+       }
+    } else if (type === 'product' && activeBrand && activeCategory) {
+       const bIdx = newBrands.findIndex(b => b.id === activeBrand.id);
+       if (bIdx > -1) {
+           const cIdx = newBrands[bIdx].categories.findIndex(c => c.id === activeCategory.id);
+           if (cIdx > -1) {
+               newBrands[bIdx].categories[cIdx].products = newBrands[bIdx].categories[cIdx].products.filter(p => p.id !== id);
+               onUpdateData({ ...storeData, brands: newBrands });
+           }
+       }
+    }
+  };
+
+  if (!session) return <Auth setSession={setSession} />;
 
   return (
-    <div className="flex flex-col h-full bg-slate-100 font-sans text-slate-900">
-      
-      {/* RESPONSIVE HEADER */}
-      <header className="bg-slate-900 text-white shrink-0 px-4 md:px-6 h-16 flex items-center justify-between shadow-2xl z-30 relative border-b border-slate-700 gap-2 md:gap-4">
-         <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600"></div>
-         
-         {/* Logo Area - Compact on Mobile */}
-         <div className="flex items-center gap-2 shrink-0">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-2 rounded-lg shadow-[0_0_15px_rgba(59,130,246,0.5)] border border-blue-400/30">
-                <Grid size={18} className="text-white" />
+    <div className="flex h-screen bg-slate-100 overflow-hidden font-sans text-slate-900">
+        <aside className="w-64 bg-slate-900 text-white flex flex-col shrink-0 z-20 shadow-2xl">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-800">
+                <h1 className="text-2xl font-black tracking-tighter">Admin Hub</h1>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kiosk Control Center</p>
             </div>
-            <h1 className="text-lg font-black tracking-tighter leading-none text-white drop-shadow-md hidden md:block">
-                Admin<span className="text-blue-400">Hub</span>
-            </h1>
-         </div>
+            
+            {/* Navigation */}
+            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+                {[
+                    { id: 'inventory', label: 'Inventory', icon: <Box size={18} /> },
+                    { id: 'fleet', label: 'Fleet Command', icon: <Tablet size={18} /> },
+                    { id: 'catalog', label: 'Catalogs', icon: <BookOpen size={18} /> },
+                    { id: 'ads', label: 'Ads & Marketing', icon: <Megaphone size={18} /> },
+                    { id: 'settings', label: 'Setup Guide', icon: <HelpCircle size={18} /> }
+                ].map(item => (
+                    <button
+                        key={item.id}
+                        onClick={() => { setActiveTab(item.id as any); if(item.id === 'inventory') setViewLevel('brands'); }}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all font-bold text-xs uppercase tracking-wide ${activeTab === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                    >
+                        {item.icon}
+                        {item.label}
+                    </button>
+                ))}
+            </nav>
 
-         {/* Navigation - Scrollable on Mobile */}
-         <nav className="flex-1 overflow-x-auto flex items-center gap-1 md:gap-2 no-scrollbar mx-2">
-            {[{ id: 'inventory', label: 'Inventory', icon: Box }, { id: 'catalog', label: 'Catalog', icon: LayoutTemplate }, { id: 'ads', label: 'Ads', icon: Megaphone }, { id: 'fleet', label: 'Fleet', icon: Signal }, { id: 'settings', label: 'System', icon: Monitor }].map(tab => (
-                 <button 
-                    key={tab.id} 
-                    onClick={() => setActiveTab(tab.id as any)} 
-                    className={`px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${activeTab === tab.id ? 'bg-white text-slate-900 shadow-lg' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
-                 >
-                     <tab.icon size={12} className={activeTab === tab.id ? "text-blue-600" : ""} />
-                     <span className={tab.id !== 'inventory' ? 'hidden md:inline' : 'inline'}>{tab.label}</span>
+            {/* Bottom Actions */}
+            <div className="p-4 border-t border-slate-800 space-y-3">
+                 <div className="flex items-center gap-2 px-2 text-[10px] font-bold text-slate-500">
+                    <Database size={12} className={supabaseConnected ? "text-green-500" : "text-slate-600"} />
+                    {supabaseConnected ? "Cloud Database Active" : "Local Storage Mode"}
+                 </div>
+                 
+                 <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer transition-colors group">
+                    {isImporting ? <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> : <FolderInput size={16} className="group-hover:text-blue-400" />}
+                    <span className="text-[10px] font-black uppercase tracking-wider">Import Folder</span>
+                    <input type="file" className="hidden" webkitdirectory="" directory="" multiple onChange={handleFolderUpload} />
+                 </label>
+                 
+                 <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer transition-colors group">
+                    <FileArchive size={16} className="group-hover:text-yellow-400" />
+                    <span className="text-[10px] font-black uppercase tracking-wider">Import ZIP</span>
+                    <input type="file" className="hidden" accept=".zip" onChange={handleZipUpload} />
+                 </label>
+                 
+                 <button onClick={handleDownloadBackup} className="w-full flex items-center gap-3 p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors group">
+                    <Download size={16} className="group-hover:text-green-400" />
+                    <span className="text-[10px] font-black uppercase tracking-wider">Backup Data</span>
                  </button>
-            ))}
-         </nav>
 
-         {/* Actions Area */}
-         <div className="flex items-center gap-2 shrink-0">
-             {/* MANUAL SYNC BUTTON */}
-             <button 
-                onClick={async () => {
-                    if (confirm("Force sync latest data from cloud?")) {
-                       window.location.reload();
-                    }
-                }}
-                className="bg-slate-800 text-white p-2 rounded-lg hover:bg-slate-700 transition-all border border-slate-700 flex items-center"
-                title="Force Sync"
-             >
-                <RotateCcw size={14} />
-             </button>
-             
-             {/* SETUP GUIDE BUTTON - RESTORED */}
-             <button
-                onClick={() => setShowSetupGuide(true)}
-                className="bg-purple-600 text-white p-2 rounded-lg hover:bg-purple-500 transition-all shadow-lg flex items-center"
-                title="Open Setup Guide"
-             >
-                <HelpCircle size={14} />
-             </button>
-
-             {/* GLOBAL SAVE BUTTON */}
-             <button 
-                onClick={handleGlobalSave}
-                disabled={isSaving}
-                className={`bg-green-600 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-green-500 transition-all shadow-lg shadow-green-600/30 flex items-center gap-2 ${isSaving ? 'opacity-80' : ''}`}
-             >
-                 {isSaving ? <RotateCcw size={14} className="animate-spin" /> : <Save size={14} />}
-                 <span className="hidden md:inline">{isSaving ? 'Saving...' : 'Save Changes'}</span>
-             </button>
-
-             <button onClick={() => setSession(false)} className="bg-slate-800 text-white p-2 md:px-4 md:py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2">
-                 <LogOut size={14} /> 
-                 <span className="hidden md:inline">Logout</span>
-             </button>
-         </div>
-      </header>
-
-      <main className="flex-1 overflow-hidden relative bg-slate-200">
-         <div className="absolute inset-0 bg-slate-200 pointer-events-none z-0 opacity-50" style={{backgroundImage: 'radial-gradient(circle at 50% 50%, #e2e8f0 1px, transparent 1px)', backgroundSize: '24px 24px'}}></div>
-         
-         {/* ... Existing Tab Logic ... */}
-         {activeTab === 'inventory' && storeData && (
-             editingItem?.type === 'product' ? (
-                <div className="p-4 h-full relative z-10 flex flex-col justify-center"><div className="max-w-5xl mx-auto w-full h-full"><ProductEditor product={editingItem.data} onSave={handleSaveProduct} onCancel={() => setEditingItem(null)} /></div></div>
-            ) : (
-            <div className="h-full flex flex-col p-4 md:p-6 overflow-y-auto relative z-10">
-               <div className="max-w-7xl mx-auto w-full animate-fade-in">
-                  {/* ... (Modals for Brand/Category are absolute fixed, no change needed) ... */}
-                  {editingItem?.type === 'brand' && ( <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4"><div className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-300 transform scale-100"><h3 className="text-xl font-black mb-4 text-slate-900">Manage Brand</h3><div className="space-y-4"><div><label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Brand Name</label><input className="w-full p-3 border border-slate-300 rounded-xl font-bold bg-white text-black shadow-inner" placeholder="Brand Name" defaultValue={editingItem.data?.name} onChange={(e) => editingItem.data.name = e.target.value} /></div><FileUpload label="Brand Logo" currentUrl={editingItem.data?.logoUrl} onUpload={(d) => { editingItem.data.logoUrl = d; setEditingItem({...editingItem}); }} /></div><div className="flex justify-end gap-2 mt-6"><button onClick={() => setEditingItem(null)} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg transition-colors text-xs uppercase">Cancel</button><button onClick={() => handleSaveBrand(editingItem.data || { id: generateId('b'), name: '', categories: [] })} className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all text-xs uppercase">Save</button></div></div></div> )}
-                  {editingItem?.type === 'category' && ( <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4"><div className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-300"><h3 className="text-xl font-black mb-4 text-slate-900">Manage Category</h3><div><label className="text-[10px] font-black uppercase text-slate-500 mb-1 block">Category Name</label><input className="w-full p-3 border border-slate-300 rounded-xl mb-4 font-bold bg-white text-black shadow-inner" placeholder="Category Name" defaultValue={editingItem.data?.name} onChange={(e) => editingItem.data.name = e.target.value} /></div><div className="flex justify-end gap-2"><button onClick={() => setEditingItem(null)} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg transition-colors text-xs uppercase">Cancel</button><button onClick={() => handleSaveCategory(editingItem.data || { id: generateId('c'), name: '', products: [] })} className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all text-xs uppercase">Save</button></div></div></div> )}
-                  
-                  {/* Breadcrumb Nav */}
-                  <div className="flex flex-wrap items-center gap-1 mb-6 text-xs font-bold text-slate-500 bg-white inline-flex px-4 py-2 rounded-full shadow-sm border border-slate-200 z-10 relative">
-                      <button onClick={() => { setViewLevel('brands'); setActiveBrandId(null); }} className={`hover:text-blue-600 transition-colors ${viewLevel === 'brands' ? 'text-slate-900 font-black' : ''}`}>BRANDS</button>
-                      {activeBrand && <><ChevronRight size={12} /><button onClick={() => { setViewLevel('categories'); setActiveCategoryId(null); }} className={`hover:text-blue-600 transition-colors ${viewLevel === 'categories' ? 'text-slate-900 font-black' : ''}`}>{activeBrand.name.toUpperCase()}</button></>}
-                      {activeCategory && <><ChevronRight size={12} /><span className="text-slate-900 font-black px-2 py-0.5 bg-slate-100 rounded text-[10px]">{activeCategory.name.toUpperCase()}</span></>}
-                  </div>
-                  
-                  {/* Views */}
-                  {viewLevel === 'brands' && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        <button onClick={() => setEditingItem({ type: 'brand', data: { id: generateId('b'), name: '', categories: [] } })} className="aspect-square rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex flex-col items-center justify-center text-slate-400 hover:text-blue-600 transition-all gap-2 group bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md"><div className="w-10 h-10 rounded-xl bg-white group-hover:bg-blue-100 flex items-center justify-center text-slate-300 group-hover:text-blue-600 transition-colors shadow-sm border border-slate-100"><Plus size={20} /></div><span className="font-black text-[10px] uppercase tracking-widest">Add Brand</span></button>
-                        {storeData.brands.map(brand => ( <div key={brand.id} className="bg-white rounded-2xl shadow-lg border border-white overflow-hidden group relative hover:shadow-xl transition-all transform hover:-translate-y-1 hover:border-blue-200"><div className="aspect-square p-4 flex items-center justify-center cursor-pointer bg-gradient-to-b from-white to-slate-50" onClick={() => { setActiveBrandId(brand.id); setViewLevel('categories'); }}>{brand.logoUrl ? <img src={brand.logoUrl} className="max-w-full max-h-full object-contain filter drop-shadow-sm" /> : <span className="text-4xl font-black text-slate-100">{brand.name[0]}</span>}</div><div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100"><button onClick={(e) => { e.stopPropagation(); setEditingItem({ type: 'brand', data: brand }); }} className="p-2 bg-slate-900 text-white rounded-lg shadow-md hover:bg-slate-700 transition-colors"><Edit2 size={10} /></button><button onClick={(e) => { e.stopPropagation(); deleteItem('brand', brand.id); }} className="p-2 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-colors"><Trash2 size={10} /></button></div><div className="p-2 border-t border-slate-100 text-center font-black text-slate-800 uppercase tracking-wide text-xs bg-white relative z-10 truncate">{brand.name}</div></div> ))}
-                    </div>
-                  )}
-                  {viewLevel === 'categories' && activeBrand && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        <button onClick={() => setEditingItem({ type: 'category', data: { id: generateId('c'), name: '', products: [] } })} className="aspect-square rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex flex-col items-center justify-center text-slate-400 hover:text-blue-600 transition-all gap-2 group bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md"><div className="w-10 h-10 rounded-xl bg-white group-hover:bg-blue-100 flex items-center justify-center text-slate-300 group-hover:text-blue-600 transition-colors shadow-sm border border-slate-100"><Plus size={20} /></div><span className="font-black text-[10px] uppercase tracking-widest">Add Category</span></button>
-                        {activeBrand.categories.map(cat => ( <div key={cat.id} className="bg-white rounded-2xl shadow-lg border border-white overflow-hidden group relative hover:shadow-xl transition-all transform hover:-translate-y-1 hover:border-blue-200"><div className="aspect-square p-4 flex flex-col items-center justify-center cursor-pointer bg-gradient-to-br from-white to-slate-50" onClick={() => { setActiveCategoryId(cat.id); setViewLevel('products'); }}><Box className="text-slate-200 mb-2 drop-shadow-sm" size={32} /><span className="font-black text-sm text-slate-800 tracking-tight text-center">{cat.name}</span><span className="text-[9px] text-blue-500 font-bold uppercase tracking-widest bg-blue-50 px-1.5 py-0.5 rounded mt-1">{cat.products.length} Items</span></div><div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100"><button onClick={(e) => { e.stopPropagation(); setEditingItem({ type: 'category', data: cat }); }} className="p-2 bg-slate-900 text-white rounded-lg shadow-md hover:bg-slate-700 transition-colors"><Edit2 size={10} /></button><button onClick={(e) => { e.stopPropagation(); deleteItem('category', cat.id); }} className="p-2 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-colors"><Trash2 size={10} /></button></div></div> ))}
-                    </div>
-                  )}
-                  {viewLevel === 'products' && activeCategory && (
-                     <div className="space-y-4 max-w-5xl mx-auto">
-                        <button onClick={() => setEditingItem({ type: 'product' })} className="w-full p-4 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50 flex items-center justify-center gap-2 text-slate-400 hover:text-blue-600 transition-all font-black group bg-white/50 backdrop-blur-sm"><div className="p-1.5 bg-white rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors shadow-sm"><Plus size={16} /></div><span className="text-xs uppercase tracking-widest">ADD NEW PRODUCT</span></button>
-                        {activeCategory.products.map(prod => ( <div key={prod.id} className="bg-white p-4 rounded-2xl shadow-sm border border-white flex items-center gap-4 group hover:border-blue-300 transition-all hover:shadow-lg transform hover:-translate-y-0.5"><div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center overflow-hidden border border-slate-100 shrink-0 shadow-inner p-1"><img src={prod.imageUrl} alt={prod.name} className="w-full h-full object-contain" /></div><div className="flex-1"><h4 className="font-black text-lg text-slate-900 tracking-tight leading-none">{prod.name}</h4><div className="flex gap-2 text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-wide">{prod.sku && <span className="bg-slate-50 px-2 py-0.5 rounded border border-slate-100 text-slate-700 font-mono">SKU: {prod.sku}</span>}<span className="flex items-center gap-1"><BarChart3 size={10}/> {Object.keys(prod.specs).length} Specs</span></div></div><div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0"><button onClick={() => setEditingItem({ type: 'product', data: prod })} className="px-3 py-2 bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm flex items-center gap-1">Edit</button><button onClick={() => deleteItem('product', prod.id)} className="px-3 py-2 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm flex items-center gap-1">Delete</button></div></div> ))}
-                     </div>
-                  )}
-               </div>
+                 <button onClick={onExit} className="w-full flex items-center gap-3 p-3 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors">
+                    <LogOut size={16} />
+                    <span className="text-[10px] font-black uppercase tracking-wider">Exit Admin</span>
+                 </button>
             </div>
-            )
-         )}
-         {activeTab === 'ads' && storeData && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><AdManager ads={storeData.ads || { homeBottomLeft: [], homeBottomRight: [], homeSideVertical: [], screensaver: [] }} onUpdate={(newAds) => onUpdateData({ ...storeData, ads: newAds })} onSaveGlobal={handleGlobalSave} /></div> )}
-         {/* Render the new AdminCatalogManager component for the 'catalog' tab */}
-         {activeTab === 'catalog' && storeData && (
-             <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10">
-                 <AdminCatalogManager storeData={storeData} onUpdateData={onUpdateData} onSaveGlobal={handleGlobalSave} />
-             </div>
-         )}
-         {activeTab === 'fleet' && storeData && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><FleetManager fleet={storeData.fleet || []} onUpdateFleet={(f) => onUpdateData({ ...storeData, fleet: f })} onSaveGlobal={handleGlobalSave} /></div> )}
-         {activeTab === 'settings' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><div className="max-w-7xl mx-auto animate-fade-in"><h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight drop-shadow-sm">System</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><FolderInput className="text-blue-600" size={20} /> Data Import</h4><p className="text-xs text-slate-500 mb-4 font-medium">Populate system. Supports <span className="font-mono bg-slate-100 px-1 rounded">.zip</span> or folder with <span className="font-mono bg-slate-100 px-1 rounded">data.json</span>.</p><div className="space-y-3"><label className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-100 hover:border-blue-200 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-blue-900 group-hover:text-blue-700 uppercase tracking-wide text-xs flex items-center gap-2"><FileArchive size={16} /> Upload Zip</div></div><Upload size={16} className="text-blue-400 group-hover:text-blue-600" /><input type="file" className="hidden" accept=".zip" onChange={handleZipUpload} disabled={isImporting} /></label><label className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide text-xs flex items-center gap-2"><FolderInput size={16} /> Convert Folder & Upload</div><p className="text-[9px] text-slate-500 mt-1">Folder Structure: Brand/Category/Product/image.jpg</p></div><Download size={16} className="text-slate-400 group-hover:text-slate-600" /><input type="file" className="hidden" {...({ webkitdirectory: "", directory: "" } as any)} onChange={handleFolderUpload} disabled={isImporting} /></label>{isImporting && (<div className="text-center p-2"><span className="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span><p className="text-[10px] font-bold text-blue-600 mt-1 uppercase tracking-widest">Processing Import...</p></div>)}</div></div><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><Save className="text-green-600" size={20} /> Backup & Reset</h4><div className="space-y-3"><button onClick={handleDownloadBackup} className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl border border-green-100 hover:border-green-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-green-800 group-hover:text-green-900 uppercase tracking-wide text-xs">Download Full Asset Backup (Zip)</div></div><ArrowLeft size={16} className="rotate-[-90deg] text-green-400 group-hover:text-green-600" /></button><button onClick={async () => { if(confirm("DANGER: Wipe all data?")) { const d = await resetStoreData(); onUpdateData(d); } }} className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 hover:border-red-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-red-700 uppercase tracking-wide text-xs">Factory Reset</div></div><RotateCcw size={16} className="text-red-400 group-hover:text-red-600" /></button></div></div></div></div></div> )}
-      </main>
+        </aside>
 
-      {/* SETUP GUIDE MODAL */}
-      {showSetupGuide && <SetupGuide onClose={() => setShowSetupGuide(false)} />}
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col min-w-0 bg-slate-50 relative overflow-hidden">
+            {/* Top Bar */}
+            <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-8 shrink-0">
+                <div className="flex items-center gap-4">
+                     {activeTab === 'inventory' && viewLevel !== 'brands' && (
+                         <button onClick={() => {
+                             if(viewLevel === 'products') { setViewLevel('categories'); setActiveCategory(null); }
+                             else { setViewLevel('brands'); setActiveBrandId(null); }
+                         }} className="flex items-center gap-1 text-slate-500 hover:text-slate-900 font-bold text-xs uppercase tracking-wider">
+                             <ArrowLeft size={16} /> Back
+                         </button>
+                     )}
+                     <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">
+                        {activeTab === 'inventory' ? (
+                            viewLevel === 'brands' ? 'Brand Management' : 
+                            viewLevel === 'categories' ? `Categories / ${activeBrand?.name}` : 
+                            `Products / ${activeCategory?.name}`
+                        ) : activeTab === 'fleet' ? 'Fleet Management' : 
+                          activeTab === 'catalog' ? 'Catalog Manager' :
+                          activeTab === 'ads' ? 'Ad Manager' : 'System Setup'}
+                     </h2>
+                </div>
+                <div className="flex items-center gap-4">
+                     {isSaving && <span className="text-blue-600 font-bold text-xs animate-pulse flex items-center gap-2"><Save size={14} /> Saving...</span>}
+                </div>
+            </header>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-8">
+                 {activeTab === 'inventory' && (
+                     <>
+                        {viewLevel === 'brands' && (
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                                {storeData?.brands.map(brand => (
+                                    <div key={brand.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-xl transition-all group relative">
+                                        <div className="aspect-square flex items-center justify-center bg-slate-50 rounded-xl mb-4 group-hover:scale-105 transition-transform">
+                                            {brand.logoUrl ? <img src={brand.logoUrl} className="w-2/3 h-2/3 object-contain" /> : <span className="text-2xl font-black text-slate-300">{brand.name[0]}</span>}
+                                        </div>
+                                        <h3 className="font-bold text-slate-900 text-center mb-2">{brand.name}</h3>
+                                        <div className="flex gap-2 justify-center">
+                                            <button onClick={() => { setActiveBrandId(brand.id); setViewLevel('categories'); }} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"><ChevronRight size={16} /></button>
+                                            <button onClick={() => setEditingItem({type: 'brand', data: brand})} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200"><Edit2 size={16} /></button>
+                                            <button onClick={() => deleteItem('brand', brand.id)} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100"><Trash2 size={16} /></button>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button onClick={() => setEditingItem({type: 'brand', data: null})} className="border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-6 text-slate-400 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 transition-all gap-2">
+                                    <Plus size={32} />
+                                    <span className="font-black text-xs uppercase tracking-widest">Add Brand</span>
+                                </button>
+                            </div>
+                        )}
+
+                        {viewLevel === 'categories' && activeBrand && (
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                                {activeBrand.categories.map(cat => (
+                                    <div key={cat.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-xl transition-all group">
+                                        <div className="h-24 flex items-center justify-center bg-slate-50 rounded-xl mb-4 text-slate-300">
+                                            <Box size={32} />
+                                        </div>
+                                        <h3 className="font-bold text-slate-900 text-center mb-1">{cat.name}</h3>
+                                        <p className="text-[10px] text-center text-slate-400 font-bold uppercase mb-4">{cat.products.length} Products</p>
+                                        <div className="flex gap-2 justify-center">
+                                            <button onClick={() => { setActiveCategoryId(cat.id); setViewLevel('products'); }} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"><ChevronRight size={16} /></button>
+                                            <button onClick={() => setEditingItem({type: 'category', data: cat})} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200"><Edit2 size={16} /></button>
+                                            <button onClick={() => deleteItem('category', cat.id)} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100"><Trash2 size={16} /></button>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button onClick={() => setEditingItem({type: 'category', data: null})} className="border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-6 text-slate-400 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 transition-all gap-2">
+                                    <Plus size={32} />
+                                    <span className="font-black text-xs uppercase tracking-widest">Add Category</span>
+                                </button>
+                            </div>
+                        )}
+
+                        {viewLevel === 'products' && activeCategory && (
+                            <div className="space-y-4">
+                                {activeCategory.products.map(prod => (
+                                    <div key={prod.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between hover:border-blue-300 transition-colors">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-16 h-16 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
+                                                {prod.imageUrl ? <img src={prod.imageUrl} className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center"><Box size={20} className="text-slate-300" /></div>}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-slate-900 text-sm">{prod.name}</h4>
+                                                <p className="text-xs text-slate-500 font-mono">{prod.sku || 'No SKU'}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => setEditingItem({type: 'product', data: prod})} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs uppercase rounded-lg hover:bg-slate-200">Edit</button>
+                                            <button onClick={() => deleteItem('product', prod.id)} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100"><Trash2 size={16} /></button>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button onClick={() => setEditingItem({type: 'product', data: null})} className="w-full py-4 border-2 border-dashed border-slate-300 rounded-xl text-slate-400 font-bold uppercase text-xs hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2">
+                                    <Plus size={16} /> Add Product to {activeCategory.name}
+                                </button>
+                            </div>
+                        )}
+                     </>
+                 )}
+
+                 {activeTab === 'fleet' && storeData && <FleetManager fleet={storeData.fleet || []} onUpdateFleet={(f) => { onUpdateData({...storeData, fleet: f}); handleGlobalSave(); }} onSaveGlobal={handleGlobalSave} />}
+                 {activeTab === 'catalog' && storeData && <AdminCatalogManager storeData={storeData} onUpdateData={onUpdateData} onSaveGlobal={handleGlobalSave} />}
+                 {activeTab === 'ads' && storeData && <AdManager ads={storeData.ads || { homeBottomLeft: [], homeBottomRight: [], homeSideVertical: [], screensaver: [] }} onUpdate={(ads) => onUpdateData({...storeData, ads})} onSaveGlobal={handleGlobalSave} />}
+                 {activeTab === 'settings' && <SetupGuide onClose={() => setActiveTab('inventory')} />}
+
+            </div>
+        </main>
+        
+        {/* Modals for Brand/Category Editing */}
+        {editingItem && editingItem.type === 'product' && (
+             <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+                 <div className="w-full max-w-4xl h-[90vh]">
+                    <ProductEditor 
+                        product={editingItem.data} 
+                        onSave={(p: Product) => { handleSaveProduct(p); handleGlobalSave(); }} 
+                        onCancel={() => setEditingItem(null)} 
+                    />
+                 </div>
+             </div>
+        )}
+
+        {(editingItem && (editingItem.type === 'brand' || editingItem.type === 'category')) && (
+            <SimpleEditor 
+               type={editingItem.type}
+               initialData={editingItem.data}
+               onSave={(newData: any) => {
+                   if(editingItem.type === 'brand') handleSaveBrand(newData);
+                   else handleSaveCategory(newData);
+                   handleGlobalSave();
+               }}
+               onCancel={() => setEditingItem(null)}
+            />
+        )}
     </div>
   );
 };

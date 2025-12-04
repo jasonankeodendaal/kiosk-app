@@ -8,7 +8,8 @@ import {
   isKioskConfigured, 
   sendHeartbeat, 
   setCustomKioskId,
-  getShopName
+  getShopName,
+  checkSupabaseConnection
 } from '../services/kioskService';
 import BrandGrid from './BrandGrid';
 import CategoryGrid from './CategoryGrid';
@@ -16,7 +17,7 @@ import ProductList from './ProductList';
 import ProductDetail from './ProductDetail';
 import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
-import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck } from 'lucide-react';
+import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, Cloud, CloudOff, Database } from 'lucide-react';
 
 // UPDATED TIMEOUT: 1 Minute = 60,000 ms
 const IDLE_TIMEOUT = 60000;
@@ -150,6 +151,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
   // Footer/System State
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [supabaseConnected, setSupabaseConnected] = useState(false);
 
   // Idle Timer
   const timerRef = useRef<number | null>(null);
@@ -181,6 +183,14 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
     window.addEventListener('online', onlineHandler);
     window.addEventListener('offline', offlineHandler);
     
+    // Supabase Connection Check
+    const checkCloud = async () => {
+        const connected = await checkSupabaseConnection();
+        setSupabaseConnected(connected);
+    };
+    checkCloud();
+    const cloudInterval = setInterval(checkCloud, 30000); // Check every 30s
+    
     resetIdleTimer();
     
     return () => {
@@ -190,6 +200,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
       window.removeEventListener('online', onlineHandler);
       window.removeEventListener('offline', offlineHandler);
       clearInterval(clockInterval);
+      clearInterval(cloudInterval);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [resetIdleTimer]);
@@ -299,31 +310,46 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
        </div>
 
        {/* PERSISTENT FOOTER */}
-       <footer className="shrink-0 bg-slate-900 text-white h-12 flex items-center justify-between px-6 z-50 border-t border-slate-800 shadow-[0_-5px_15px_rgba(0,0,0,0.3)]">
+       <footer className="shrink-0 bg-slate-900 text-white h-12 flex items-center justify-between px-6 z-[50] border-t border-slate-800 shadow-[0_-5px_15px_rgba(0,0,0,0.3)] relative">
           {/* Left: Identity */}
           <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                 <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    {isOnline ? 'System Online' : 'Offline Mode'}
-                 </span>
+              {/* Network Status */}
+              <div className="flex items-center gap-2" title={isOnline ? "Network Connected" : "No Network"}>
+                 <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}></div>
+                 {isOnline ? <Wifi size={12} className="text-slate-400" /> : <WifiOff size={12} className="text-red-400" />}
               </div>
+              
               <div className="h-4 w-[1px] bg-slate-700"></div>
-              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300">
-                 <ShieldCheck size={12} className="text-blue-500" />
-                 <span>ID: <span className="font-mono text-white">{kioskId}</span></span>
+              
+              {/* Cloud Status */}
+              <div className="flex items-center gap-2" title={supabaseConnected ? "Database Connected" : "Database Offline"}>
+                 {supabaseConnected ? (
+                     <>
+                        <Database size={12} className="text-blue-500" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden md:inline">Cloud Active</span>
+                     </>
+                 ) : (
+                     <>
+                        <CloudOff size={12} className="text-yellow-500" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden md:inline">Local Mode</span>
+                     </>
+                 )}
               </div>
-              <div className="hidden md:flex items-center gap-2 text-[10px] font-bold text-slate-400">
-                 <MapPin size={12} />
-                 <span className="truncate max-w-[200px]">{getShopName()}</span>
+
+              <div className="h-4 w-[1px] bg-slate-700 hidden md:block"></div>
+
+              {/* Identity */}
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300">
+                 <ShieldCheck size={12} className="text-slate-500" />
+                 <span>ID: <span className="font-mono text-white">{kioskId}</span></span>
               </div>
           </div>
 
           {/* Right: Time & Branding */}
           <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+              <div className="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700 shadow-inner">
                  <Clock size={12} className="text-blue-400" />
-                 <span className="text-xs font-mono font-bold">
+                 <span className="text-xs font-mono font-bold tracking-widest">
                     {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                  </span>
               </div>
@@ -332,8 +358,8 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
                 onClick={() => setShowCreator(true)}
                 className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors"
               >
-                 <span>Powered by JSTYP</span>
-                 <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" className="w-4 h-4 object-contain opacity-50" alt="" />
+                 <span className="hidden sm:inline">Powered by JSTYP</span>
+                 <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" className="w-5 h-5 object-contain opacity-70 hover:opacity-100 transition-opacity" alt="JSTYP Logo" />
               </button>
           </div>
        </footer>
