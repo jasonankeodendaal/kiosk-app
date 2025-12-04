@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { KioskApp } from './components/KioskApp';
 import { AdminDashboard } from './components/AdminDashboard';
 import { generateStoreData, saveStoreData } from './services/geminiService';
@@ -23,9 +24,8 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
 
-  // 2. Data Synchronization & Realtime
-  useEffect(() => {
-    const fetchData = async () => {
+  // Defined outside useEffect to be reusable
+  const fetchData = useCallback(async () => {
       try {
         const data = await generateStoreData();
         // Only update if we actually got data back to prevent wiping state on error
@@ -37,14 +37,15 @@ export default function App() {
       } finally {
         setLoading(false);
       }
-    };
+  }, []);
 
+  // 2. Data Synchronization & Realtime
+  useEffect(() => {
     // Initial Load
     initSupabase();
     fetchData();
 
     // Polling Fallback (Every 60s)
-    // Ensures kiosks update even if Websocket fails or in purely local mode
     const interval = setInterval(() => {
         console.log("Auto-fetching latest data...");
         fetchData();
@@ -77,7 +78,7 @@ export default function App() {
     }
     
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchData]);
 
   const handleUpdateData = async (newData: StoreData) => {
     // Optimistic UI Update - Instant feedback for the user
@@ -123,6 +124,10 @@ export default function App() {
         onExit={() => handleNavigate('/')} 
         storeData={storeData}
         onUpdateData={handleUpdateData}
+        onRefresh={() => {
+            setLoading(true);
+            fetchData().then(() => setLoading(false));
+        }}
       />
     );
   }

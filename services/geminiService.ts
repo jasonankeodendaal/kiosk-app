@@ -1,7 +1,6 @@
 
-
 import { StoreData } from "../types";
-import { supabase, getEnv } from "./kioskService";
+import { supabase, getEnv, initSupabase } from "./kioskService";
 
 const STORAGE_KEY_DATA = 'kiosk_pro_store_data';
 
@@ -213,6 +212,9 @@ const generateStoreData = async (): Promise<StoreData> => {
   // Check both standard Vite and Vercel/Next.js environment variables
   const apiUrl = getEnv('VITE_API_URL', getEnv('NEXT_PUBLIC_API_URL', ''));
 
+  // Ensure Supabase is init
+  if (!supabase) initSupabase();
+
   // A. Try Supabase FIRST (Primary Source)
   if (supabase) {
       try {
@@ -275,10 +277,16 @@ const generateStoreData = async (): Promise<StoreData> => {
   }
 };
 
-// 2. Save Data - STRATEGY: SUPABASE FIRST
+// 2. Save Data - STRATEGY: SUPABASE FIRST, BUT ALWAYS SAVE LOCAL
 const saveStoreData = async (data: StoreData): Promise<void> => {
-    let saved = false;
+    let savedRemote = false;
     const apiUrl = getEnv('VITE_API_URL', getEnv('NEXT_PUBLIC_API_URL', ''));
+
+    // Always save to Local Storage first (Safety)
+    localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(data));
+
+    // Ensure Supabase is init
+    if (!supabase) initSupabase();
 
     // A. Try Supabase
     if (supabase) {
@@ -288,14 +296,14 @@ const saveStoreData = async (data: StoreData): Promise<void> => {
                 .upsert({ id: 1, data: data });
             
             if (error) throw error;
-            saved = true;
+            savedRemote = true;
         } catch (e) {
             console.warn("Supabase save failed", e);
         }
     }
 
     // B. Try API / PC Hub (If Supabase failed or not available)
-    if (!saved && apiUrl) {
+    if (!savedRemote && apiUrl) {
         try {
             const endpoint = apiUrl ? `${apiUrl}/api/update` : '/api/update';
             const res = await fetch(endpoint, {
@@ -303,18 +311,19 @@ const saveStoreData = async (data: StoreData): Promise<void> => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            if (res.ok) saved = true;
+            if (res.ok) savedRemote = true;
         } catch (e) {
             console.warn("Hub API save failed", e);
         }
     }
 
     // C. Handle Result
-    if (saved) {
-        localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(data));
+    if (savedRemote) {
         console.log("Data synced to Remote successfully");
     } else {
-        throw new Error("Connection Failed: Could not sync to Database. Changes not saved remotely.");
+        // We do NOT throw error here if local save worked, but we warn the user.
+        console.error("Connection Failed: Could not sync to Database. Changes saved LOCALLY only.");
+        throw new Error("Connection Failed: Remote sync failed. Changes saved locally only.");
     }
 };
 

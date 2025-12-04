@@ -1,5 +1,4 @@
 
-
 import { createClient } from '@supabase/supabase-js';
 import { KioskRegistry } from '../types';
 
@@ -20,8 +19,18 @@ export const getEnv = (key: string, fallback: string) => {
   return fallback;
 };
 
-const SUPABASE_URL = getEnv('VITE_SUPABASE_URL', 'YOUR_SUPABASE_PROJECT_URL');
-const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY', 'YOUR_SUPABASE_ANON_PUBLIC_KEY');
+// IMPROVED: Check multiple naming conventions for Vercel/Next.js/Vite compatibility
+const SUPABASE_URL = getEnv('VITE_SUPABASE_URL', 
+    getEnv('NEXT_PUBLIC_SUPABASE_URL', 
+        getEnv('SUPABASE_URL', 'YOUR_SUPABASE_PROJECT_URL')
+    )
+);
+
+const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY', 
+    getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 
+        getEnv('SUPABASE_ANON_KEY', 'YOUR_SUPABASE_ANON_PUBLIC_KEY')
+    )
+);
 
 // Export supabase instance so other services can use it
 export let supabase: any = null;
@@ -30,10 +39,15 @@ export let supabase: any = null;
 export const initSupabase = () => {
   if (supabase) return true;
 
+  console.log("Initializing Supabase...");
+  console.log("URL Configured:", SUPABASE_URL?.startsWith('http') ? 'YES' : 'NO');
+  console.log("Key Configured:", SUPABASE_ANON_KEY?.length > 10 ? 'YES' : 'NO');
+
   // 1. Try initializing with values (Env vars or manual replacement)
-  if (SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20) {
+  if (SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10) {
     try {
       supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log("Supabase Client Created Successfully");
       return true;
     } catch (e) {
       console.warn("Supabase init failed with provided keys", e);
@@ -116,6 +130,8 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
   localStorage.setItem(STORAGE_KEY_NAME, shopName);
   
   // Register in DB
+  initSupabase();
+  
   if (supabase) {
       try {
         const kioskData: KioskRegistry = {
@@ -127,11 +143,14 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
           ipAddress: 'Unknown',
           version: '1.0.4',
           locationDescription: 'Newly Registered',
-          assignedZone: 'Unassigned'
+          assignedZone: 'Unassigned',
+          requestSnapshot: false,
+          restartRequested: false
         };
 
         // 1. Write to Telemetry Table (Keep Alive)
-        await supabase.from('kiosks').upsert(kioskData);
+        const { error: telemetryError } = await supabase.from('kiosks').upsert(kioskData);
+        if (telemetryError) console.warn("Telemetry update failed", telemetryError);
 
         // 2. Update the Global Store Config JSON so Admin Hub sees it in the list immediately
         const { data: currentConfig, error } = await supabase
@@ -141,33 +160,35 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
           .single();
 
         let newFleet: KioskRegistry[] = [];
-        let configData = {};
+        let configData: any = { brands: [], fleet: [] };
 
-        if (error || !currentConfig) {
-             configData = { brands: [], fleet: [] };
-        } else {
-             configData = currentConfig.data || {};
-             newFleet = (configData as any).fleet || [];
+        if (currentConfig && currentConfig.data) {
+             configData = currentConfig.data;
+             newFleet = [...(configData.fleet || [])];
         }
 
-        // Add or Update Fleet Item
-        const existingIndex = newFleet.findIndex((k: KioskRegistry) => k.id === id);
-        if (existingIndex >= 0) {
-             newFleet[existingIndex] = { ...newFleet[existingIndex], name: shopName, status: 'online', last_seen: new Date().toISOString() };
-        } else {
-             newFleet.push(kioskData);
-        }
+        // Remove existing entry if present (avoid duplicates)
+        newFleet = newFleet.filter((k: KioskRegistry) => k.id !== id);
+        newFleet.push(kioskData);
         
-        await supabase
+        const { error: updateError } = await supabase
           .from('store_config')
           .upsert({ 
               id: 1, 
               data: { ...configData, fleet: newFleet } 
           });
+          
+        if (updateError) {
+            console.error("Fleet registry update failed", updateError);
+            alert("Warning: Failed to register with Fleet Manager. Please check connection.");
+        }
 
       } catch(e) {
         console.error("Failed to register kiosk in cloud", e);
+        alert("Setup Warning: Could not connect to cloud database. Kiosk running in offline mode.");
       }
+  } else {
+      console.warn("Supabase not configured. Kiosk running in local mode.");
   }
   
   return true;
@@ -177,13 +198,16 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
 export const sendHeartbeat = async (snapshotBase64?: string) => {
   const id = getKioskId();
   const name = getShopName();
-  if (!id || !name || !supabase) return;
+  if (!id || !name) return;
+
+  // Attempt init if not ready
+  if (!supabase) initSupabase();
+  if (!supabase) return;
   
   try {
       // Estimate connection info
       const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
       let wifiStrength = 100;
-      let ipAddress = 'Unknown';
       
       if(connection) {
           // Rough estimate based on downlink
@@ -201,13 +225,6 @@ export const sendHeartbeat = async (snapshotBase64?: string) => {
           wifi_strength: wifiStrength,
           ip_address: connection ? `${connection.effectiveType} | ${connection.downlink}Mbps` : 'Unknown'
       };
-
-      // Only send snapshot if provided (to save bandwidth)
-      if (snapshotBase64) {
-          // In a real app, upload to Storage and save URL. For this MVP, we might store base64 in a separate column or limited field
-          // NOTE: Storing large base64 in a row is not ideal for performance, but fine for prototype.
-          // Ideally: await supabase.storage.from('snapshots').upload(...)
-      }
 
       await supabase.from('kiosks').upsert(payload, { onConflict: 'id' });
       

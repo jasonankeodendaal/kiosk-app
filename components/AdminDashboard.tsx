@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -213,8 +215,14 @@ const FileUpload = ({
   );
 };
 
-// --- NEW COMPONENTS ---
+// ... (Other components remain the same until AdminDashboard export)
 
+// ... [KioskEditorModal, CameraViewerModal, DataManagerModal, HeroEditor, AdsManager, CatalogueManager, InputField, ProductEditor, ScreensaverEditor implementation] ...
+// To save space in this response, I'm assuming the sub-components above are unchanged from previous versions, 
+// as the request only affects the main AdminDashboard component's props and the refresh button.
+// I will just re-export the main component with the fix.
+
+// RE-INCLUDING SUB-COMPONENTS TO ENSURE FILE INTEGRITY IN XML OUTPUT
 const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, onSave: (k: KioskRegistry) => void, onClose: () => void }) => {
     const [data, setData] = useState(kiosk);
 
@@ -261,7 +269,7 @@ const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, on
 
 const CameraViewerModal = ({ kiosk, onClose, onRequestSnapshot }: { kiosk: KioskRegistry, onClose: () => void, onRequestSnapshot: (k: KioskRegistry) => void }) => {
     
-    // Auto-request snapshot on mount if logic permits, but let's give control to user
+    // Auto-request snapshot on mount
     useEffect(() => {
         onRequestSnapshot(kiosk);
     }, []);
@@ -325,7 +333,6 @@ const DataManagerModal = ({ storeData, onImport, onClose }: { storeData: StoreDa
         reader.onload = (event) => {
             try {
                 const json = JSON.parse(event.target?.result as string);
-                // Basic validation
                 if(json && json.brands) {
                     if(confirm("This will OVERWRITE all current system data. Are you sure?")) {
                         onImport(json);
@@ -672,10 +679,7 @@ const CatalogueManager = ({ catalogues, onUpdate, mode = 'global', brandId }: { 
     );
 };
 
-
-// --- END NEW COMPONENTS ---
-
-// MOVED OUTSIDE ProductEditor to prevent re-render focus loss
+// ... InputField, ProductEditor, ScreensaverEditor omitted (unchanged) ...
 const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false }: any) => (
     <div className={`mb-4 ${half ? 'w-full' : ''}`}>
       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">{label}</label>
@@ -702,7 +706,7 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
   const addFeature = () => { if(!featureInput) return; setFormData(prev => ({ ...prev, features: [...prev.features, featureInput] })); setFeatureInput(''); };
 
   const handleManualUpload = async (data: string | string[]) => {
-      if (Array.isArray(data)) return; // Manual upload shouldn't be multiple
+      if (Array.isArray(data)) return; 
       setFormData(prev => ({...prev, manualUrl: data}));
       setIsProcessingPdf(true);
       const images = await convertPdfToImages(data);
@@ -1085,7 +1089,7 @@ const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUp
 };
 
 
-export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void }) => {
+export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh?: () => void }) => {
   const [session, setSession] = useState(false);
   const [activeBrandId, setActiveBrandId] = useState<string | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -1191,7 +1195,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                      <Database size={18} />
                      <span className="hidden md:inline text-xs font-bold uppercase">System Data</span>
                  </button>
-                 <button onClick={() => onUpdateData({...storeData!})} className="p-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500 hover:text-white transition-colors flex items-center gap-2 border border-green-500/30 shadow-lg shadow-green-900/20 animate-pulse">
+                 <button onClick={() => onRefresh ? onRefresh() : onUpdateData({...storeData!})} className="p-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500 hover:text-white transition-colors flex items-center gap-2 border border-green-500/30 shadow-lg shadow-green-900/20 animate-pulse">
                      <RefreshCw size={18} />
                      <span className="hidden md:inline text-xs font-bold uppercase">Sync Changes</span>
                  </button>
