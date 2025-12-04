@@ -692,46 +692,56 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
 
   // --- IMPORT LOGIC: ZIP & FOLDER ---
   const processFilesToStoreData = async (fileMap: Map<string, Blob>, rootJson?: StoreData) => {
-      // 1. Start with existing or imported JSON
+      // 1. Determine Structure Root
+      // Browsers often include the selected folder name as the root (e.g. "MyBackup/BrandA/...")
+      // We need to strip this so that BrandA is at index 0.
+      const paths: string[] = Array.from(fileMap.keys());
+      if (paths.length === 0) return storeData || { ...resetStoreData() } as any;
+
+      const firstPathParts = paths[0].split('/');
+      let rootDirToStrip = "";
+      
+      // Heuristic: If all files start with the same first folder name, that's the "container" folder.
+      if (firstPathParts.length > 1) {
+          const potentialRoot = firstPathParts[0];
+          const allShareRoot = paths.every(p => p.startsWith(potentialRoot + '/'));
+          if (allShareRoot) {
+              rootDirToStrip = potentialRoot;
+              console.log(`Detected root directory to strip: ${rootDirToStrip}`);
+          }
+      }
+
+      // 2. Start with existing or imported JSON
+      // If we imported a JSON file, use it as the base. Otherwise, clear brands to rebuild.
       let newData: StoreData = rootJson || { 
           ...storeData, 
-          brands: [], // Clear brands if importing from folder structure to avoid dupes
-          hero: storeData?.hero || { title: '', subtitle: '' }
+          brands: [], 
+          hero: storeData?.hero || { title: 'Welcome', subtitle: '' }
       } as StoreData;
 
+      // We maintain a map for O(1) lookups during reconstruction
       const brandsMap = new Map<string, Brand>();
+      // Pre-populate if we have JSON data
       if (newData.brands) newData.brands.forEach(b => brandsMap.set(b.name, b));
 
-      // Helper to find or create Brand/Cat/Prod
       const getOrCreateBrand = (name: string) => {
           let b = brandsMap.get(name);
           if (!b) { b = { id: generateId('b'), name, categories: [] }; brandsMap.set(name, b); }
           return b;
       }
-      const getOrCreateCategory = (brand: Brand, name: string) => {
-          let c = brand.categories.find(cat => cat.name === name);
-          if (!c) { c = { id: generateId('c'), name, products: [], icon: 'Box' }; brand.categories.push(c); }
-          return c;
-      }
-      const getOrCreateProduct = (category: Category, name: string) => {
-          let p = category.products.find(prod => prod.name === name);
-          if (!p) { 
-              p = { id: generateId('p'), name, description: 'Imported Product', specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' }, imageUrl: '', galleryUrls: [] }; 
-              category.products.push(p); 
-          }
-          return p;
-      }
 
-      // Sort keys to process deeper paths last if needed, but Map iteration is insert order usually.
-      // We will iterate and build structure dynamically.
-      
-      for (const [path, blob] of fileMap.entries()) {
-          // Normalize path separators
-          const cleanPath = path.replace(/\\/g, '/');
+      // 3. Iterate Files
+      for (const [rawPath, blob] of fileMap.entries()) {
+          // Normalize Path (Remove root dir if detected)
+          let cleanPath = rawPath.replace(/\\/g, '/'); // Fix Windows slashes
+          if (rootDirToStrip && cleanPath.startsWith(rootDirToStrip + '/')) {
+              cleanPath = cleanPath.substring(rootDirToStrip.length + 1);
+          }
+          
           const parts = cleanPath.split('/').filter(p => p && p !== '.' && p !== '__MACOSX');
           if (parts.length === 0) continue;
 
-          // Detect "catalog" folder
+          // Special Folder: Catalog
           if (parts[0].toLowerCase() === 'catalog') {
                if (parts.length === 2 && parts[1].match(/\.(jpg|jpeg|png|webp)$/i)) {
                    if (!newData.catalog) newData.catalog = { pages: [] };
@@ -741,29 +751,56 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
                continue;
           }
 
-          // Folder Structure: Brand/Category/Product/File
-          // Depth 0: Brand Folder (contains logo.png)
-          // Depth 1: Category Folder
-          // Depth 2: Product Folder (contains main.png, video.mp4, etc)
-          
-          const brandName = parts[0];
-          
-          // Case: Brand Logo (Brand/logo.png)
+          // Case: Brand Logo (BrandName/logo.png)
+          // Depth 0: BrandName
+          // Depth 1: File
           if (parts.length === 2 && parts[1].toLowerCase().includes('logo')) {
+              const brandName = parts[0];
               const brand = getOrCreateBrand(brandName);
               brand.logoUrl = await readFileAsBase64(blob);
               continue;
           }
 
-          // Case: Product Data
+          // Case: Product Data (BrandName/CategoryName/ProductName/file.ext)
+          // Depth 0: Brand
+          // Depth 1: Category
+          // Depth 2: Product
+          // Depth 3: File
           if (parts.length >= 4) {
+              const brandName = parts[0];
               const catName = parts[1];
               const prodName = parts[2];
               const fileName = parts[3].toLowerCase();
 
               const brand = getOrCreateBrand(brandName);
-              const category = getOrCreateCategory(brand, catName);
-              const product = getOrCreateProduct(category, prodName);
+              
+              let category = brand.categories.find(c => c.name === catName);
+              if (!category) { 
+                  category = { id: generateId('c'), name: catName, products: [], icon: 'Box' }; 
+                  brand.categories.push(category); 
+              }
+
+              let product = category.products.find(p => p.name === prodName);
+              if (!product) { 
+                  product = { 
+                      id: generateId('p'), 
+                      name: prodName, 
+                      description: 'Imported Product', 
+                      specs: {}, 
+                      features: [], 
+                      dimensions: { width: '', height: '', depth: '', weight: '' }, 
+                      imageUrl: '', 
+                      galleryUrls: [] 
+                  }; 
+                  category.products.push(product); 
+              }
+
+              // Read File Content
+              // Only read text for small config files to avoid memory spikes
+              if (fileName.endsWith('.txt') || fileName.endsWith('.json')) {
+                   // Optional: Parse description/specs from text files later
+                   continue;
+              }
 
               const base64 = await readFileAsBase64(blob);
 
@@ -772,19 +809,26 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
               } else if (fileName.match(/\.(mp4|webm)$/)) {
                   product.videoUrl = base64;
               } else if (fileName.match(/\.(jpg|jpeg|png|webp)$/)) {
-                  // Avoid duplicating if main image matches
+                  // Avoid duplicate of main image
                   if (base64 !== product.imageUrl) {
-                     product.galleryUrls = [...(product.galleryUrls || []), base64];
+                      // Prevent duplicates in gallery
+                      if (!product.galleryUrls?.includes(base64)) {
+                          product.galleryUrls = [...(product.galleryUrls || []), base64];
+                      }
                   }
               }
-              // Potential: Read info.json for specific product details? 
-              // For now, prompt implies standard media structure.
           }
       }
 
-      // Reconstruct array from map
+      // 4. Reconstruct Array
       newData.brands = Array.from(brandsMap.values());
       
+      // Sort Catalog Pages (if any)
+      if (newData.catalog?.pages) {
+          newData.catalog.pages.sort(); // Basic sort, likely need better numeric sort if files are page_1, page_10
+      }
+
+      console.log("Reconstructed Store Data:", newData);
       return newData;
   };
 
@@ -801,8 +845,16 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
           const filePromises: Promise<void>[] = [];
 
           // First pass: look for JSON
-          if (contents.file("store_config.json")) {
-               const text = await contents.file("store_config.json")?.async("text");
+          // We check root and one level deep for the config json
+          let jsonFile = contents.file("store_config.json");
+          if (!jsonFile) {
+               // Try finding it inside a subfolder
+               const deepJson = Object.keys(contents.files).find(path => path.endsWith("store_config.json"));
+               if (deepJson) jsonFile = contents.file(deepJson);
+          }
+
+          if (jsonFile) {
+               const text = await jsonFile.async("text");
                if (text) rootJson = JSON.parse(text);
           }
 
@@ -844,7 +896,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
           
           const newData = await processFilesToStoreData(fileMap);
           onUpdateData(newData);
-          alert("Folder Import Successful!");
+          alert("Folder Import Successful! System Rebuilt.");
       } catch (e) {
            console.error(e);
            alert("Folder Import Failed");
