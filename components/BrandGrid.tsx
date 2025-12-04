@@ -168,13 +168,14 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
     <div className="flex flex-col h-full bg-slate-50 overflow-y-auto animate-fade-in">
       
       {/* Hero Section */}
-      <div className="bg-slate-900 text-white p-6 md:p-8 shrink-0 relative overflow-hidden">
+      <div className="bg-slate-900 text-white p-6 md:p-8 shrink-0 relative overflow-hidden min-h-[400px] flex flex-col justify-end">
         
         {/* Dynamic Background Image */}
         {heroConfig?.backgroundImageUrl && (
             <div className="absolute inset-0 z-0">
-                <img src={heroConfig.backgroundImageUrl} alt="" className="w-full h-full object-cover opacity-40 blur-sm scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent"></div>
+                <img src={heroConfig.backgroundImageUrl} alt="" className="w-full h-full object-cover opacity-50 blur-sm scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-transparent to-transparent"></div>
             </div>
         )}
 
@@ -186,31 +187,31 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
             </>
         )}
         
-        <div className="relative z-10 flex justify-between items-end pt-6">
-          <div>
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-end gap-6 pt-6">
+          <div className="w-full max-w-2xl">
             {heroConfig?.logoUrl ? (
-                <img src={heroConfig.logoUrl} alt="Brand Logo" className="h-12 w-auto object-contain mb-4 drop-shadow-md" />
+                <img src={heroConfig.logoUrl} alt="Brand Logo" className="h-16 w-auto object-contain mb-6 drop-shadow-md" />
             ) : (
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-4">
                    <span className="bg-yellow-400 text-slate-900 text-[10px] font-extrabold px-2 py-1 rounded uppercase tracking-wider">Showcase</span>
                 </div>
             )}
             
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-2 text-white">
+            <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-4 text-white leading-tight">
                {heroConfig?.title || "Our Partners"}
             </h1>
-            <p className="text-slate-300 text-lg font-light max-w-xl">
+            <p className="text-slate-300 text-xl font-light max-w-lg mb-8">
                {heroConfig?.subtitle || "Select a brand to explore."}
             </p>
 
             {/* Catalog Actions & Website Button */}
-            <div className="flex items-center gap-3 mt-6 flex-wrap">
+            <div className="flex flex-wrap items-center gap-4">
                 {catalog && catalog.pages.length > 0 && (
                     <button 
                         onClick={onViewCatalog}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg shadow-blue-600/30 transition-all hover:-translate-y-0.5 animate-pulse-slow ring-4 ring-blue-600/20"
+                        className="flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold uppercase tracking-wider text-sm shadow-xl shadow-blue-600/30 transition-all hover:-translate-y-1 animate-pulse-slow ring-4 ring-blue-600/20"
                     >
-                        <BookOpen size={20} /> View Full Catalog
+                        <BookOpen size={20} /> View Latest Catalog
                     </button>
                 )}
                 
@@ -219,9 +220,9 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
                      {catalog && catalog.pages.length > 0 && (
                          <button 
                             onClick={handleDownloadPdf}
-                            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs backdrop-blur-sm border border-white/20 transition-all"
+                            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-4 rounded-xl font-bold uppercase tracking-wider text-sm backdrop-blur-sm border border-white/20 transition-all"
                         >
-                            <Download size={16} /> Save PDF
+                            <Download size={18} /> PDF
                         </button>
                      )}
 
@@ -230,9 +231,9 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
                             href={heroConfig.websiteUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 bg-white text-slate-900 px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg transition-all hover:-translate-y-0.5 hover:bg-slate-100"
+                            className="flex items-center gap-2 bg-white text-slate-900 px-6 py-4 rounded-xl font-bold uppercase tracking-wider text-sm shadow-lg transition-all hover:-translate-y-0.5 hover:bg-slate-100"
                         >
-                            <Globe size={16} /> View Website
+                            <Globe size={18} /> Website
                         </a>
                     )}
                 </div>

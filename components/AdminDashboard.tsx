@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem } from '../types';
 import { resetStoreData } from '../services/geminiService';
@@ -25,6 +25,7 @@ const generateId = (prefix: string) => `${prefix}-${Math.random().toString(36).s
 
 // Helper: Convert Base64 to Blob for Zip Export
 const dataURItoBlob = (dataURI: string) => {
+  if (!dataURI || !dataURI.includes(',')) return null;
   try {
     const byteString = atob(dataURI.split(',')[1]);
     const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
@@ -399,19 +400,33 @@ const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegi
       
       peer.on('open', (id) => {
           const targetPeerId = `kiosk-pro-${kiosk.id.replace(/[^a-zA-Z0-9-_]/g, '')}`;
+          console.log(`Admin ${id} attempting to call ${targetPeerId}`);
+          
           setTimeout(() => {
              navigator.mediaDevices.getUserMedia({ video: false, audio: true })
                .then((localStream) => {
                    localStream.getTracks().forEach(track => track.enabled = false);
                    const call = peer.call(targetPeerId, localStream);
+                   
                    call.on('stream', (remoteStream) => {
+                       console.log("Stream received!");
                        setLoadingCamera(false);
                        if (videoRef.current) videoRef.current.srcObject = remoteStream;
                    });
+                   
                    call.on('error', (err) => {
-                       alert("Connection Error. Ensure Kiosk is Online.");
+                       console.error("Call error", err);
+                       alert("Connection Error. Ensure Kiosk is Online and Awake.");
                        setLoadingCamera(false);
                    });
+
+                   // If stream doesn't arrive in 10s
+                   setTimeout(() => {
+                       if(loadingCamera) {
+                           setLoadingCamera(false);
+                           // alert("Connection timed out. Peer unreachable.");
+                       }
+                   }, 10000);
                })
                .catch(e => {
                    alert("Please allow permission to initiate connection.");
@@ -422,9 +437,11 @@ const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegi
       
       peer.on('error', (err) => {
           if (err.type === 'peer-unavailable') {
-              alert("Kiosk Peer Unavailable. Is the device awake?");
+              alert(`Kiosk (${kiosk.id}) is not connected to the peer network. Ensure it is awake.`);
               setLoadingCamera(false);
               setViewingCamera(null);
+          } else {
+              console.error("PeerJS Error", err);
           }
       });
       peerRef.current = peer;
@@ -521,7 +538,7 @@ const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegi
                                <input className="w-full p-3 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-slate-500 text-sm" value={editingKiosk.id} disabled />
                            </div>
                            <div>
-                               <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Shop Name</label>
+                               <label className="text-[10px] font-black uppercase text-blue-600 block mb-1">Shop Name</label>
                                <input 
                                     className="w-full p-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" 
                                     value={editingKiosk.name} 
@@ -532,13 +549,16 @@ const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegi
                        </div>
                        
                        <div>
-                            <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Specific Location</label>
-                            <input 
-                                className="w-full p-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" 
-                                value={editingKiosk.locationDescription || ''} 
-                                onChange={e => setEditingKiosk({...editingKiosk, locationDescription: e.target.value})} 
-                                placeholder="e.g. Main Entrance, Floor 2" 
-                            />
+                            <label className="text-[10px] font-black uppercase text-blue-600 block mb-1">Specific Location (Floor/Area)</label>
+                            <div className="relative">
+                                <MapPin size={16} className="absolute left-3 top-3 text-slate-400" />
+                                <input 
+                                    className="w-full p-3 pl-10 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" 
+                                    value={editingKiosk.locationDescription || ''} 
+                                    onChange={e => setEditingKiosk({...editingKiosk, locationDescription: e.target.value})} 
+                                    placeholder="e.g. Main Entrance, Floor 2, North Wing" 
+                                />
+                            </div>
                        </div>
 
                        <div className="grid grid-cols-2 gap-4">
@@ -698,97 +718,98 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
       // 1. Start with existing or imported JSON
       let newData: StoreData = rootJson || { 
           ...storeData, 
-          brands: [], // Clear brands if importing from folder structure
+          brands: [], // Clear brands if importing from folder structure to avoid dupes
           hero: storeData?.hero || { title: '', subtitle: '' }
       } as StoreData;
 
-      // 2. Iterate through files and build structure if JSON didn't define it
-      // Structure expected: Brand/Category/Product/image.png
-      
       const brandsMap = new Map<string, Brand>();
       if (newData.brands) newData.brands.forEach(b => brandsMap.set(b.name, b));
 
+      // Helper to find or create Brand/Cat/Prod
+      const getOrCreateBrand = (name: string) => {
+          let b = brandsMap.get(name);
+          if (!b) { b = { id: generateId('b'), name, categories: [] }; brandsMap.set(name, b); }
+          return b;
+      }
+      const getOrCreateCategory = (brand: Brand, name: string) => {
+          let c = brand.categories.find(cat => cat.name === name);
+          if (!c) { c = { id: generateId('c'), name, products: [], icon: 'Box' }; brand.categories.push(c); }
+          return c;
+      }
+      const getOrCreateProduct = (category: Category, name: string) => {
+          let p = category.products.find(prod => prod.name === name);
+          if (!p) { 
+              p = { id: generateId('p'), name, description: 'Imported Product', specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' }, imageUrl: '', galleryUrls: [] }; 
+              category.products.push(p); 
+          }
+          return p;
+      }
+
+      // Sort keys to process deeper paths last if needed, but Map iteration is insert order usually.
+      // We will iterate and build structure dynamically.
+      
       for (const [path, blob] of fileMap.entries()) {
-          const parts = path.split('/').filter(p => p && p !== '.' && p !== '__MACOSX');
+          // Normalize path separators
+          const cleanPath = path.replace(/\\/g, '/');
+          const parts = cleanPath.split('/').filter(p => p && p !== '.' && p !== '__MACOSX');
           if (parts.length === 0) continue;
 
-          // Base64 conversion
-          const base64 = await readFileAsBase64(blob);
-
-          // Case 1: Brand Logo (BrandName/logo.png)
-          if (parts.length === 2 && parts[1].toLowerCase().includes('logo')) {
-              const brandName = parts[0];
-              let brand = brandsMap.get(brandName);
-              if (!brand) {
-                  brand = { id: generateId('b'), name: brandName, categories: [] };
-                  brandsMap.set(brandName, brand);
-              }
-              brand.logoUrl = base64;
+          // Detect "catalog" folder
+          if (parts[0].toLowerCase() === 'catalog') {
+               if (parts.length === 2 && parts[1].match(/\.(jpg|jpeg|png|webp)$/i)) {
+                   if (!newData.catalog) newData.catalog = { pages: [] };
+                   const base64 = await readFileAsBase64(blob);
+                   newData.catalog.pages.push(base64);
+               }
+               continue;
           }
 
-          // Case 2: Product Image (Brand/Category/Product/main.png)
+          // Folder Structure: Brand/Category/Product/File
+          // Depth 0: Brand Folder (contains logo.png)
+          // Depth 1: Category Folder
+          // Depth 2: Product Folder (contains main.png, video.mp4, etc)
+          
+          const brandName = parts[0];
+          
+          // Case: Brand Logo (Brand/logo.png)
+          if (parts.length === 2 && parts[1].toLowerCase().includes('logo')) {
+              const brand = getOrCreateBrand(brandName);
+              brand.logoUrl = await readFileAsBase64(blob);
+              continue;
+          }
+
+          // Case: Product Data
           if (parts.length >= 4) {
-              const brandName = parts[0];
               const catName = parts[1];
               const prodName = parts[2];
               const fileName = parts[3].toLowerCase();
 
-              // Get or Create Brand
-              let brand = brandsMap.get(brandName);
-              if (!brand) {
-                  brand = { id: generateId('b'), name: brandName, categories: [] };
-                  brandsMap.set(brandName, brand);
-              }
+              const brand = getOrCreateBrand(brandName);
+              const category = getOrCreateCategory(brand, catName);
+              const product = getOrCreateProduct(category, prodName);
 
-              // Get or Create Category
-              let category = brand.categories.find(c => c.name === catName);
-              if (!category) {
-                  category = { id: generateId('c'), name: catName, products: [], icon: 'Box' };
-                  brand.categories.push(category);
-              }
+              const base64 = await readFileAsBase64(blob);
 
-              // Get or Create Product
-              let product = category.products.find(p => p.name === prodName);
-              if (!product) {
-                  product = {
-                      id: generateId('p'),
-                      name: prodName,
-                      description: 'Imported Product',
-                      specs: {},
-                      features: [],
-                      dimensions: { width: '', height: '', depth: '', weight: '' },
-                      imageUrl: '',
-                      galleryUrls: []
-                  };
-                  category.products.push(product);
-              }
-
-              // Assign Media
               if (fileName.includes('main') || fileName.includes('cover') || (!product.imageUrl && fileName.match(/\.(jpg|jpeg|png|webp)$/))) {
                   product.imageUrl = base64;
               } else if (fileName.match(/\.(mp4|webm)$/)) {
                   product.videoUrl = base64;
               } else if (fileName.match(/\.(jpg|jpeg|png|webp)$/)) {
-                  product.galleryUrls = [...(product.galleryUrls || []), base64];
+                  // Avoid duplicating if main image matches
+                  if (base64 !== product.imageUrl) {
+                     product.galleryUrls = [...(product.galleryUrls || []), base64];
+                  }
               }
-          }
-          
-          // Case 3: Catalog Pages (catalog/page_1.jpg)
-          if (parts[0].toLowerCase() === 'catalog' && parts.length === 2) {
-              if (!newData.catalog) newData.catalog = { pages: [] };
-              newData.catalog.pages.push(base64);
+              // Potential: Read info.json for specific product details? 
+              // For now, prompt implies standard media structure.
           }
       }
 
       // Reconstruct array from map
       newData.brands = Array.from(brandsMap.values());
       
-      // Sort catalog pages by filename if possible
-      if (newData.catalog?.pages) {
-          // This is a rough sort since we processed async order. 
-          // For robust sorting, we'd need to store filenames with the base64. 
-          // Assuming user imports clean data or re-orders in UI.
-      }
+      // Sort catalog pages by filename if possible (simple alphabetic sort of the original keys might not persist, so we rely on user to number them page_01, page_02)
+      // Since we pushed them in loop order, and JSZip iterates order, it should be okay if zip was created ordered.
 
       return newData;
   };
@@ -803,21 +824,29 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
           let rootJson: StoreData | undefined;
 
           // Extract Data
-          for (const [relativePath, fileEntry] of Object.entries(contents.files)) {
-              if (fileEntry.dir) continue;
-              
-              if (relativePath.endsWith('data.json') || relativePath.endsWith('store_config.json')) {
-                  const text = await fileEntry.async('text');
-                  rootJson = JSON.parse(text);
-              } else {
-                  const blob = await fileEntry.async('blob');
-                  fileMap.set(relativePath, blob);
-              }
+          const filePromises: Promise<void>[] = [];
+
+          // First pass: look for JSON
+          if (contents.file("store_config.json")) {
+               const text = await contents.file("store_config.json")?.async("text");
+               if (text) rootJson = JSON.parse(text);
           }
+
+          // Second pass: get all blobs
+          contents.forEach((relativePath, fileEntry) => {
+              if (!fileEntry.dir && !relativePath.endsWith('.json') && !relativePath.includes('__MACOSX')) {
+                  filePromises.push((async () => {
+                      const blob = await fileEntry.async('blob');
+                      fileMap.set(relativePath, blob);
+                  })());
+              }
+          });
+          
+          await Promise.all(filePromises);
 
           const newData = await processFilesToStoreData(fileMap, rootJson);
           onUpdateData(newData);
-          alert("Import Successful!");
+          alert("Import Successful! System populated.");
       } catch (e) {
           console.error(e);
           alert("Import Failed: " + e);
@@ -856,38 +885,52 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
     try {
         const zip = new JSZip();
         
-        // 1. Save Structure JSON (Cleaned of Base64 to save space in the text file, though zip will have images)
-        // We'll keep the base64 in the JSON for the "Restore" button ease, 
-        // but also extract files for the "Categorized Folder" requirement.
+        // 1. Save Structure JSON (Full backup with base64 for easy restore)
         zip.file("store_config.json", JSON.stringify(storeData, null, 2));
 
-        // 2. Extract Brands
+        // 2. Create Categorized Folder Structure
+        // Folder: Brand Name
         storeData.brands.forEach(brand => {
-            const brandFolder = zip.folder(brand.name);
+            // Sanitize names for folders
+            const safeBrandName = brand.name.replace(/[^a-z0-9]/gi, '_');
+            const brandFolder = zip.folder(safeBrandName);
+            
+            // Logo
             if (brand.logoUrl && brand.logoUrl.startsWith('data:')) {
                 const blob = dataURItoBlob(brand.logoUrl);
                 if (blob) brandFolder?.file("logo.png", blob);
             }
 
-            // Categories
+            // Folder: Category Name
             brand.categories.forEach(cat => {
-                const catFolder = brandFolder?.folder(cat.name);
+                const safeCatName = cat.name.replace(/[^a-z0-9]/gi, '_');
+                const catFolder = brandFolder?.folder(safeCatName);
                 
-                // Products
+                // Folder: Product Name
                 cat.products.forEach(prod => {
-                    const prodFolder = catFolder?.folder(prod.name);
+                    const safeProdName = prod.name.replace(/[^a-z0-9]/gi, '_');
+                    const prodFolder = catFolder?.folder(safeProdName);
+                    
+                    // Product Details Text
+                    prodFolder?.file("info.txt", 
+                        `Name: ${prod.name}\nDescription: ${prod.description}\nSKU: ${prod.sku}\nSpecs: ${JSON.stringify(prod.specs, null, 2)}`
+                    );
+
+                    // Images
                     if (prod.imageUrl && prod.imageUrl.startsWith('data:')) {
                          const blob = dataURItoBlob(prod.imageUrl);
-                         if (blob) prodFolder?.file("main.png", blob);
+                         if (blob) prodFolder?.file("main_image.png", blob);
                     }
                     if (prod.videoUrl && prod.videoUrl.startsWith('data:')) {
                          const blob = dataURItoBlob(prod.videoUrl);
-                         if (blob) prodFolder?.file("video.mp4", blob);
+                         // Try to guess extension from mime, default to mp4
+                         const ext = prod.videoUrl.includes('video/webm') ? 'webm' : 'mp4';
+                         if (blob) prodFolder?.file(`video.${ext}`, blob);
                     }
                     prod.galleryUrls?.forEach((url, idx) => {
                          if (url.startsWith('data:')) {
                              const blob = dataURItoBlob(url);
-                             if (blob) prodFolder?.file(`gallery_${idx}.png`, blob);
+                             if (blob) prodFolder?.file(`gallery_${idx + 1}.png`, blob);
                          }
                     });
                 });
@@ -895,12 +938,14 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
         });
 
         // 3. Extract Catalog
-        if (storeData.catalog?.pages) {
+        if (storeData.catalog?.pages && storeData.catalog.pages.length > 0) {
             const catFolder = zip.folder("catalog");
             storeData.catalog.pages.forEach((page, idx) => {
                 if (page.startsWith('data:')) {
                     const blob = dataURItoBlob(page);
-                    if (blob) catFolder?.file(`page_${idx + 1}.jpg`, blob);
+                    // Zero pad for correct sorting: page_001.jpg
+                    const padIdx = (idx + 1).toString().padStart(3, '0');
+                    if (blob) catFolder?.file(`page_${padIdx}.jpg`, blob);
                 }
             });
         }
@@ -910,7 +955,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
         const url = URL.createObjectURL(content);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `kiosk_full_backup_${new Date().toISOString().split('T')[0]}.zip`;
+        a.download = `kiosk_backup_${new Date().toISOString().split('T')[0]}.zip`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

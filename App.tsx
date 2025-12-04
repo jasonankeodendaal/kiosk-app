@@ -25,10 +25,7 @@ export default function App() {
 
   // 2. Data Synchronization & Realtime
   useEffect(() => {
-    const initData = async () => {
-      // Initialize Supabase Client
-      initSupabase();
-
+    const fetchData = async () => {
       try {
         const data = await generateStoreData();
         setStoreData(data);
@@ -37,41 +34,46 @@ export default function App() {
       } finally {
         setLoading(false);
       }
-
-      // Setup Realtime Subscription
-      if (supabase) {
-          const channel = supabase
-            .channel('public:store_config')
-            .on(
-              'postgres_changes',
-              { event: 'UPDATE', schema: 'public', table: 'store_config', filter: 'id=eq.1' },
-              (payload: any) => {
-                console.log("Remote update received!", payload);
-                if (payload.new && payload.new.data) {
-                   setIsSyncing(true);
-                   setStoreData(payload.new.data);
-                   // Update local cache
-                   localStorage.setItem('kiosk_pro_store_data', JSON.stringify(payload.new.data));
-                   setTimeout(() => setIsSyncing(false), 1000);
-                }
-              }
-            )
-            .subscribe();
-
-          return () => {
-              supabase.removeChannel(channel);
-          };
-      }
     };
-    
-    // Safety timeout to prevent infinite loading screen if logic fails
-    const timer = setTimeout(() => {
-        setLoading(false);
-    }, 3000);
 
-    initData().then(() => clearTimeout(timer));
+    // Initial Load
+    initSupabase();
+    fetchData();
+
+    // Polling Fallback (Every 60s)
+    // Ensures kiosks update even if Websocket fails or in purely local mode
+    const interval = setInterval(() => {
+        console.log("Auto-fetching latest data...");
+        fetchData();
+    }, 60000);
+
+    // Setup Realtime Subscription
+    if (supabase) {
+        const channel = supabase
+          .channel('public:store_config')
+          .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'store_config', filter: 'id=eq.1' },
+            (payload: any) => {
+              console.log("Remote update received!", payload);
+              if (payload.new && payload.new.data) {
+                 setIsSyncing(true);
+                 setStoreData(payload.new.data);
+                 // Update local cache
+                 localStorage.setItem('kiosk_pro_store_data', JSON.stringify(payload.new.data));
+                 setTimeout(() => setIsSyncing(false), 1000);
+              }
+            }
+          )
+          .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+            clearInterval(interval);
+        };
+    }
     
-    return () => clearTimeout(timer);
+    return () => clearInterval(interval);
   }, []);
 
   const handleUpdateData = async (newData: StoreData) => {
