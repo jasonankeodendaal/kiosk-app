@@ -286,7 +286,7 @@ vercel --prod`}
                                 If you are using Supabase, you must add your keys to Vercel.
                             </p>
                             <ol className="list-decimal pl-5 text-sm text-yellow-800 space-y-1">
-                                <li>Go to your Vercel Dashboard -> Project -> Settings.</li>
+                                <li>Go to your Vercel Dashboard &rarr; Project &rarr; Settings.</li>
                                 <li>Click <strong>Environment Variables</strong>.</li>
                                 <li>Add <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>.</li>
                                 <li>Redeploy for changes to take effect.</li>
