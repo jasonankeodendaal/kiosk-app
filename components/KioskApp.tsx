@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -45,22 +46,27 @@ const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
       
       <div className="relative z-10 flex flex-col items-center w-full h-full justify-center">
-        {/* Creator Logo */}
-        <div className="w-24 h-24 mb-4 rounded-full bg-white/10 backdrop-blur-md border border-white/30 p-2 shadow-xl hover:scale-105 transition-transform duration-500">
-           <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" alt="Logo" className="w-full h-full object-contain" />
+        {/* Creator Logo - Free View */}
+        <div className="w-32 h-32 mb-2 hover:scale-105 transition-transform duration-500">
+           <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-2xl" />
         </div>
         
         <h2 className="text-white font-black text-3xl mb-1 drop-shadow-lg tracking-tight">JSTYP.me</h2>
-        <p className="text-white/90 text-sm font-bold mb-8 drop-shadow-md italic max-w-[80%]">"Jason's Solution To Your Problems, Yes me!"</p>
+        <p className="text-white/90 text-sm font-bold mb-4 drop-shadow-md italic max-w-[90%]">"Jason's Solution To Your Problems, Yes me!"</p>
         
-        {/* Contact Links - ICONS ONLY */}
-        <div className="flex items-center justify-center gap-6">
-           <a href="https://wa.me/27695989427" target="_blank" rel="noreferrer" className="bg-white/90 hover:bg-white text-slate-900 p-4 rounded-full transition-all hover:scale-110 shadow-lg" title="WhatsApp">
-              <img src="https://i.ibb.co/Z1YHvjgT/image-removebg-preview-1.png" className="w-8 h-8 object-contain" alt="WhatsApp" />
+        {/* New Marketing Text */}
+        <p className="text-white text-xs font-bold mb-8 drop-shadow-md text-center px-4 leading-relaxed uppercase tracking-wide bg-black/20 rounded-lg py-2 backdrop-blur-sm border border-white/10">
+            Need a website/ APP or a special tool, get in touch today!
+        </p>
+        
+        {/* Contact Links - ICONS ONLY (Free View) */}
+        <div className="flex items-center justify-center gap-8">
+           <a href="https://wa.me/27695989427" target="_blank" rel="noreferrer" className="transition-transform hover:scale-125 duration-300" title="WhatsApp">
+              <img src="https://i.ibb.co/Z1YHvjgT/image-removebg-preview-1.png" className="w-12 h-12 object-contain drop-shadow-lg" alt="WhatsApp" />
            </a>
            
-           <a href="mailto:jstypme@gmail.com" className="bg-white/90 hover:bg-white text-slate-900 p-4 rounded-full transition-all hover:scale-110 shadow-lg" title="Email">
-              <img src="https://i.ibb.co/r2HkbjLj/image-removebg-preview-2.png" className="w-8 h-8 object-contain" alt="Email" />
+           <a href="mailto:jstypme@gmail.com" className="transition-transform hover:scale-125 duration-300" title="Email">
+              <img src="https://i.ibb.co/r2HkbjLj/image-removebg-preview-2.png" className="w-12 h-12 object-contain drop-shadow-lg" alt="Email" />
            </a>
         </div>
       </div>

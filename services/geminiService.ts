@@ -24,7 +24,7 @@ const DEFAULT_DATA: StoreData = {
     homeSideVertical: [],
     screensaver: []
   },
-  fleet: [], // Fleet is now managed via kioskService/Supabase kiosks table mostly, but we keep this for legacy structure
+  fleet: [], 
   brands: [
     {
       id: "b1",
@@ -54,7 +54,8 @@ const DEFAULT_DATA: StoreData = {
 
 // 1. Fetch Data (Priority: API/Hub -> Supabase -> Local Cache)
 const generateStoreData = async (): Promise<StoreData> => {
-  const apiUrl = getEnv('VITE_API_URL', '');
+  // Check both standard Vite and Vercel/Next.js environment variables
+  const apiUrl = getEnv('VITE_API_URL', getEnv('NEXT_PUBLIC_API_URL', ''));
 
   // A. Try API / PC Hub (Strategy A)
   // Auto-detect: If VITE_API_URL is set, OR if we are running without Supabase config (assume local hub)
@@ -117,10 +118,11 @@ const generateStoreData = async (): Promise<StoreData> => {
   }
 };
 
-// 2. Save Data (Strict Cloud First)
+// 2. Save Data (Strict Cloud First - Never fallback to local on failure)
 const saveStoreData = async (data: StoreData): Promise<void> => {
     let saved = false;
-    const apiUrl = getEnv('VITE_API_URL', '');
+    // Check both standard Vite and Vercel/Next.js environment variables
+    const apiUrl = getEnv('VITE_API_URL', getEnv('NEXT_PUBLIC_API_URL', ''));
 
     // A. Try API / PC Hub
     if (apiUrl || !supabase) {
@@ -159,7 +161,7 @@ const saveStoreData = async (data: StoreData): Promise<void> => {
     } else {
         // Critical Error: Do NOT silently save to local storage if cloud failed.
         // User requested: "should never upload local" -> imply strict sync requirement.
-        throw new Error("Connection Failed: Could not sync to Server or Database. Changes not saved.");
+        throw new Error("Connection Failed: Could not sync to Server or Database. Changes not saved locally.");
     }
 };
 
