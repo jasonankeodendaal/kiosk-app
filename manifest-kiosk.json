@@ -13,9 +13,9 @@
   "categories": ["shopping", "retail", "productivity"],
   "icons": [
     {
-      "src": "/icon-kiosk.svg",
+      "src": "https://i.ibb.co/p6dvJXTW/image.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],
@@ -25,12 +25,6 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide"
-    },
-    {
-      "src": "https://placehold.co/720x1280/2563eb/white?text=Mobile+View",
-      "sizes": "720x1280",
-      "type": "image/png",
-      "form_factor": "narrow"
     }
   ]
 }

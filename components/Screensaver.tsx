@@ -7,18 +7,28 @@ interface ScreensaverProps {
   onWake: () => void;
 }
 
+const ANIMATIONS = [
+  'animate-ken-burns',
+  'animate-slow-zoom-out',
+  'animate-pan-left',
+  'animate-pan-right',
+  'animate-pop-in'
+];
+
 const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentAnimation, setCurrentAnimation] = useState(ANIMATIONS[0]);
 
   // Merge products and ads into a single playlist
   const playlist = useMemo(() => {
     const mixed: any[] = [];
     const adPool = [...ads];
     
+    // Create a rich playlist
     products.forEach((p, i) => {
         mixed.push({ type: 'product', data: p });
-        // Inject an ad every 3 products if available, or loop ads
-        if ((i + 1) % 3 === 0 && adPool.length > 0) {
+        // Inject an ad every 2 items for variety
+        if ((i + 1) % 2 === 0 && adPool.length > 0) {
             const ad = adPool.shift(); // take one
             if(ad) {
                 mixed.push({ type: 'ad', data: ad });
@@ -27,7 +37,7 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
         }
     });
 
-    // If no products but ads exist (rare), just show ads
+    // If empty playlist but we have ads, just use ads
     if (mixed.length === 0 && ads.length > 0) {
         return ads.map(a => ({ type: 'ad', data: a }));
     }
@@ -40,7 +50,10 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
 
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % playlist.length);
-    }, 8000); // Rotate every 8 seconds
+      // Pick a random animation for the next slide
+      const nextAnim = ANIMATIONS[Math.floor(Math.random() * ANIMATIONS.length)];
+      setCurrentAnimation(nextAnim);
+    }, 6000); // Fast, fun transitions every 6 seconds
 
     return () => clearInterval(interval);
   }, [playlist.length]);
@@ -54,78 +67,79 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, onWake }) => {
   return (
     <div 
       onClick={onWake}
-      className="fixed inset-0 z-50 bg-black text-white cursor-pointer overflow-hidden animate-fade-in"
+      className="fixed inset-0 z-[100] bg-black cursor-pointer overflow-hidden"
     >
-      {/* Background with slight zoom effect */}
-      <div className="absolute inset-0 opacity-40">
-        {isAd && content.type === 'video' ? (
+      <div key={currentIndex} className="absolute inset-0 w-full h-full">
+         {/* Full Screen Background Layer */}
+         {isAd && content.type === 'video' ? (
              <video 
                src={content.url} 
                autoPlay muted loop 
-               className="w-full h-full object-cover blur-sm scale-105"
+               className="w-full h-full object-cover"
              />
-        ) : (
+         ) : (
              <img 
                src={isAd ? content.url : content.imageUrl} 
-               alt="Background" 
-               className="w-full h-full object-cover blur-sm scale-110 transition-transform duration-[8000ms] ease-linear transform hover:scale-125"
+               alt="Screensaver" 
+               className={`w-full h-full object-cover ${currentAnimation}`}
              />
-        )}
-      </div>
+         )}
 
-      <div className="relative z-10 h-full flex flex-col items-center justify-center p-12 text-center bg-gradient-to-t from-black/80 via-transparent to-black/40">
-        
-        {/* Content Container */}
-        {isAd ? (
-             <div className="w-full h-full flex items-center justify-center p-8">
-                 {content.type === 'video' ? (
-                     <video src={content.url} autoPlay muted loop className="max-h-full max-w-full rounded-2xl shadow-2xl" />
-                 ) : (
-                     <img src={content.url} alt="Ad" className="max-h-full max-w-full rounded-2xl shadow-2xl object-contain" />
-                 )}
-             </div>
-        ) : (
-            <>
-                <div className="mb-8 relative group">
-                  <div className="absolute -inset-4 bg-yellow-400 rounded-full blur-2xl opacity-20 group-hover:opacity-30 transition-opacity"></div>
-                  <img 
-                    src={content.imageUrl} 
-                    alt={content.name} 
-                    className="w-96 h-96 object-contain relative z-10 drop-shadow-2xl rounded-xl bg-white/5 p-4"
-                  />
-                </div>
-
-                <h2 className="text-xl tracking-widest text-yellow-400 uppercase font-bold mb-2">
-                  {content.brandName}
-                </h2>
-                
-                <h1 className="text-6xl font-extrabold mb-6 tracking-tight">
-                  {content.name}
+         {/* Optional Subtle Gradient for text readability if product, but mostly clear */}
+         {!isAd && (
+             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end p-12 pb-20">
+                <h1 className="text-6xl md:text-8xl font-black text-white uppercase tracking-tighter drop-shadow-lg transform translate-y-4 opacity-0 animate-slide-up">
+                    {content.brandName}
                 </h1>
-                
-                <p className="text-2xl text-gray-300 max-w-3xl leading-relaxed line-clamp-2">
-                  {content.description}
-                </p>
-            </>
-        )}
-
-        <div className="mt-12 flex items-center space-x-3 text-sm font-medium tracking-wide text-gray-400 absolute bottom-12">
-          <span className="animate-pulse w-3 h-3 bg-yellow-400 rounded-full"></span>
-          <span>Touch screen to explore</span>
-        </div>
+                <h2 className="text-4xl md:text-5xl font-bold text-yellow-400 mt-2 transform translate-y-4 opacity-0 animate-slide-up-delay">
+                    {content.name}
+                </h2>
+             </div>
+         )}
+         
+         {/* Fun overlay elements */}
+         <div className="absolute top-12 right-12 animate-pulse">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-2 rounded-full font-bold uppercase tracking-widest text-sm shadow-xl">
+               Touch to Explore
+            </div>
+         </div>
       </div>
 
-      {/* Progress Bar for slide timing */}
-      <div key={currentIndex} className="absolute bottom-0 left-0 h-2 bg-yellow-400 w-full origin-left animate-progress"></div>
-      
       <style>{`
-        @keyframes progress {
-          from { transform: scaleX(0); }
-          to { transform: scaleX(1); }
+        @keyframes kenBurns {
+          0% { transform: scale(1); }
+          100% { transform: scale(1.15); }
         }
-        .animate-progress {
-          animation: progress 8s linear;
+        @keyframes zoomOut {
+          0% { transform: scale(1.15); }
+          100% { transform: scale(1); }
         }
+        @keyframes panLeft {
+          0% { transform: scale(1.1) translate(0,0); }
+          100% { transform: scale(1.1) translate(-2%, 0); }
+        }
+        @keyframes panRight {
+          0% { transform: scale(1.1) translate(0,0); }
+          100% { transform: scale(1.1) translate(2%, 0); }
+        }
+        @keyframes popIn {
+          0% { transform: scale(0.9); opacity: 0; }
+          10% { transform: scale(1); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes slideUp {
+          0% { transform: translateY(20px); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+
+        .animate-ken-burns { animation: kenBurns 7s ease-out forwards; }
+        .animate-slow-zoom-out { animation: zoomOut 7s ease-out forwards; }
+        .animate-pan-left { animation: panLeft 7s linear forwards; }
+        .animate-pan-right { animation: panRight 7s linear forwards; }
+        .animate-pop-in { animation: popIn 6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        
+        .animate-slide-up { animation: slideUp 0.8s ease-out forwards 0.3s; }
+        .animate-slide-up-delay { animation: slideUp 0.8s ease-out forwards 0.5s; }
       `}</style>
     </div>
   );

@@ -12,9 +12,9 @@
   "categories": ["business", "utilities", "management"],
   "icons": [
     {
-      "src": "/icon-admin.svg",
+      "src": "https://i.ibb.co/sd36Xj4Q/image.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],

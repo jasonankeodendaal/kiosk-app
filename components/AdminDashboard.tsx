@@ -1,4 +1,3 @@
-
 // ... imports ...
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -10,6 +9,7 @@ import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem } 
 import { resetStoreData } from '../services/geminiService';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
+import Peer from 'peerjs';
 
 // --- PDF.js WORKER SETUP ---
 const pdfjs = (pdfjsLib as any).default ?? pdfjsLib;
@@ -311,6 +311,16 @@ const FleetManager = ({ fleet, onUpdateFleet }: { fleet: KioskRegistry[], onUpda
   const [editingKiosk, setEditingKiosk] = useState<KioskRegistry | null>(null);
   const [viewingCamera, setViewingCamera] = useState<KioskRegistry | null>(null);
   const [loadingCamera, setLoadingCamera] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const peerRef = useRef<Peer | null>(null);
+
+  // Clean up Peer on close
+  useEffect(() => {
+    if (!viewingCamera && peerRef.current) {
+        peerRef.current.destroy();
+        peerRef.current = null;
+    }
+  }, [viewingCamera]);
 
   // Update logic
   const handleSave = (kiosk: KioskRegistry) => {
@@ -353,7 +363,58 @@ const FleetManager = ({ fleet, onUpdateFleet }: { fleet: KioskRegistry[], onUpda
   const openCamera = (kiosk: KioskRegistry) => {
       setViewingCamera(kiosk);
       setLoadingCamera(true);
-      setTimeout(() => setLoadingCamera(false), 2000); // Simulate connection
+
+      // Initialize WebRTC P2P Connection via PeerJS Public Cloud
+      const adminPeerId = 'admin-' + Math.random().toString(36).substr(2, 9);
+      const peer = new Peer(adminPeerId, { debug: 1 });
+      
+      peer.on('open', (id) => {
+          console.log('Admin Connected to Signaling Server. ID:', id);
+          
+          // Sanitize target ID
+          const targetPeerId = `kiosk-pro-${kiosk.id.replace(/[^a-zA-Z0-9-_]/g, '')}`;
+          
+          // Wait a moment for connection stability then call
+          setTimeout(() => {
+             // We initiate a call. We send a dummy stream or no stream, expecting a stream back.
+             // PeerJS requires a stream to 'call', but we can send a blank audio track or try receive only.
+             // Simplest is to ask user for permission or just receive.
+             // Current PeerJS implementation usually needs getUserMedia on caller too or just use a data connection to signal start.
+             // However, standard .call() expects a media stream.
+             // Workaround: We use a dummy stream.
+             
+             // For this demo to be "Real", we need to call.
+             // We will try to get a dummy stream (audio only) to satisfy the protocol, or just receive.
+             const conn = peer.connect(targetPeerId);
+             
+             // Fallback: We need to trigger the kiosk to call US, or we call THEM.
+             // Simplest: Admin calls Kiosk.
+             navigator.mediaDevices.getUserMedia({ video: false, audio: true }).then((stream) => {
+                 const call = peer.call(targetPeerId, stream);
+                 
+                 call.on('stream', (remoteStream) => {
+                     setLoadingCamera(false);
+                     if (videoRef.current) {
+                         videoRef.current.srcObject = remoteStream;
+                     }
+                 });
+                 
+                 call.on('error', (err) => {
+                     console.error("Call error", err);
+                     alert("Could not connect to Kiosk. Ensure Kiosk is online.");
+                     setLoadingCamera(false);
+                 });
+             }).catch(e => {
+                 console.error("Admin needs mic permission to initiate call protocol", e);
+                 // Fallback if admin denies mic: try receive-only if supported by browser (rare in simple peerjs)
+                 alert("Please allow microphone access to initiate the secure handshake.");
+                 setLoadingCamera(false);
+             });
+
+          }, 1000);
+      });
+
+      peerRef.current = peer;
   };
 
   const getSignalIcon = (strength: number) => { if (strength > 75) return <Wifi size={16} className="text-green-500" />; if (strength > 40) return <Wifi size={16} className="text-yellow-500" />; if (strength > 0) return <Wifi size={16} className="text-red-500" />; return <WifiOff size={16} className="text-slate-300" />; };
@@ -452,22 +513,23 @@ const FleetManager = ({ fleet, onUpdateFleet }: { fleet: KioskRegistry[], onUpda
                            <div className="text-center">
                                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                                <p className="text-blue-500 font-bold uppercase tracking-widest text-xs animate-pulse">Establishing Secure Connection...</p>
+                               <p className="text-slate-500 text-[10px] mt-2">Connecting to Peer: kiosk-pro-{viewingCamera.id}</p>
                            </div>
                        ) : (
-                           <div className="w-full h-full relative">
-                               {/* Placeholder for real WebRTC stream. In a real app, this would be <video srcObject={stream} /> */}
-                               <img src={`https://picsum.photos/seed/${viewingCamera.id}/1280/720?grayscale&blur=2`} alt="Camera Feed" className="w-full h-full object-cover opacity-50" />
-                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                           <div className="w-full h-full relative group">
+                               {/* Real WebRTC Stream */}
+                               <video ref={videoRef} autoPlay playsInline className="w-full h-full object-contain bg-black" />
+                               
+                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
                                    <div className="text-center bg-black/50 backdrop-blur-sm p-6 rounded-2xl border border-white/10">
-                                       <Video size={48} className="text-slate-500 mx-auto mb-4" />
-                                       <p className="text-slate-300 font-bold uppercase tracking-widest text-sm">Signal Connected</p>
-                                       <p className="text-slate-500 text-xs mt-2">Stealth Mode Active. Kiosk display unaffected.</p>
+                                       <Video size={48} className="text-green-500 mx-auto mb-4" />
+                                       <p className="text-slate-300 font-bold uppercase tracking-widest text-sm">Live P2P Stream Active</p>
                                    </div>
                                </div>
                                {/* HUD Overlay */}
                                <div className="absolute bottom-4 left-4 font-mono text-green-500 text-xs opacity-80">
-                                   REC [00:04:12] <br/>
-                                   BITRATE: 4028kbps
+                                   REC [LIVE] <br/>
+                                   PEERJS: CONNECTED
                                </div>
                            </div>
                        )}

