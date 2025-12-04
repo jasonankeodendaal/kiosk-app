@@ -23,6 +23,32 @@ const DEFAULT_DATA: StoreData = {
     homeSideVertical: [],
     screensaver: []
   },
+  fleet: [
+    {
+      id: "LOC-001",
+      name: "Main Entrance",
+      status: 'online',
+      last_seen: new Date().toISOString(),
+      wifiStrength: 95,
+      ipAddress: '192.168.1.10',
+      version: '1.0.4',
+      locationDescription: 'Front lobby, facing security desk',
+      assignedZone: 'Lobby',
+      notes: 'Primary traffic point'
+    },
+    {
+      id: "LOC-002",
+      name: "Checkout Lane 4",
+      status: 'offline',
+      last_seen: new Date(Date.now() - 3600000).toISOString(),
+      wifiStrength: 0,
+      ipAddress: '192.168.1.12',
+      version: '1.0.3',
+      locationDescription: 'Near express checkout',
+      assignedZone: 'Sales Floor',
+      notes: 'Maintenance required'
+    }
+  ],
   brands: [
     {
       id: "b1",

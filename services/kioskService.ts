@@ -1,5 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
+import { KioskRegistry } from '../types';
 
 // Helper to safely get env vars without crashing if import.meta or process is undefined
 const getEnv = (key: string, fallback: string) => {
@@ -48,16 +49,6 @@ export const initSupabase = () => {
   }
   return false;
 };
-
-export interface KioskRegistry {
-  id: string;
-  name: string;
-  status: 'online' | 'offline';
-  last_seen: string;
-  wifiStrength: number; // 0-100
-  ipAddress: string;
-  version: string;
-}
 
 const STORAGE_KEY_ID = 'kiosk_pro_device_id';
 const STORAGE_KEY_NAME = 'kiosk_pro_shop_name';
@@ -130,53 +121,4 @@ export const sendHeartbeat = async () => {
   const name = getShopName();
   if (!id || !name) return;
   // In real implementation, send generic heartbeat to backend
-};
-
-// 8. Fetch Fleet (Mocked for Demo since no backend is connected)
-export const fetchKioskFleet = async (): Promise<KioskRegistry[]> => {
-  // Simulate network delay
-  await new Promise(r => setTimeout(r, 600));
-
-  const currentId = getKioskId() || 'LOC-001';
-  const currentName = getShopName() || 'This Device';
-
-  // Mock Data mimicking a real fleet response
-  return [
-    {
-      id: currentId,
-      name: currentName + " (You)",
-      status: 'online',
-      last_seen: new Date().toISOString(),
-      wifiStrength: Math.floor(Math.random() * (100 - 60) + 60), // Random 60-100
-      ipAddress: '192.168.1.45',
-      version: '1.0.4'
-    },
-    {
-      id: 'LOC-004',
-      name: 'West Wing Entrance',
-      status: 'online',
-      last_seen: new Date().toISOString(),
-      wifiStrength: 88,
-      ipAddress: '192.168.1.102',
-      version: '1.0.4'
-    },
-    {
-      id: 'LOC-009',
-      name: 'Food Court Pillar',
-      status: 'offline',
-      last_seen: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-      wifiStrength: 0,
-      ipAddress: '192.168.1.115',
-      version: '1.0.3'
-    },
-    {
-      id: 'LOC-012',
-      name: 'Checkout Lane 5',
-      status: 'online',
-      last_seen: new Date().toISOString(),
-      wifiStrength: 45, // Weak signal
-      ipAddress: '192.168.1.120',
-      version: '1.0.4'
-    }
-  ];
 };

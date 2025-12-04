@@ -61,12 +61,27 @@ export interface AdConfig {
   screensaver: AdItem[];
 }
 
+export interface KioskRegistry {
+  id: string;
+  name: string;
+  status: 'online' | 'offline';
+  last_seen: string;
+  wifiStrength: number; // 0-100
+  ipAddress: string;
+  version: string;
+  // Enhanced Fields
+  locationDescription?: string;
+  assignedZone?: string;
+  notes?: string;
+}
+
 export interface StoreData {
   companyLogoUrl?: string; // Global app logo displayed on Home Page TopBar
   hero: HeroConfig;
   catalog?: Catalog;
   brands: Brand[];
   ads?: AdConfig;
+  fleet?: KioskRegistry[]; // Persisted fleet data
 }
 
 // Helper type for flatten product list used in Screensaver

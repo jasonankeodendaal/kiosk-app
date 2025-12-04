@@ -1,12 +1,12 @@
+
 // ... imports ...
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X
 } from 'lucide-react';
-import { fetchKioskFleet, KioskRegistry } from '../services/kioskService';
-import { StoreData, Brand, Category, Product, AdConfig, AdItem } from '../types';
+import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem } from '../types';
 import { resetStoreData } from '../services/geminiService';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -307,27 +307,179 @@ const AdManager = ({ ads, onUpdate }: { ads: AdConfig, onUpdate: (ads: AdConfig)
     );
 };
 
-const FleetManager = () => {
-  const [fleet, setFleet] = useState<KioskRegistry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const loadFleet = async () => { setLoading(true); const data = await fetchKioskFleet(); setFleet(data); setLoading(false); };
-  useEffect(() => { loadFleet(); }, []);
+const FleetManager = ({ fleet, onUpdateFleet }: { fleet: KioskRegistry[], onUpdateFleet: (f: KioskRegistry[]) => void }) => {
+  const [editingKiosk, setEditingKiosk] = useState<KioskRegistry | null>(null);
+  const [viewingCamera, setViewingCamera] = useState<KioskRegistry | null>(null);
+  const [loadingCamera, setLoadingCamera] = useState(false);
+
+  // Update logic
+  const handleSave = (kiosk: KioskRegistry) => {
+      const idx = fleet.findIndex(k => k.id === kiosk.id);
+      if (idx >= 0) {
+          const newFleet = [...fleet];
+          newFleet[idx] = kiosk;
+          onUpdateFleet(newFleet);
+      } else {
+          onUpdateFleet([...fleet, kiosk]);
+      }
+      setEditingKiosk(null);
+  };
+
+  const handleDelete = (id: string) => {
+      if(confirm('Deregister this device from the fleet?')) {
+          onUpdateFleet(fleet.filter(k => k.id !== id));
+      }
+  };
+
+  const handleOpenEdit = (kiosk: KioskRegistry) => {
+      setEditingKiosk({ ...kiosk });
+  };
+
+  const handleAddNew = () => {
+      setEditingKiosk({
+          id: generateId('LOC'),
+          name: 'New Kiosk',
+          status: 'offline',
+          last_seen: new Date().toISOString(),
+          wifiStrength: 0,
+          ipAddress: '0.0.0.0',
+          version: '1.0.0',
+          locationDescription: '',
+          assignedZone: '',
+          notes: ''
+      });
+  };
+
+  const openCamera = (kiosk: KioskRegistry) => {
+      setViewingCamera(kiosk);
+      setLoadingCamera(true);
+      setTimeout(() => setLoadingCamera(false), 2000); // Simulate connection
+  };
+
   const getSignalIcon = (strength: number) => { if (strength > 75) return <Wifi size={16} className="text-green-500" />; if (strength > 40) return <Wifi size={16} className="text-yellow-500" />; if (strength > 0) return <Wifi size={16} className="text-red-500" />; return <WifiOff size={16} className="text-slate-300" />; };
+
   return (
-    <div className="max-w-7xl mx-auto animate-fade-in">
-       <div className="flex justify-between items-center mb-8"><div><h2 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">Fleet Command</h2><p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">Active devices</p></div><button onClick={loadFleet} className="p-3 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-blue-600 shadow hover:shadow-lg transition-all"><RotateCcw size={20} className={loading ? "animate-spin" : ""} /></button></div>
+    <div className="max-w-7xl mx-auto animate-fade-in relative">
+       <div className="flex justify-between items-center mb-8">
+           <div><h2 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">Fleet Command</h2><p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">Active devices</p></div>
+           <button onClick={handleAddNew} className="bg-slate-900 text-white px-4 py-2 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg flex items-center gap-2 hover:bg-slate-800 transition-all"><Plus size={16} /> Add Device</button>
+       </div>
+       
        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {fleet.map((kiosk) => (
-            <div key={kiosk.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between group hover:border-blue-400 transition-all hover:shadow-xl transform hover:-translate-y-1 h-full">
+            <div key={kiosk.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between group hover:border-blue-400 transition-all hover:shadow-xl transform hover:-translate-y-1 h-full relative">
                <div className="flex items-start justify-between mb-4">
-                   <div className="flex items-center gap-4"><div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 border border-slate-200 shadow-inner shrink-0"><Monitor size={24} /></div><div><h3 className="font-black text-lg text-slate-900 leading-none mb-1">{kiosk.name}</h3><span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{kiosk.ipAddress}</span></div></div>
-                   <div className={`w-3 h-3 rounded-full ${kiosk.status === 'online' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]' : 'bg-red-400'}`}></div>
+                   <div className="flex items-center gap-4">
+                       <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 border border-slate-200 shadow-inner shrink-0 relative">
+                           <Tablet size={24} />
+                           {kiosk.status === 'online' && <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></span>}
+                       </div>
+                       <div>
+                           <h3 className="font-black text-lg text-slate-900 leading-none mb-1">{kiosk.name}</h3>
+                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{kiosk.locationDescription || 'No Location Set'}</span>
+                           <span className="text-[9px] font-mono text-slate-300">{kiosk.ipAddress}</span>
+                       </div>
+                   </div>
+                   <div className="flex gap-1">
+                       <button onClick={() => handleOpenEdit(kiosk)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600 transition-colors"><Edit2 size={14} /></button>
+                       <button onClick={() => handleDelete(kiosk.id)} className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+                   </div>
                </div>
-               <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex items-center justify-between"><div><div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">ID</div><div className="font-mono font-bold text-slate-700">{kiosk.id}</div></div><div className="w-px h-6 bg-slate-200"></div><div className="text-right"><div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Signal</div><div className="flex items-center justify-end gap-1 font-bold text-slate-700">{kiosk.wifiStrength}% {getSignalIcon(kiosk.wifiStrength)}</div></div></div>
-               <div className="mt-4 text-[10px] font-bold text-slate-400 text-center uppercase tracking-wider">Last Seen: {new Date(kiosk.last_seen).toLocaleTimeString()}</div>
+
+               <div className="space-y-3 mb-4">
+                   <div className="bg-slate-50 rounded-lg p-2 border border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-500">
+                       <span>ZONE: {kiosk.assignedZone || 'N/A'}</span>
+                       <span className="flex items-center gap-1">{kiosk.wifiStrength}% {getSignalIcon(kiosk.wifiStrength)}</span>
+                   </div>
+                   {kiosk.notes && <p className="text-xs text-slate-500 italic bg-yellow-50 p-2 rounded border border-yellow-100">"{kiosk.notes}"</p>}
+               </div>
+               
+               <button 
+                  onClick={() => openCamera(kiosk)}
+                  className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-wider text-[10px] flex items-center justify-center gap-2 hover:bg-blue-600 transition-colors shadow-md"
+               >
+                   <Eye size={14} /> View Camera Feed
+               </button>
             </div>
           ))}
        </div>
+
+       {/* EDIT MODAL */}
+       {editingKiosk && (
+           <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
+               <div className="bg-white p-8 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-300">
+                   <div className="flex justify-between items-center mb-6">
+                       <h3 className="text-2xl font-black text-slate-900">Device Configuration</h3>
+                       <button onClick={() => setEditingKiosk(null)}><X className="text-slate-400 hover:text-slate-600" /></button>
+                   </div>
+                   <div className="space-y-4">
+                       <div className="grid grid-cols-2 gap-4">
+                           <div><label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Device ID</label><input className="w-full p-3 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-slate-500 text-sm" value={editingKiosk.id} disabled /></div>
+                           <div><label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Device Name</label><input className="w-full p-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" value={editingKiosk.name} onChange={e => setEditingKiosk({...editingKiosk, name: e.target.value})} /></div>
+                       </div>
+                       <div><label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Location Description</label><input className="w-full p-3 bg-white border border-slate-300 rounded-xl font-medium text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" placeholder="e.g. North Wing Entrance" value={editingKiosk.locationDescription || ''} onChange={e => setEditingKiosk({...editingKiosk, locationDescription: e.target.value})} /></div>
+                       <div className="grid grid-cols-2 gap-4">
+                           <div><label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Zone Assignment</label><input className="w-full p-3 bg-white border border-slate-300 rounded-xl font-medium text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" placeholder="e.g. Zone A" value={editingKiosk.assignedZone || ''} onChange={e => setEditingKiosk({...editingKiosk, assignedZone: e.target.value})} /></div>
+                           <div><label className="text-[10px] font-black uppercase text-slate-500 block mb-1">IP Address</label><input className="w-full p-3 bg-white border border-slate-300 rounded-xl font-mono font-medium text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" value={editingKiosk.ipAddress} onChange={e => setEditingKiosk({...editingKiosk, ipAddress: e.target.value})} /></div>
+                       </div>
+                       <div><label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Notes</label><textarea className="w-full p-3 bg-white border border-slate-300 rounded-xl font-medium text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none resize-none h-20" placeholder="Maintenance notes, issues, etc." value={editingKiosk.notes || ''} onChange={e => setEditingKiosk({...editingKiosk, notes: e.target.value})} /></div>
+                   </div>
+                   <div className="mt-8 flex justify-end gap-3">
+                       <button onClick={() => setEditingKiosk(null)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors text-xs uppercase">Cancel</button>
+                       <button onClick={() => handleSave(editingKiosk)} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all text-xs uppercase flex items-center gap-2"><Save size={16} /> Save Changes</button>
+                   </div>
+               </div>
+           </div>
+       )}
+
+       {/* CAMERA MODAL */}
+       {viewingCamera && (
+           <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4">
+               <div className="w-full max-w-4xl bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl relative">
+                   <div className="absolute top-0 left-0 w-full p-4 bg-gradient-to-b from-black/80 to-transparent z-10 flex justify-between items-start">
+                       <div>
+                           <div className="flex items-center gap-2">
+                               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_red]"></span>
+                               <h3 className="text-white font-bold text-sm tracking-wider uppercase">Live Feed: {viewingCamera.name}</h3>
+                           </div>
+                           <p className="text-slate-400 text-[10px] font-mono mt-1">{viewingCamera.ipAddress} • {viewingCamera.locationDescription}</p>
+                       </div>
+                       <button onClick={() => setViewingCamera(null)} className="bg-white/10 p-2 rounded-full hover:bg-white/20 text-white transition-colors"><X size={20} /></button>
+                   </div>
+
+                   <div className="aspect-video bg-black flex items-center justify-center relative">
+                       {loadingCamera ? (
+                           <div className="text-center">
+                               <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                               <p className="text-blue-500 font-bold uppercase tracking-widest text-xs animate-pulse">Establishing Secure Connection...</p>
+                           </div>
+                       ) : (
+                           <div className="w-full h-full relative">
+                               {/* Placeholder for real WebRTC stream. In a real app, this would be <video srcObject={stream} /> */}
+                               <img src={`https://picsum.photos/seed/${viewingCamera.id}/1280/720?grayscale&blur=2`} alt="Camera Feed" className="w-full h-full object-cover opacity-50" />
+                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                   <div className="text-center bg-black/50 backdrop-blur-sm p-6 rounded-2xl border border-white/10">
+                                       <Video size={48} className="text-slate-500 mx-auto mb-4" />
+                                       <p className="text-slate-300 font-bold uppercase tracking-widest text-sm">Signal Connected</p>
+                                       <p className="text-slate-500 text-xs mt-2">Stealth Mode Active. Kiosk display unaffected.</p>
+                                   </div>
+                               </div>
+                               {/* HUD Overlay */}
+                               <div className="absolute bottom-4 left-4 font-mono text-green-500 text-xs opacity-80">
+                                   REC [00:04:12] <br/>
+                                   BITRATE: 4028kbps
+                               </div>
+                           </div>
+                       )}
+                   </div>
+                   
+                   <div className="p-4 bg-slate-900 border-t border-slate-800 flex justify-center gap-4">
+                       <button className="bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-slate-700">Take Snapshot</button>
+                       <button className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-red-700 shadow-lg shadow-red-900/50">Record Clip</button>
+                   </div>
+               </div>
+           </div>
+       )}
     </div>
   );
 }
@@ -345,6 +497,12 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
 
   const activeBrand = storeData?.brands.find(b => b.id === activeBrandId);
   const activeCategory = activeBrand?.categories.find(c => c.id === activeCategoryId);
+
+  const handleExit = () => {
+      // Force a real location change to ensure we leave the /admin route completely
+      // This solves the issue where PWA split builds might try to keep history state
+      window.location.href = '/'; 
+  };
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if(!e.target.files?.[0] || !storeData) return;
@@ -382,7 +540,6 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
       setIsProcessingPdf(true);
       
       const files: File[] = Array.from(e.target.files) as File[];
-      // Sort by filename to ensure order
       files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
       try {
@@ -395,7 +552,6 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
               });
               pageImages.push(result);
           }
-          // Reset pdfUrl since we are using individual images
           onUpdateData({ ...storeData, catalog: { pdfUrl: '', pages: pageImages } });
           setIsProcessingPdf(false);
       } catch (err) {
@@ -416,7 +572,6 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
           jsonFile = file;
         } else {
           assets[file.name] = file;
-          // Use 'any' cast for non-standard property if TS complains, though newer lib.dom includes it often.
           if ((file as any).webkitRelativePath) {
             assets[(file as any).webkitRelativePath] = file;
           }
@@ -425,10 +580,6 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
         }
       }
 
-      // Allow missing data.json if scanning was handled elsewhere, but this function expects standard zip structure.
-      // However, if processZipFile is called with auto-generated zip, data.json WILL exist.
-      // If uploading a zip MANUALLY without data.json, we can't do much unless we run the folder scanner here too.
-      // For now, assuming standard import logic.
       if (!jsonFile) {
         alert("No 'data.json' found in the zip. Auto-conversion only works with the 'Convert Folder' button.");
         setIsImporting(false);
@@ -522,7 +673,6 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
         const zip = new JSZip();
         let hasDataJson = false;
 
-        // Check for existing data.json
         for (const file of files) {
             if (file.name === 'data.json' || file.name.endsWith('/data.json')) {
                 hasDataJson = true;
@@ -531,16 +681,13 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
         }
 
         if (hasDataJson) {
-             // Standard behavior: Zip and upload
              files.forEach(file => {
                  const path = (file as any).webkitRelativePath || file.name;
                  zip.file(path, file);
              });
              
-             // Generate Zip
              const content = await zip.generateAsync({ type: "blob" });
              
-             // Download Trigger
              const url = URL.createObjectURL(content);
              const a = document.createElement('a');
              a.href = url;
@@ -550,11 +697,10 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
              document.body.removeChild(a);
              URL.revokeObjectURL(url);
              
-             // Process
              await processZipFile(new File([content], "kiosk-data-optimized.zip"));
 
         } else {
-            // Auto-Discovery Mode: Rebuild entire structure
+            // Auto-Discovery Mode
             const newStoreData: StoreData = storeData ? { ...storeData, brands: [] } : { 
                 companyLogoUrl: '', hero: { title: 'Welcome', subtitle: '', websiteUrl: '' }, 
                 brands: [], ads: { homeBottomLeft: [], homeBottomRight: [], homeSideVertical: [], screensaver: [] } 
@@ -563,67 +709,47 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
             const brandsMap = new Map<string, Brand>();
             
             for (const file of files) {
-                if (file.name.startsWith('.')) continue; // skip hidden
+                if (file.name.startsWith('.')) continue;
                 const pathParts = ((file as any).webkitRelativePath || file.name).split('/');
                 
-                // Assuming path: Root/Brand/Category/Product...
-                if (pathParts.length < 2) continue; // Just root folder
+                if (pathParts.length < 2) continue;
                 
                 const brandName = pathParts[1];
                 if (!brandName || brandName === 'data.json') continue;
 
-                // Get or Create Brand
                 let brand = brandsMap.get(brandName);
                 if (!brand) {
-                    brand = { 
-                        id: generateId('b'), 
-                        name: brandName, 
-                        categories: [], 
-                        logoUrl: '' 
-                    };
+                    brand = { id: generateId('b'), name: brandName, categories: [], logoUrl: '' };
                     brandsMap.set(brandName, brand);
                 }
 
                 if (pathParts.length === 3) {
-                    // Path: Root/Brand/File.jpg -> Potential Brand Logo
                     if (file.type.startsWith('image/') && file.name.toLowerCase().includes('logo')) {
                          brand.logoUrl = (file as any).webkitRelativePath;
                     }
                 } else if (pathParts.length >= 4) {
-                    // Path: Root/Brand/Category/...
                     const categoryName = pathParts[2];
                     let category = brand.categories.find(c => c.name === categoryName);
                     if (!category) {
-                        category = { 
-                            id: generateId('c'), 
-                            name: categoryName, 
-                            icon: 'Box', 
-                            products: [] 
-                        };
+                        category = { id: generateId('c'), name: categoryName, icon: 'Box', products: [] };
                         brand.categories.push(category);
                     }
 
                     const itemName = pathParts[3];
                     
                     if (pathParts.length === 4) {
-                        // Root/Brand/Category/ProductImage.jpg
-                        // Treat file as a product itself if it's media
                          if (file.type.startsWith('image/')) {
-                             const prodName = itemName.replace(/\.[^/.]+$/, ""); // remove extension
+                             const prodName = itemName.replace(/\.[^/.]+$/, "");
                              const product: Product = {
                                  id: generateId('p'),
                                  name: prodName.replace(/[-_]/g, ' '),
                                  description: 'Imported from file',
                                  imageUrl: (file as any).webkitRelativePath,
-                                 specs: {},
-                                 features: [],
-                                 dimensions: { width: '', height: '', depth: '', weight: '' }
+                                 specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' }
                              };
                              category.products.push(product);
                          }
                     } else {
-                        // Root/Brand/Category/ProductName/Image.jpg
-                        // Folder based product
                         const prodName = itemName;
                         let product = category.products.find(p => p.name === prodName);
                         if (!product) {
@@ -631,17 +757,11 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
                                  id: generateId('p'),
                                  name: prodName.replace(/[-_]/g, ' '),
                                  description: 'Imported from folder',
-                                 imageUrl: '', 
-                                 galleryUrls: [],
-                                 videoUrl: '',
-                                 specs: {},
-                                 features: [],
-                                 dimensions: { width: '', height: '', depth: '', weight: '' }
+                                 imageUrl: '', galleryUrls: [], videoUrl: '', specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' }
                              };
                              category.products.push(product);
                         }
 
-                        // Assign Media
                         const filePath = (file as any).webkitRelativePath;
                         if (file.type.startsWith('image/')) {
                             if (!product.imageUrl) product.imageUrl = filePath;
@@ -652,42 +772,18 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
                     }
                 }
             }
-            
-            // Reconstruct Brands Array
             newStoreData.brands = Array.from(brandsMap.values());
-            
-            // Add generated data.json to zip
             const jsonString = JSON.stringify(newStoreData, null, 2);
             zip.file("data.json", jsonString);
-            
-            // Add all original files to zip
-            files.forEach(file => {
-                 const path = (file as any).webkitRelativePath || file.name;
-                 zip.file(path, file);
-            });
-            
-            // Generate Zip Blob
+            files.forEach(file => { const path = (file as any).webkitRelativePath || file.name; zip.file(path, file); });
             const content = await zip.generateAsync({ type: "blob" });
-
-            // Download Trigger
             const url = URL.createObjectURL(content);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = "kiosk-data-converted.zip";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            // Process (Upload)
+            const a = document.createElement('a'); a.href = url; a.download = "kiosk-data-converted.zip";
+            document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
             await processZipFile(new File([content], "kiosk-data-converted.zip"));
         }
 
-    } catch (e) {
-        console.error("Folder upload failed", e);
-        alert("Error processing folder.");
-        setIsImporting(false);
-    }
+    } catch (e) { console.error("Folder upload failed", e); alert("Error processing folder."); setIsImporting(false); }
   };
 
   const handleSaveBrand = (brand: Brand) => { if(!storeData) return; let newBrands = [...storeData.brands]; const idx = newBrands.findIndex(b => b.id === brand.id); if (idx >= 0) newBrands[idx] = brand; else newBrands.push(brand); onUpdateData({ ...storeData, brands: newBrands }); setEditingItem(null); };
@@ -709,7 +805,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
                ))}
             </nav>
          </div>
-         <div className="flex items-center gap-2"><button onClick={onExit} className="text-white/50 hover:text-white hover:underline text-[10px] font-bold uppercase tracking-wider mr-4">Go to Store Mode</button><div className="w-px h-6 bg-slate-700 mx-1"></div><button onClick={() => setSession(false)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 hover:scale-105 border-b-2 border-blue-800 active:border-b-0 active:translate-y-0.5 flex items-center gap-2"><LogOut size={14} /> Logout</button></div>
+         <div className="flex items-center gap-2"><button onClick={handleExit} className="text-white/50 hover:text-white hover:underline text-[10px] font-bold uppercase tracking-wider mr-4">Go to Store Mode</button><div className="w-px h-6 bg-slate-700 mx-1"></div><button onClick={() => setSession(false)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 hover:scale-105 border-b-2 border-blue-800 active:border-b-0 active:translate-y-0.5 flex items-center gap-2"><LogOut size={14} /> Logout</button></div>
       </header>
       <main className="flex-1 overflow-hidden relative bg-slate-200">
          <div className="absolute inset-0 bg-slate-200 pointer-events-none z-0 opacity-50" style={{backgroundImage: 'radial-gradient(circle at 50% 50%, #e2e8f0 1px, transparent 1px)', backgroundSize: '24px 24px'}}></div>
@@ -807,7 +903,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
                  </div>
              </div>
          )}
-         {activeTab === 'fleet' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><FleetManager /></div> )}
+         {activeTab === 'fleet' && storeData && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><FleetManager fleet={storeData.fleet || []} onUpdateFleet={(f) => onUpdateData({ ...storeData, fleet: f })} /></div> )}
          {activeTab === 'settings' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><div className="max-w-7xl mx-auto animate-fade-in"><h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight drop-shadow-sm">System</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><FolderInput className="text-blue-600" size={20} /> Data Import</h4><p className="text-xs text-slate-500 mb-4 font-medium">Populate system. Supports <span className="font-mono bg-slate-100 px-1 rounded">.zip</span> or folder with <span className="font-mono bg-slate-100 px-1 rounded">data.json</span>.</p><div className="space-y-3"><label className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-100 hover:border-blue-200 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-blue-900 group-hover:text-blue-700 uppercase tracking-wide text-xs flex items-center gap-2"><FileArchive size={16} /> Upload Zip</div></div><Upload size={16} className="text-blue-400 group-hover:text-blue-600" /><input type="file" className="hidden" accept=".zip" onChange={handleZipUpload} disabled={isImporting} /></label><label className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide text-xs flex items-center gap-2"><FolderInput size={16} /> Convert Folder & Upload</div><p className="text-[9px] text-slate-500 mt-1">Auto-detects structure, builds JSON, downloads & imports.</p></div><Download size={16} className="text-slate-400 group-hover:text-slate-600" /><input type="file" className="hidden" {...({ webkitdirectory: "", directory: "" } as any)} onChange={handleFolderUpload} disabled={isImporting} /></label>{isImporting && (<div className="text-center p-2"><span className="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span><p className="text-[10px] font-bold text-blue-600 mt-1 uppercase tracking-widest">Processing...</p></div>)}</div></div><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><Save className="text-green-600" size={20} /> Backup & Reset</h4><div className="space-y-3"><button onClick={() => { const blob = new Blob([JSON.stringify(storeData, null, 2)], {type : 'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `kiosk-backup-${new Date().toISOString().split('T')[0]}.json`; a.click(); }} className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl border border-green-100 hover:border-green-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-green-800 group-hover:text-green-900 uppercase tracking-wide text-xs">Download Config</div></div><ArrowLeft size={16} className="rotate-[-90deg] text-green-400 group-hover:text-green-600" /></button><button onClick={async () => { if(confirm("DANGER: Wipe all data?")) { const d = await resetStoreData(); onUpdateData(d); } }} className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 hover:border-red-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-red-700 uppercase tracking-wide text-xs">Factory Reset</div></div><RotateCcw size={16} className="text-red-400 group-hover:text-red-600" /></button></div></div></div></div></div> )}
       </main>
     </div>
