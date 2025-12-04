@@ -16,8 +16,6 @@ const pdfjs = (pdfjsLib as any).default ?? pdfjsLib;
 
 if (pdfjs && pdfjs.GlobalWorkerOptions) {
     pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
-} else {
-    console.warn("PDF.js GlobalWorkerOptions not found");
 }
 
 // --- UTILS ---
@@ -498,32 +496,11 @@ const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegi
             </div>
           ))}
        </div>
-       
-       <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 mt-12">
-            <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
-                <Info size={20} className="text-blue-600" />
-                How Kiosk Setup & Connection Works
-            </h3>
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="relative">
-                    <div className="absolute top-0 left-4 bottom-0 w-0.5 bg-slate-200 -z-10"></div>
-                    <div className="flex gap-4 mb-6">
-                        <div className="w-8 h-8 rounded-full bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-500 text-xs shadow-sm">1</div>
-                        <div>
-                            <h4 className="font-bold text-slate-900 text-sm">Initialization</h4>
-                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                                When a new Kiosk loads for the first time, it generates a unique ID (e.g., LOC-001) in its local storage.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-       </div>
 
        {/* EDIT MODAL */}
        {editingKiosk && (
            <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
-               <div className="bg-white p-8 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-300 max-h-[90vh] overflow-y-auto">
+               <div className="bg-white p-8 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-300 max-h-[90vh] overflow-y-auto animate-fade-in">
                    <div className="flex justify-between items-center mb-6">
                        <div>
                            <h3 className="text-2xl font-black text-slate-900">Device Configuration</h3>
@@ -808,9 +785,6 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
       // Reconstruct array from map
       newData.brands = Array.from(brandsMap.values());
       
-      // Sort catalog pages by filename if possible (simple alphabetic sort of the original keys might not persist, so we rely on user to number them page_01, page_02)
-      // Since we pushed them in loop order, and JSZip iterates order, it should be okay if zip was created ordered.
-
       return newData;
   };
 

@@ -28,7 +28,10 @@ export default function App() {
     const fetchData = async () => {
       try {
         const data = await generateStoreData();
-        setStoreData(data);
+        // Only update if we actually got data back to prevent wiping state on error
+        if (data) {
+           setStoreData(data);
+        }
       } catch (e) {
         console.error("Failed to load data", e);
       } finally {
