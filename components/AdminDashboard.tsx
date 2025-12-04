@@ -1,5 +1,4 @@
 
-// ... imports ...
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -23,6 +22,32 @@ if (pdfjs && pdfjs.GlobalWorkerOptions) {
 
 // --- UTILS ---
 const generateId = (prefix: string) => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
+
+// Helper: Convert Base64 to Blob for Zip Export
+const dataURItoBlob = (dataURI: string) => {
+  try {
+    const byteString = atob(dataURI.split(',')[1]);
+    const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
+  } catch (e) {
+    return null;
+  }
+};
+
+// Helper: Read File to Base64
+const readFileAsBase64 = (file: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+};
 
 // --- COMPONENT: AUTH ---
 const Auth = ({ setSession }: { setSession: (s: boolean) => void }) => {
@@ -258,9 +283,7 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
   );
 };
 
-// ... AdManager and FleetManager stay same structure, just verifying layout ...
 const AdManager = ({ ads, onUpdate, onSaveGlobal }: { ads: AdConfig, onUpdate: (ads: AdConfig) => void, onSaveGlobal: () => void }) => {
-    // ... logic ...
     const addAd = (zone: keyof AdConfig, url: string, type: 'image' | 'video') => { const newItem: AdItem = { id: generateId('ad'), type, url }; const newZone = [...ads[zone], newItem]; onUpdate({ ...ads, [zone]: newZone }); };
     const removeAd = (zone: keyof AdConfig, id: string) => { const newZone = ads[zone].filter(x => x.id !== id); onUpdate({ ...ads, [zone]: newZone }); };
     const ZoneEditor = ({ zone, title, desc, sizeInfo }: { zone: keyof AdConfig, title: string, desc: string, sizeInfo: string }) => (
@@ -316,7 +339,6 @@ const AdManager = ({ ads, onUpdate, onSaveGlobal }: { ads: AdConfig, onUpdate: (
 };
 
 const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegistry[], onUpdateFleet: (f: KioskRegistry[]) => void, onSaveGlobal: () => void }) => {
-  // ... existing fleet logic ...
   const [editingKiosk, setEditingKiosk] = useState<KioskRegistry | null>(null);
   const [viewingCamera, setViewingCamera] = useState<KioskRegistry | null>(null);
   const [loadingCamera, setLoadingCamera] = useState(false);
@@ -442,7 +464,6 @@ const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegi
                        <button onClick={() => handleDelete(kiosk.id)} className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
                    </div>
                </div>
-                {/* ... existing stats ... */}
                 <div className="space-y-3 mb-4">
                    <div className="bg-slate-50 rounded-lg p-2 border border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-500">
                        <span>ZONE: {kiosk.assignedZone || 'N/A'}</span>
@@ -461,13 +482,11 @@ const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegi
           ))}
        </div>
        
-       {/* How It Works (Same as before) */}
        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 mt-12">
             <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
                 <Info size={20} className="text-blue-600" />
                 How Kiosk Setup & Connection Works
             </h3>
-            {/* ... documentation content ... */}
              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="relative">
                     <div className="absolute top-0 left-4 bottom-0 w-0.5 bg-slate-200 -z-10"></div>
@@ -480,27 +499,80 @@ const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegi
                             </p>
                         </div>
                     </div>
-                     {/* ... steps ... */}
                 </div>
-                {/* ... columns ... */}
             </div>
        </div>
 
-       {/* EDIT MODAL (Same as before) */}
+       {/* EDIT MODAL */}
        {editingKiosk && (
            <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
                <div className="bg-white p-8 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-300 max-h-[90vh] overflow-y-auto">
-                   {/* ... form fields ... */}
                    <div className="flex justify-between items-center mb-6">
-                       <h3 className="text-2xl font-black text-slate-900">Device Configuration</h3>
+                       <div>
+                           <h3 className="text-2xl font-black text-slate-900">Device Configuration</h3>
+                           <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Edit Fleet Details</p>
+                       </div>
                        <button onClick={() => setEditingKiosk(null)}><X className="text-slate-400 hover:text-slate-600" /></button>
                    </div>
                     <div className="space-y-4">
                        <div className="grid grid-cols-2 gap-4">
-                           <div><label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Device ID</label><input className="w-full p-3 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-slate-500 text-sm" value={editingKiosk.id} disabled /></div>
-                           <div><label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Device Name</label><input className="w-full p-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" value={editingKiosk.name} onChange={e => setEditingKiosk({...editingKiosk, name: e.target.value})} /></div>
+                           <div>
+                               <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Device ID</label>
+                               <input className="w-full p-3 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-slate-500 text-sm" value={editingKiosk.id} disabled />
+                           </div>
+                           <div>
+                               <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Shop Name</label>
+                               <input 
+                                    className="w-full p-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" 
+                                    value={editingKiosk.name} 
+                                    onChange={e => setEditingKiosk({...editingKiosk, name: e.target.value})} 
+                                    placeholder="e.g. Fashion Outlet"
+                                />
+                           </div>
                        </div>
-                       {/* ... other inputs ... */}
+                       
+                       <div>
+                            <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Specific Location</label>
+                            <input 
+                                className="w-full p-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" 
+                                value={editingKiosk.locationDescription || ''} 
+                                onChange={e => setEditingKiosk({...editingKiosk, locationDescription: e.target.value})} 
+                                placeholder="e.g. Main Entrance, Floor 2" 
+                            />
+                       </div>
+
+                       <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                 <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Zone / Area</label>
+                                 <input 
+                                    className="w-full p-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" 
+                                    value={editingKiosk.assignedZone || ''} 
+                                    onChange={e => setEditingKiosk({...editingKiosk, assignedZone: e.target.value})} 
+                                    placeholder="e.g. Zone A" 
+                                />
+                            </div>
+                            <div>
+                                 <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Status Override</label>
+                                 <select 
+                                    className="w-full p-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none" 
+                                    value={editingKiosk.status} 
+                                    onChange={e => setEditingKiosk({...editingKiosk, status: e.target.value as any})}
+                                >
+                                     <option value="online">Online</option>
+                                     <option value="offline">Offline</option>
+                                 </select>
+                            </div>
+                       </div>
+                       
+                       <div>
+                            <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Notes</label>
+                            <textarea 
+                                className="w-full p-3 bg-white border border-slate-300 rounded-xl font-medium text-slate-900 text-sm focus:ring-2 ring-blue-500 outline-none h-24 resize-none" 
+                                value={editingKiosk.notes || ''} 
+                                onChange={e => setEditingKiosk({...editingKiosk, notes: e.target.value})} 
+                                placeholder="Internal notes..." 
+                            />
+                       </div>
                    </div>
                    <div className="mt-8 flex justify-end gap-3">
                        <button onClick={() => setEditingKiosk(null)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors text-xs uppercase">Cancel</button>
@@ -510,11 +582,10 @@ const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegi
            </div>
        )}
 
-       {/* CAMERA MODAL (Same as before) */}
+       {/* CAMERA MODAL */}
        {viewingCamera && (
            <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4">
-               {/* ... camera UI ... */}
-                <div className="w-full max-w-4xl bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl relative">
+               <div className="w-full max-w-4xl bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl relative">
                    <div className="absolute top-0 left-0 w-full p-4 bg-gradient-to-b from-black/80 to-transparent z-10 flex justify-between items-start">
                        <div>
                            <div className="flex items-center gap-2">
@@ -546,7 +617,6 @@ const FleetManager = ({ fleet, onUpdateFleet, onSaveGlobal }: { fleet: KioskRegi
                            </div>
                        )}
                    </div>
-                   {/* ... controls ... */}
                </div>
            </div>
        )}
@@ -573,13 +643,10 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
   const handleGlobalSave = async () => {
       if(!storeData) return;
       setIsSaving(true);
-      // Simulate network delay for UX or trigger actual save if needed logic differs
-      // Calling onUpdateData triggers the saveStoreData in App.tsx
       onUpdateData({...storeData});
       setTimeout(() => setIsSaving(false), 1000);
   };
 
-  // ... (Existing import handlers: handlePdfUpload, handleCatalogImagesUpload, processImport, processZipFile, handleZipUpload, handleFolderUpload)
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if(!e.target.files?.[0] || !storeData) return;
     const file = e.target.files[0];
@@ -626,10 +693,235 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
       } catch (err) { console.error("Image Process Error", err); alert("Failed to process images."); setIsProcessingPdf(false); }
   };
 
-  const processImport = async (files: File[]) => { /* ... existing logic ... */ setIsImporting(true); try { /* ... */ setIsImporting(false); } catch(e) { setIsImporting(false); } };
-  const processZipFile = async (zipFile: File) => { /* ... existing logic ... */ };
-  const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { if (!e.target.files?.[0]) return; await processZipFile(e.target.files[0]); };
-  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { /* ... existing logic ... */ };
+  // --- IMPORT LOGIC: ZIP & FOLDER ---
+  const processFilesToStoreData = async (fileMap: Map<string, Blob>, rootJson?: StoreData) => {
+      // 1. Start with existing or imported JSON
+      let newData: StoreData = rootJson || { 
+          ...storeData, 
+          brands: [], // Clear brands if importing from folder structure
+          hero: storeData?.hero || { title: '', subtitle: '' }
+      } as StoreData;
+
+      // 2. Iterate through files and build structure if JSON didn't define it
+      // Structure expected: Brand/Category/Product/image.png
+      
+      const brandsMap = new Map<string, Brand>();
+      if (newData.brands) newData.brands.forEach(b => brandsMap.set(b.name, b));
+
+      for (const [path, blob] of fileMap.entries()) {
+          const parts = path.split('/').filter(p => p && p !== '.' && p !== '__MACOSX');
+          if (parts.length === 0) continue;
+
+          // Base64 conversion
+          const base64 = await readFileAsBase64(blob);
+
+          // Case 1: Brand Logo (BrandName/logo.png)
+          if (parts.length === 2 && parts[1].toLowerCase().includes('logo')) {
+              const brandName = parts[0];
+              let brand = brandsMap.get(brandName);
+              if (!brand) {
+                  brand = { id: generateId('b'), name: brandName, categories: [] };
+                  brandsMap.set(brandName, brand);
+              }
+              brand.logoUrl = base64;
+          }
+
+          // Case 2: Product Image (Brand/Category/Product/main.png)
+          if (parts.length >= 4) {
+              const brandName = parts[0];
+              const catName = parts[1];
+              const prodName = parts[2];
+              const fileName = parts[3].toLowerCase();
+
+              // Get or Create Brand
+              let brand = brandsMap.get(brandName);
+              if (!brand) {
+                  brand = { id: generateId('b'), name: brandName, categories: [] };
+                  brandsMap.set(brandName, brand);
+              }
+
+              // Get or Create Category
+              let category = brand.categories.find(c => c.name === catName);
+              if (!category) {
+                  category = { id: generateId('c'), name: catName, products: [], icon: 'Box' };
+                  brand.categories.push(category);
+              }
+
+              // Get or Create Product
+              let product = category.products.find(p => p.name === prodName);
+              if (!product) {
+                  product = {
+                      id: generateId('p'),
+                      name: prodName,
+                      description: 'Imported Product',
+                      specs: {},
+                      features: [],
+                      dimensions: { width: '', height: '', depth: '', weight: '' },
+                      imageUrl: '',
+                      galleryUrls: []
+                  };
+                  category.products.push(product);
+              }
+
+              // Assign Media
+              if (fileName.includes('main') || fileName.includes('cover') || (!product.imageUrl && fileName.match(/\.(jpg|jpeg|png|webp)$/))) {
+                  product.imageUrl = base64;
+              } else if (fileName.match(/\.(mp4|webm)$/)) {
+                  product.videoUrl = base64;
+              } else if (fileName.match(/\.(jpg|jpeg|png|webp)$/)) {
+                  product.galleryUrls = [...(product.galleryUrls || []), base64];
+              }
+          }
+          
+          // Case 3: Catalog Pages (catalog/page_1.jpg)
+          if (parts[0].toLowerCase() === 'catalog' && parts.length === 2) {
+              if (!newData.catalog) newData.catalog = { pages: [] };
+              newData.catalog.pages.push(base64);
+          }
+      }
+
+      // Reconstruct array from map
+      newData.brands = Array.from(brandsMap.values());
+      
+      // Sort catalog pages by filename if possible
+      if (newData.catalog?.pages) {
+          // This is a rough sort since we processed async order. 
+          // For robust sorting, we'd need to store filenames with the base64. 
+          // Assuming user imports clean data or re-orders in UI.
+      }
+
+      return newData;
+  };
+
+  const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files?.[0]) return;
+      setIsImporting(true);
+      try {
+          const zip = new JSZip();
+          const contents = await zip.loadAsync(e.target.files[0]);
+          const fileMap = new Map<string, Blob>();
+          let rootJson: StoreData | undefined;
+
+          // Extract Data
+          for (const [relativePath, fileEntry] of Object.entries(contents.files)) {
+              if (fileEntry.dir) continue;
+              
+              if (relativePath.endsWith('data.json') || relativePath.endsWith('store_config.json')) {
+                  const text = await fileEntry.async('text');
+                  rootJson = JSON.parse(text);
+              } else {
+                  const blob = await fileEntry.async('blob');
+                  fileMap.set(relativePath, blob);
+              }
+          }
+
+          const newData = await processFilesToStoreData(fileMap, rootJson);
+          onUpdateData(newData);
+          alert("Import Successful!");
+      } catch (e) {
+          console.error(e);
+          alert("Import Failed: " + e);
+      } finally {
+          setIsImporting(false);
+      }
+  };
+
+  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files || e.target.files.length === 0) return;
+      setIsImporting(true);
+      try {
+          const fileMap = new Map<string, Blob>();
+          // 'webkitRelativePath' gives us "Folder/Subfolder/File.png"
+          for (let i = 0; i < e.target.files.length; i++) {
+              const file = e.target.files[i];
+              if (file.webkitRelativePath) {
+                  fileMap.set(file.webkitRelativePath, file);
+              }
+          }
+          
+          const newData = await processFilesToStoreData(fileMap);
+          onUpdateData(newData);
+          alert("Folder Import Successful!");
+      } catch (e) {
+           console.error(e);
+           alert("Folder Import Failed");
+      } finally {
+          setIsImporting(false);
+      }
+  };
+
+  const handleDownloadBackup = async () => {
+    if (!storeData) return;
+    setIsSaving(true);
+    try {
+        const zip = new JSZip();
+        
+        // 1. Save Structure JSON (Cleaned of Base64 to save space in the text file, though zip will have images)
+        // We'll keep the base64 in the JSON for the "Restore" button ease, 
+        // but also extract files for the "Categorized Folder" requirement.
+        zip.file("store_config.json", JSON.stringify(storeData, null, 2));
+
+        // 2. Extract Brands
+        storeData.brands.forEach(brand => {
+            const brandFolder = zip.folder(brand.name);
+            if (brand.logoUrl && brand.logoUrl.startsWith('data:')) {
+                const blob = dataURItoBlob(brand.logoUrl);
+                if (blob) brandFolder?.file("logo.png", blob);
+            }
+
+            // Categories
+            brand.categories.forEach(cat => {
+                const catFolder = brandFolder?.folder(cat.name);
+                
+                // Products
+                cat.products.forEach(prod => {
+                    const prodFolder = catFolder?.folder(prod.name);
+                    if (prod.imageUrl && prod.imageUrl.startsWith('data:')) {
+                         const blob = dataURItoBlob(prod.imageUrl);
+                         if (blob) prodFolder?.file("main.png", blob);
+                    }
+                    if (prod.videoUrl && prod.videoUrl.startsWith('data:')) {
+                         const blob = dataURItoBlob(prod.videoUrl);
+                         if (blob) prodFolder?.file("video.mp4", blob);
+                    }
+                    prod.galleryUrls?.forEach((url, idx) => {
+                         if (url.startsWith('data:')) {
+                             const blob = dataURItoBlob(url);
+                             if (blob) prodFolder?.file(`gallery_${idx}.png`, blob);
+                         }
+                    });
+                });
+            });
+        });
+
+        // 3. Extract Catalog
+        if (storeData.catalog?.pages) {
+            const catFolder = zip.folder("catalog");
+            storeData.catalog.pages.forEach((page, idx) => {
+                if (page.startsWith('data:')) {
+                    const blob = dataURItoBlob(page);
+                    if (blob) catFolder?.file(`page_${idx + 1}.jpg`, blob);
+                }
+            });
+        }
+
+        // Generate
+        const content = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(content);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `kiosk_full_backup_${new Date().toISOString().split('T')[0]}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+    } catch (e) {
+        console.error("Backup failed", e);
+        alert("Backup generation failed.");
+    } finally {
+        setIsSaving(false);
+    }
+  };
 
   const handleSaveBrand = (brand: Brand) => { if(!storeData) return; let newBrands = [...storeData.brands]; const idx = newBrands.findIndex(b => b.id === brand.id); if (idx >= 0) newBrands[idx] = brand; else newBrands.push(brand); onUpdateData({ ...storeData, brands: newBrands }); setEditingItem(null); };
   const handleSaveCategory = (category: Category) => { if (!activeBrand || !storeData) return; const newBrands = [...storeData.brands]; const bIdx = newBrands.findIndex(b => b.id === activeBrand.id); const newCats = [...newBrands[bIdx].categories]; const cIdx = newCats.findIndex(c => c.id === category.id); if (cIdx >= 0) newCats[cIdx] = category; else newCats.push(category); newBrands[bIdx] = { ...newBrands[bIdx], categories: newCats }; onUpdateData({ ...storeData, brands: newBrands }); setEditingItem(null); };
@@ -798,7 +1090,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
              </div>
          )}
          {activeTab === 'fleet' && storeData && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><FleetManager fleet={storeData.fleet || []} onUpdateFleet={(f) => onUpdateData({ ...storeData, fleet: f })} onSaveGlobal={handleGlobalSave} /></div> )}
-         {activeTab === 'settings' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><div className="max-w-7xl mx-auto animate-fade-in"><h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight drop-shadow-sm">System</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><FolderInput className="text-blue-600" size={20} /> Data Import</h4><p className="text-xs text-slate-500 mb-4 font-medium">Populate system. Supports <span className="font-mono bg-slate-100 px-1 rounded">.zip</span> or folder with <span className="font-mono bg-slate-100 px-1 rounded">data.json</span>.</p><div className="space-y-3"><label className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-100 hover:border-blue-200 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-blue-900 group-hover:text-blue-700 uppercase tracking-wide text-xs flex items-center gap-2"><FileArchive size={16} /> Upload Zip</div></div><Upload size={16} className="text-blue-400 group-hover:text-blue-600" /><input type="file" className="hidden" accept=".zip" onChange={handleZipUpload} disabled={isImporting} /></label><label className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide text-xs flex items-center gap-2"><FolderInput size={16} /> Convert Folder & Upload</div><p className="text-[9px] text-slate-500 mt-1">Auto-detects structure, builds JSON, downloads & imports.</p></div><Download size={16} className="text-slate-400 group-hover:text-slate-600" /><input type="file" className="hidden" {...({ webkitdirectory: "", directory: "" } as any)} onChange={handleFolderUpload} disabled={isImporting} /></label>{isImporting && (<div className="text-center p-2"><span className="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span><p className="text-[10px] font-bold text-blue-600 mt-1 uppercase tracking-widest">Processing...</p></div>)}</div></div><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><Save className="text-green-600" size={20} /> Backup & Reset</h4><div className="space-y-3"><button onClick={() => { const blob = new Blob([JSON.stringify(storeData, null, 2)], {type : 'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `kiosk-backup-${new Date().toISOString().split('T')[0]}.json`; a.click(); }} className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl border border-green-100 hover:border-green-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-green-800 group-hover:text-green-900 uppercase tracking-wide text-xs">Download Config</div></div><ArrowLeft size={16} className="rotate-[-90deg] text-green-400 group-hover:text-green-600" /></button><button onClick={async () => { if(confirm("DANGER: Wipe all data?")) { const d = await resetStoreData(); onUpdateData(d); } }} className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 hover:border-red-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-red-700 uppercase tracking-wide text-xs">Factory Reset</div></div><RotateCcw size={16} className="text-red-400 group-hover:text-red-600" /></button></div></div></div></div></div> )}
+         {activeTab === 'settings' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><div className="max-w-7xl mx-auto animate-fade-in"><h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight drop-shadow-sm">System</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><FolderInput className="text-blue-600" size={20} /> Data Import</h4><p className="text-xs text-slate-500 mb-4 font-medium">Populate system. Supports <span className="font-mono bg-slate-100 px-1 rounded">.zip</span> or folder with <span className="font-mono bg-slate-100 px-1 rounded">data.json</span>.</p><div className="space-y-3"><label className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-100 hover:border-blue-200 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-blue-900 group-hover:text-blue-700 uppercase tracking-wide text-xs flex items-center gap-2"><FileArchive size={16} /> Upload Zip</div></div><Upload size={16} className="text-blue-400 group-hover:text-blue-600" /><input type="file" className="hidden" accept=".zip" onChange={handleZipUpload} disabled={isImporting} /></label><label className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide text-xs flex items-center gap-2"><FolderInput size={16} /> Convert Folder & Upload</div><p className="text-[9px] text-slate-500 mt-1">Folder Structure: Brand/Category/Product/image.jpg</p></div><Download size={16} className="text-slate-400 group-hover:text-slate-600" /><input type="file" className="hidden" {...({ webkitdirectory: "", directory: "" } as any)} onChange={handleFolderUpload} disabled={isImporting} /></label>{isImporting && (<div className="text-center p-2"><span className="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span><p className="text-[10px] font-bold text-blue-600 mt-1 uppercase tracking-widest">Processing...</p></div>)}</div></div><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><Save className="text-green-600" size={20} /> Backup & Reset</h4><div className="space-y-3"><button onClick={handleDownloadBackup} className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl border border-green-100 hover:border-green-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-green-800 group-hover:text-green-900 uppercase tracking-wide text-xs">Download Full Asset Backup (Zip)</div></div><ArrowLeft size={16} className="rotate-[-90deg] text-green-400 group-hover:text-green-600" /></button><button onClick={async () => { if(confirm("DANGER: Wipe all data?")) { const d = await resetStoreData(); onUpdateData(d); } }} className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 hover:border-red-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-red-700 uppercase tracking-wide text-xs">Factory Reset</div></div><RotateCcw size={16} className="text-red-400 group-hover:text-red-600" /></button></div></div></div></div></div> )}
       </main>
     </div>
   );

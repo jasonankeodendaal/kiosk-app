@@ -206,14 +206,12 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
             {/* Catalog Actions & Website Button */}
             <div className="flex items-center gap-3 mt-6 flex-wrap">
                 {catalog && catalog.pages.length > 0 && (
-                    <>
-                        <button 
-                            onClick={onViewCatalog}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg shadow-blue-600/30 transition-all hover:-translate-y-0.5"
-                        >
-                            <BookOpen size={16} /> View Catalog
-                        </button>
-                    </>
+                    <button 
+                        onClick={onViewCatalog}
+                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg shadow-blue-600/30 transition-all hover:-translate-y-0.5 animate-pulse-slow ring-4 ring-blue-600/20"
+                    >
+                        <BookOpen size={20} /> View Full Catalog
+                    </button>
                 )}
                 
                 {/* Download PDF / View Website Buttons */}
@@ -223,7 +221,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
                             onClick={handleDownloadPdf}
                             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs backdrop-blur-sm border border-white/20 transition-all"
                         >
-                            <Download size={16} /> Download PDF
+                            <Download size={16} /> Save PDF
                         </button>
                      )}
 
@@ -240,17 +238,6 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
                 </div>
             </div>
           </div>
-
-          {/* Replaced Export Button with Catalog Download (Redundant visually but requested to replace export) */}
-          {(catalog?.pages && catalog.pages.length > 0) && (
-             <button 
-               onClick={handleDownloadPdf}
-               className="hidden lg:flex items-center gap-2 text-slate-300 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider border border-slate-700 hover:border-slate-500 hover:bg-slate-800 px-4 py-2 rounded-lg backdrop-blur-sm"
-             >
-               <Download size={16} />
-               <span>Download Catalogue</span>
-             </button>
-          )}
         </div>
       </div>
 
