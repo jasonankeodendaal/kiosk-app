@@ -279,12 +279,12 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
               ))}
             </div>
 
-            {/* Bottom Ads Area - Using Auto Slide AdUnits */}
+            {/* Bottom Ads Area - Fixed to 2 columns on mobile to prevent stacking */}
             {ads && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-auto">
+                <div className="grid grid-cols-2 gap-2 md:gap-4 mt-auto w-full">
                     {/* Render ads blocks even if empty to maintain layout if requested, though AdUnit handles content */}
-                    <AdUnit items={ads.homeBottomLeft} className="aspect-[2/1] w-full min-h-[150px]" />
-                    <AdUnit items={ads.homeBottomRight} className="aspect-[2/1] w-full min-h-[150px]" />
+                    <AdUnit items={ads.homeBottomLeft} className="aspect-[2/1] w-full min-h-[80px] md:min-h-[150px]" />
+                    <AdUnit items={ads.homeBottomRight} className="aspect-[2/1] w-full min-h-[80px] md:min-h-[150px]" />
                 </div>
             )}
         </div>

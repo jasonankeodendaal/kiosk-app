@@ -18,12 +18,58 @@ import ProductDetail from './ProductDetail';
 import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
 import SetupGuide from './SetupGuide';
-import { Loader2, Home, ChevronRight, Store, ArrowRight, MonitorPlay, MonitorOff, RotateCcw } from 'lucide-react';
+import { Loader2, Home, ChevronRight, Store, ArrowRight, MonitorPlay, MonitorOff, RotateCcw, X } from 'lucide-react';
 import Peer from 'peerjs';
 
 // UPDATED TIMEOUT: 1 Minute = 60,000 ms (Reduced from 4 mins for better responsiveness)
 const IDLE_TIMEOUT = 60000;
 const HEARTBEAT_INTERVAL = 60000;
+
+// --- CREATOR POPUP COMPONENT ---
+const CreatorPopup = ({ onClose }: { onClose: () => void }) => (
+  <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+    <div 
+      className="relative w-full max-w-xs md:max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-white/20 aspect-[4/5] flex flex-col items-center justify-center text-center p-6"
+      style={{ 
+        backgroundImage: 'url(https://i.ibb.co/dsh2c2hp/unnamed.jpg)', 
+        backgroundSize: 'cover', 
+        backgroundPosition: 'center' 
+      }}
+      onClick={e => e.stopPropagation()}
+    >
+      {/* Dark Overlay for Readability */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+      
+      <div className="relative z-10 flex flex-col items-center w-full">
+        {/* Creator Logo */}
+        <div className="w-24 h-24 mb-4 rounded-full bg-white/10 backdrop-blur-md border border-white/30 p-2 shadow-xl hover:scale-105 transition-transform duration-500">
+           <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" alt="Logo" className="w-full h-full object-contain" />
+        </div>
+        
+        <h2 className="text-white font-black text-3xl mb-1 drop-shadow-lg tracking-tight">JSTYP.me</h2>
+        <p className="text-white/90 text-sm font-bold mb-8 drop-shadow-md italic max-w-[80%]">"Jason's Solution To Your Problems, Yes me!"</p>
+        
+        {/* Contact Links */}
+        <div className="w-full space-y-3">
+           <a href="https://wa.me/27695989427" target="_blank" rel="noreferrer" className="flex items-center gap-3 bg-white/90 hover:bg-white text-slate-900 p-3 rounded-xl transition-transform hover:scale-105 shadow-lg mx-2">
+              <img src="https://i.ibb.co/Z1YHvjgT/image-removebg-preview-1.png" className="w-6 h-6 object-contain" alt="WhatsApp" />
+              <span className="font-bold text-sm">+27 695 989 427</span>
+           </a>
+           
+           <a href="mailto:jstypme@gmail.com" className="flex items-center gap-3 bg-white/90 hover:bg-white text-slate-900 p-3 rounded-xl transition-transform hover:scale-105 shadow-lg mx-2">
+              <img src="https://i.ibb.co/r2HkbjLj/image-removebg-preview-2.png" className="w-6 h-6 object-contain" alt="Email" />
+              <span className="font-bold text-sm">jstypme@gmail.com</span>
+           </a>
+        </div>
+      </div>
+
+      {/* Close Button */}
+      <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white z-20 bg-black/20 p-1 rounded-full backdrop-blur-sm transition-colors">
+         <X size={20} />
+      </button>
+    </div>
+  </div>
+);
 
 // --- SETUP SCREEN COMPONENT ---
 const SetupScreen = ({ 
@@ -171,7 +217,7 @@ const TopBar = ({
 
 const Footer = ({ onToggleScreensaver, isScreensaverEnabled }: { onToggleScreensaver: () => void, isScreensaverEnabled: boolean }) => {
   return (
-    <div className="h-14 bg-white border-t border-slate-200 flex items-center justify-between px-4 md:px-6 z-50 shrink-0 overflow-hidden">
+    <div className="h-14 bg-white border-t border-slate-200 flex items-center justify-between px-4 md:px-6 z-50 shrink-0 overflow-hidden relative">
       <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono shrink-0 hidden sm:flex"><span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>SYSTEM ONLINE</div>
       
       {/* Hide Version on Mobile to save space for Screensaver toggle */}
@@ -205,6 +251,7 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showFlipbook, setShowFlipbook] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [showCreator, setShowCreator] = useState(false);
   
   // Stealth Camera & PeerJS Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -288,7 +335,7 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
 
   useEffect(() => {
     // If setup is active, or screensaver disabled, or guide open, do not enter idle mode.
-    if (setupRequired || !isScreensaverEnabled || showSetupGuide) { 
+    if (setupRequired || !isScreensaverEnabled || showSetupGuide || showCreator) { 
         if (isIdle) setIsIdle(false); 
         return; 
     }
@@ -304,6 +351,7 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
             setSelectedCategory(null); 
             setSelectedBrand(null); 
             setShowFlipbook(false); 
+            setShowCreator(false);
         }, IDLE_TIMEOUT); 
     };
 
@@ -316,7 +364,7 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
         clearTimeout(timeoutId); 
         events.forEach(event => document.removeEventListener(event, resetTimer)); 
     };
-  }, [isIdle, setupRequired, isScreensaverEnabled, showSetupGuide]);
+  }, [isIdle, setupRequired, isScreensaverEnabled, showSetupGuide, showCreator]);
 
   useEffect(() => {
     const pressedKeys = new Set<string>();
@@ -348,7 +396,7 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
   
   const handleExport = useCallback(() => { if (!allProducts.length) return; const headers = ['ID', 'Brand', 'Category', 'Name', 'Description', 'SKU']; const rows = allProducts.map(p => [ p.id, p.brandName, p.categoryName, p.name, `"${p.description.replace(/"/g, '""')}"`, p.sku || '' ]); const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n'); const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.setAttribute('download', 'kiosk_products_export.csv'); document.body.appendChild(link); link.click(); document.body.removeChild(link); }, [allProducts]);
   
-  const handleHome = () => { setSelectedProduct(null); setSelectedCategory(null); setSelectedBrand(null); setShowFlipbook(false); setShowSetupGuide(false); };
+  const handleHome = () => { setSelectedProduct(null); setSelectedCategory(null); setSelectedBrand(null); setShowFlipbook(false); setShowSetupGuide(false); setShowCreator(false); };
 
   if (setupRequired) { return <SetupScreen kioskId={kioskId} onComplete={handleSetupComplete} onRestoreId={handleRestoreId} />; }
   if (loading) { return <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 text-slate-900"><Loader2 className="animate-spin mb-6 text-blue-600" size={64} /><h2 className="text-3xl font-bold tracking-tight text-slate-900">Kiosk Pro</h2><p className="text-sm text-slate-500 mt-2 font-medium">Loading System...</p></div>; }
@@ -358,9 +406,11 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
       {/* STEALTH CAMERA: Hidden from view, but active for streaming logic */}
       <video ref={videoRef} autoPlay muted playsInline className="fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none -z-50" />
       
-      {isIdle && isScreensaverEnabled && !showSetupGuide && ( <Screensaver products={allProducts} ads={storeData?.ads?.screensaver || []} onWake={() => setIsIdle(false)} /> )}
+      {isIdle && isScreensaverEnabled && !showSetupGuide && !showCreator && ( <Screensaver products={allProducts} ads={storeData?.ads?.screensaver || []} onWake={() => setIsIdle(false)} /> )}
       {showSetupGuide && ( <SetupGuide onClose={() => setShowSetupGuide(false)} /> )}
       {showFlipbook && storeData?.catalog && ( <Flipbook pages={storeData.catalog.pages} onClose={() => setShowFlipbook(false)} /> )}
+      {showCreator && <CreatorPopup onClose={() => setShowCreator(false)} />}
+
       <TopBar onHome={handleHome} onOpenSetup={() => setShowSetupGuide(true)} brand={selectedBrand} category={selectedCategory} product={selectedProduct} shopName={shopName} kioskId={kioskId} companyLogoUrl={storeData?.companyLogoUrl} isConnected={!!storeData} />
       <div className="flex-1 overflow-hidden relative animate-fade-in flex flex-col">
         <div className="flex-1 overflow-y-auto relative">
@@ -368,6 +418,15 @@ const KioskApp: React.FC<KioskAppProps> = ({ storeData, onGoToAdmin }) => {
         </div>
       </div>
       <Footer onToggleScreensaver={() => setIsScreensaverEnabled(!isScreensaverEnabled)} isScreensaverEnabled={isScreensaverEnabled} />
+      
+      {/* Creator Floating Icon - Fixed Bottom Left */}
+      <button 
+        onClick={() => setShowCreator(true)}
+        className="fixed bottom-4 left-4 z-[60] w-12 h-12 rounded-full overflow-hidden border-2 border-white/50 shadow-xl bg-slate-900 transition-transform hover:scale-110 active:scale-95 animate-fade-in group"
+        title="Creator Details"
+      >
+         <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" alt="Creator" className="w-full h-full object-cover group-hover:opacity-80 transition-opacity" />
+      </button>
     </div>
   );
 }
