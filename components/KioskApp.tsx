@@ -7,7 +7,8 @@ import {
   completeKioskSetup, 
   isKioskConfigured, 
   sendHeartbeat, 
-  setCustomKioskId 
+  setCustomKioskId,
+  getShopName
 } from '../services/kioskService';
 import BrandGrid from './BrandGrid';
 import CategoryGrid from './CategoryGrid';
@@ -15,7 +16,7 @@ import ProductList from './ProductList';
 import ProductDetail from './ProductDetail';
 import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
-import { Store, RotateCcw, X, Loader2 } from 'lucide-react';
+import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck } from 'lucide-react';
 
 // UPDATED TIMEOUT: 1 Minute = 60,000 ms
 const IDLE_TIMEOUT = 60000;
@@ -146,6 +147,10 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
   const [showFlipbook, setShowFlipbook] = useState(false);
   const [flipbookPages, setFlipbookPages] = useState<string[]>([]);
   
+  // Footer/System State
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
   // Idle Timer
   const timerRef = useRef<number | null>(null);
 
@@ -169,12 +174,22 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
     window.addEventListener('click', resetIdleTimer);
     window.addEventListener('scroll', resetIdleTimer);
     
+    // Status Intervals
+    const clockInterval = setInterval(() => setCurrentTime(new Date()), 1000);
+    const onlineHandler = () => setIsOnline(true);
+    const offlineHandler = () => setIsOnline(false);
+    window.addEventListener('online', onlineHandler);
+    window.addEventListener('offline', offlineHandler);
+    
     resetIdleTimer();
     
     return () => {
       window.removeEventListener('touchstart', resetIdleTimer);
       window.removeEventListener('click', resetIdleTimer);
       window.removeEventListener('scroll', resetIdleTimer);
+      window.removeEventListener('online', onlineHandler);
+      window.removeEventListener('offline', offlineHandler);
+      clearInterval(clockInterval);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [resetIdleTimer]);
@@ -234,7 +249,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
   );
 
   return (
-    <div className="h-full w-full relative bg-slate-100 overflow-hidden">
+    <div className="h-full w-full relative bg-slate-100 overflow-hidden flex flex-col">
        {/* Screensaver Overlay */}
        {isIdle && (
          <Screensaver 
@@ -244,8 +259,8 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
          />
        )}
 
-       {/* Main Navigation Stack */}
-       <div className="h-full w-full flex flex-col">
+       {/* Main Content Stack (Flex Grow) */}
+       <div className="flex-1 overflow-hidden relative flex flex-col">
           {/* Top Bar / Header could go here or be part of components */}
           
           <div className="flex-1 overflow-hidden relative">
@@ -283,8 +298,46 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
           </div>
        </div>
 
-       {/* Floating UI Elements */}
-       
+       {/* PERSISTENT FOOTER */}
+       <footer className="shrink-0 bg-slate-900 text-white h-12 flex items-center justify-between px-6 z-50 border-t border-slate-800 shadow-[0_-5px_15px_rgba(0,0,0,0.3)]">
+          {/* Left: Identity */}
+          <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                 <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    {isOnline ? 'System Online' : 'Offline Mode'}
+                 </span>
+              </div>
+              <div className="h-4 w-[1px] bg-slate-700"></div>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300">
+                 <ShieldCheck size={12} className="text-blue-500" />
+                 <span>ID: <span className="font-mono text-white">{kioskId}</span></span>
+              </div>
+              <div className="hidden md:flex items-center gap-2 text-[10px] font-bold text-slate-400">
+                 <MapPin size={12} />
+                 <span className="truncate max-w-[200px]">{getShopName()}</span>
+              </div>
+          </div>
+
+          {/* Right: Time & Branding */}
+          <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                 <Clock size={12} className="text-blue-400" />
+                 <span className="text-xs font-mono font-bold">
+                    {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                 </span>
+              </div>
+              {/* Creator Trigger (Integrated in footer now for cleaner UI) */}
+              <button 
+                onClick={() => setShowCreator(true)}
+                className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors"
+              >
+                 <span>Powered by JSTYP</span>
+                 <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" className="w-4 h-4 object-contain opacity-50" alt="" />
+              </button>
+          </div>
+       </footer>
+
        {/* Admin Trigger (Invisible - Top Left Corner) */}
        <button 
          onClick={onGoToAdmin} 
@@ -292,16 +345,6 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
          title="Admin Access"
        />
 
-       {/* Creator Popup Trigger */}
-       <div className="absolute bottom-6 left-6 z-[60]">
-          <button 
-            onClick={() => setShowCreator(true)}
-            className="hover:scale-110 transition-transform duration-300 block"
-          >
-             <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" alt="Creator" className="w-12 h-12 object-contain drop-shadow-lg filter brightness-110" />
-          </button>
-       </div>
-       
        {/* Creator Popup Modal */}
        <CreatorPopup isOpen={showCreator} onClose={() => setShowCreator(false)} />
 

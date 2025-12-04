@@ -3,10 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue } from '../types'; // Import Catalogue
 import { resetStoreData } from '../services/geminiService';
+import SetupGuide from './SetupGuide'; // NEW IMPORT
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
 import Peer from 'peerjs';
@@ -906,6 +907,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
   const [isImporting, setIsImporting] = useState(false);
   // Removed isProcessingPdf from here, moved to AdminCatalogManager
   const [isSaving, setIsSaving] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false); // NEW STATE for Setup Guide
 
   const activeBrand = storeData?.brands.find(b => b.id === activeBrandId);
   const activeCategory = activeBrand?.categories.find(c => c.id === activeCategoryId);
@@ -969,13 +971,14 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
               cleanPath = cleanPath.substring(rootDirToStrip.length + 1);
           }
           
-          const parts = cleanPath.split('/').filter(p => p && p !== '.' && p !== '__MACOSX');
-          if (parts.length === 0) continue;
+          const parts = cleanPath.split('/'); // Keep .filter out to see hidden files? No, filter good.
+          const validParts = parts.filter(p => p && p !== '.' && p !== '__MACOSX');
+          if (validParts.length === 0) continue;
 
           // Special Folder: Catalogues (NEW)
-          if (parts[0].toLowerCase() === 'catalogues') {
-               if (parts.length >= 3 && parts[1] && parts[2].match(/\.(jpg|jpeg|png|webp)$/i)) {
-                   const catalogTitle = parts[1];
+          if (validParts[0].toLowerCase() === 'catalogues') {
+               if (validParts.length >= 3 && validParts[1] && validParts[2].match(/\.(jpg|jpeg|png|webp)$/i)) {
+                   const catalogTitle = validParts[1];
                    let currentCatalog = newData.catalogues?.find(c => c.title === catalogTitle);
                    if (!currentCatalog) {
                        currentCatalog = { id: generateId('cat'), title: catalogTitle, pages: [] };
@@ -986,8 +989,8 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                    currentCatalog.pages.push(base64);
                }
                // Also handle a catalog info.json if present
-               if (parts.length === 3 && parts[2].toLowerCase() === 'info.json') {
-                   const catalogTitle = parts[1];
+               if (validParts.length === 3 && validParts[2].toLowerCase() === 'info.json') {
+                   const catalogTitle = validParts[1];
                    let currentCatalog = newData.catalogues?.find(c => c.title === catalogTitle);
                    if (!currentCatalog) {
                        currentCatalog = { id: generateId('cat'), title: catalogTitle, pages: [] };
@@ -1005,8 +1008,8 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
           // Case: Brand Logo (BrandName/logo.png)
           // Depth 0: BrandName
           // Depth 1: File
-          if (parts.length === 2 && parts[1].toLowerCase().includes('logo')) {
-              const brandName = parts[0];
+          if (validParts.length === 2 && validParts[1].toLowerCase().includes('logo')) {
+              const brandName = validParts[0];
               const brand = getOrCreateBrand(brandName);
               brand.logoUrl = await readFileAsBase64(blob);
               continue;
@@ -1017,11 +1020,11 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
           // Depth 1: Category
           // Depth 2: Product
           // Depth 3: File
-          if (parts.length >= 4) {
-              const brandName = parts[0];
-              const catName = parts[1];
-              const prodName = parts[2];
-              const fileName = parts[3].toLowerCase();
+          if (validParts.length >= 4) {
+              const brandName = validParts[0];
+              const catName = validParts[1];
+              const prodName = validParts[2];
+              const fileName = validParts[3].toLowerCase();
 
               const brand = getOrCreateBrand(brandName);
               
@@ -1072,10 +1075,10 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
           
           // Case: Shallow Product Data (BrandName/CategoryName/Image.jpg)
           // Interprets filename as product name
-          if (parts.length === 3) {
-              const brandName = parts[0];
-              const catName = parts[1];
-              const fileName = parts[2];
+          if (validParts.length === 3) {
+              const brandName = validParts[0];
+              const catName = validParts[1];
+              const fileName = validParts[2];
               
               // Only process images/videos
               if (!fileName.match(/\.(jpg|jpeg|png|webp|mp4|webm)$/i)) continue;
@@ -1362,6 +1365,15 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
              >
                 <RotateCcw size={14} />
              </button>
+             
+             {/* SETUP GUIDE BUTTON - RESTORED */}
+             <button
+                onClick={() => setShowSetupGuide(true)}
+                className="bg-purple-600 text-white p-2 rounded-lg hover:bg-purple-500 transition-all shadow-lg flex items-center"
+                title="Open Setup Guide"
+             >
+                <HelpCircle size={14} />
+             </button>
 
              {/* GLOBAL SAVE BUTTON */}
              <button 
@@ -1434,6 +1446,9 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
          {activeTab === 'fleet' && storeData && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><FleetManager fleet={storeData.fleet || []} onUpdateFleet={(f) => onUpdateData({ ...storeData, fleet: f })} onSaveGlobal={handleGlobalSave} /></div> )}
          {activeTab === 'settings' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><div className="max-w-7xl mx-auto animate-fade-in"><h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight drop-shadow-sm">System</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><FolderInput className="text-blue-600" size={20} /> Data Import</h4><p className="text-xs text-slate-500 mb-4 font-medium">Populate system. Supports <span className="font-mono bg-slate-100 px-1 rounded">.zip</span> or folder with <span className="font-mono bg-slate-100 px-1 rounded">data.json</span>.</p><div className="space-y-3"><label className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-100 hover:border-blue-200 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-blue-900 group-hover:text-blue-700 uppercase tracking-wide text-xs flex items-center gap-2"><FileArchive size={16} /> Upload Zip</div></div><Upload size={16} className="text-blue-400 group-hover:text-blue-600" /><input type="file" className="hidden" accept=".zip" onChange={handleZipUpload} disabled={isImporting} /></label><label className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide text-xs flex items-center gap-2"><FolderInput size={16} /> Convert Folder & Upload</div><p className="text-[9px] text-slate-500 mt-1">Folder Structure: Brand/Category/Product/image.jpg</p></div><Download size={16} className="text-slate-400 group-hover:text-slate-600" /><input type="file" className="hidden" {...({ webkitdirectory: "", directory: "" } as any)} onChange={handleFolderUpload} disabled={isImporting} /></label>{isImporting && (<div className="text-center p-2"><span className="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span><p className="text-[10px] font-bold text-blue-600 mt-1 uppercase tracking-widest">Processing Import...</p></div>)}</div></div><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><Save className="text-green-600" size={20} /> Backup & Reset</h4><div className="space-y-3"><button onClick={handleDownloadBackup} className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl border border-green-100 hover:border-green-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-green-800 group-hover:text-green-900 uppercase tracking-wide text-xs">Download Full Asset Backup (Zip)</div></div><ArrowLeft size={16} className="rotate-[-90deg] text-green-400 group-hover:text-green-600" /></button><button onClick={async () => { if(confirm("DANGER: Wipe all data?")) { const d = await resetStoreData(); onUpdateData(d); } }} className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 hover:border-red-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-red-700 uppercase tracking-wide text-xs">Factory Reset</div></div><RotateCcw size={16} className="text-red-400 group-hover:text-red-600" /></button></div></div></div></div></div> )}
       </main>
+
+      {/* SETUP GUIDE MODAL */}
+      {showSetupGuide && <SetupGuide onClose={() => setShowSetupGuide(false)} />}
     </div>
   );
 };
