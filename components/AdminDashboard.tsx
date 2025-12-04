@@ -1,10 +1,9 @@
-
 // ... imports ...
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download
 } from 'lucide-react';
 import { fetchKioskFleet, KioskRegistry } from '../services/kioskService';
 import { StoreData, Brand, Category, Product, AdConfig, AdItem } from '../types';
@@ -378,6 +377,34 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
     } catch (err) { console.error("PDF Process Error", err); alert("Failed to process PDF."); setIsProcessingPdf(false); }
   };
 
+  const handleCatalogImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files || e.target.files.length === 0 || !storeData) return;
+      setIsProcessingPdf(true);
+      
+      const files: File[] = Array.from(e.target.files) as File[];
+      // Sort by filename to ensure order
+      files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+      try {
+          const pageImages: string[] = [];
+          for (const file of files) {
+              const reader = new FileReader();
+              const result = await new Promise<string>((resolve) => {
+                  reader.onload = () => resolve(reader.result as string);
+                  reader.readAsDataURL(file);
+              });
+              pageImages.push(result);
+          }
+          // Reset pdfUrl since we are using individual images
+          onUpdateData({ ...storeData, catalog: { pdfUrl: '', pages: pageImages } });
+          setIsProcessingPdf(false);
+      } catch (err) {
+          console.error("Image Process Error", err);
+          alert("Failed to process images.");
+          setIsProcessingPdf(false);
+      }
+  };
+
   const processImport = async (files: File[]) => {
     setIsImporting(true);
     try {
@@ -389,17 +416,21 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
           jsonFile = file;
         } else {
           assets[file.name] = file;
-          if (file.webkitRelativePath) {
-            assets[file.webkitRelativePath] = file;
+          // Use 'any' cast for non-standard property if TS complains, though newer lib.dom includes it often.
+          if ((file as any).webkitRelativePath) {
+            assets[(file as any).webkitRelativePath] = file;
           }
-          // Also index by simple filename to handle cases where JSON references simple names but files are nested
           const simpleName = file.name.split('/').pop();
           if (simpleName) assets[simpleName] = file;
         }
       }
 
+      // Allow missing data.json if scanning was handled elsewhere, but this function expects standard zip structure.
+      // However, if processZipFile is called with auto-generated zip, data.json WILL exist.
+      // If uploading a zip MANUALLY without data.json, we can't do much unless we run the folder scanner here too.
+      // For now, assuming standard import logic.
       if (!jsonFile) {
-        alert("Package processed successfully! Note: No 'data.json' was found, so the system configuration/products were not updated. Only assets were cached if applicable.");
+        alert("No 'data.json' found in the zip. Auto-conversion only works with the 'Convert Folder' button.");
         setIsImporting(false);
         return;
       }
@@ -415,11 +446,9 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
         });
       };
 
-      // Helper to process a URL string: if it's not base64, look it up in assets
       const processUrl = async (url?: string) => {
         if (!url) return url;
         if (url.startsWith('data:')) return url;
-        // Clean URL to match asset key
         const filename = url.split('/').pop()!;
         const matchingFile = assets[url] || assets[filename];
         if (matchingFile) {
@@ -469,7 +498,6 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
       for (const [path, zipEntry] of Object.entries(zip.files)) {
         if ((zipEntry as any).dir) continue;
         const blob = await (zipEntry as any).async('blob');
-        // We push the file with its full path as name to ensure uniqueness/structure matching
         files.push(new File([blob], path));
       }
       await processImport(files);
@@ -488,37 +516,177 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
   const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setIsImporting(true);
+    
     try {
-      const files: File[] = Array.from(e.target.files);
-      const zip = new JSZip();
+        const files = Array.from(e.target.files) as File[];
+        const zip = new JSZip();
+        let hasDataJson = false;
 
-      // 1. Pack files into Zip
-      files.forEach((file: File) => {
-        // Prefer path to maintain structure
-        const path = (file as any).webkitRelativePath || file.name;
-        zip.file(path, file);
-      });
+        // Check for existing data.json
+        for (const file of files) {
+            if (file.name === 'data.json' || file.name.endsWith('/data.json')) {
+                hasDataJson = true;
+                break;
+            }
+        }
 
-      // 2. Generate Blob
-      const content = await zip.generateAsync({ type: "blob" });
+        if (hasDataJson) {
+             // Standard behavior: Zip and upload
+             files.forEach(file => {
+                 const path = (file as any).webkitRelativePath || file.name;
+                 zip.file(path, file);
+             });
+             
+             // Generate Zip
+             const content = await zip.generateAsync({ type: "blob" });
+             
+             // Download Trigger
+             const url = URL.createObjectURL(content);
+             const a = document.createElement('a');
+             a.href = url;
+             a.download = "kiosk-data-optimized.zip";
+             document.body.appendChild(a);
+             a.click();
+             document.body.removeChild(a);
+             URL.revokeObjectURL(url);
+             
+             // Process
+             await processZipFile(new File([content], "kiosk-data-optimized.zip"));
 
-      // 3. Trigger Download
-      const url = URL.createObjectURL(content);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = "kiosk-data-converted.zip";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+        } else {
+            // Auto-Discovery Mode: Rebuild entire structure
+            const newStoreData: StoreData = storeData ? { ...storeData, brands: [] } : { 
+                companyLogoUrl: '', hero: { title: 'Welcome', subtitle: '', websiteUrl: '' }, 
+                brands: [], ads: { homeBottomLeft: [], homeBottomRight: [], homeSideVertical: [], screensaver: [] } 
+            };
+            
+            const brandsMap = new Map<string, Brand>();
+            
+            for (const file of files) {
+                if (file.name.startsWith('.')) continue; // skip hidden
+                const pathParts = ((file as any).webkitRelativePath || file.name).split('/');
+                
+                // Assuming path: Root/Brand/Category/Product...
+                if (pathParts.length < 2) continue; // Just root folder
+                
+                const brandName = pathParts[1];
+                if (!brandName || brandName === 'data.json') continue;
 
-      // 4. Automatically Process the Zip
-      await processZipFile(new File([content], "kiosk-data-converted.zip"));
+                // Get or Create Brand
+                let brand = brandsMap.get(brandName);
+                if (!brand) {
+                    brand = { 
+                        id: generateId('b'), 
+                        name: brandName, 
+                        categories: [], 
+                        logoUrl: '' 
+                    };
+                    brandsMap.set(brandName, brand);
+                }
 
-    } catch (error) {
-      console.error("Folder conversion error:", error);
-      alert("Failed to process folder.");
-      setIsImporting(false);
+                if (pathParts.length === 3) {
+                    // Path: Root/Brand/File.jpg -> Potential Brand Logo
+                    if (file.type.startsWith('image/') && file.name.toLowerCase().includes('logo')) {
+                         brand.logoUrl = (file as any).webkitRelativePath;
+                    }
+                } else if (pathParts.length >= 4) {
+                    // Path: Root/Brand/Category/...
+                    const categoryName = pathParts[2];
+                    let category = brand.categories.find(c => c.name === categoryName);
+                    if (!category) {
+                        category = { 
+                            id: generateId('c'), 
+                            name: categoryName, 
+                            icon: 'Box', 
+                            products: [] 
+                        };
+                        brand.categories.push(category);
+                    }
+
+                    const itemName = pathParts[3];
+                    
+                    if (pathParts.length === 4) {
+                        // Root/Brand/Category/ProductImage.jpg
+                        // Treat file as a product itself if it's media
+                         if (file.type.startsWith('image/')) {
+                             const prodName = itemName.replace(/\.[^/.]+$/, ""); // remove extension
+                             const product: Product = {
+                                 id: generateId('p'),
+                                 name: prodName.replace(/[-_]/g, ' '),
+                                 description: 'Imported from file',
+                                 imageUrl: (file as any).webkitRelativePath,
+                                 specs: {},
+                                 features: [],
+                                 dimensions: { width: '', height: '', depth: '', weight: '' }
+                             };
+                             category.products.push(product);
+                         }
+                    } else {
+                        // Root/Brand/Category/ProductName/Image.jpg
+                        // Folder based product
+                        const prodName = itemName;
+                        let product = category.products.find(p => p.name === prodName);
+                        if (!product) {
+                             product = {
+                                 id: generateId('p'),
+                                 name: prodName.replace(/[-_]/g, ' '),
+                                 description: 'Imported from folder',
+                                 imageUrl: '', 
+                                 galleryUrls: [],
+                                 videoUrl: '',
+                                 specs: {},
+                                 features: [],
+                                 dimensions: { width: '', height: '', depth: '', weight: '' }
+                             };
+                             category.products.push(product);
+                        }
+
+                        // Assign Media
+                        const filePath = (file as any).webkitRelativePath;
+                        if (file.type.startsWith('image/')) {
+                            if (!product.imageUrl) product.imageUrl = filePath;
+                            else product.galleryUrls?.push(filePath);
+                        } else if (file.type.startsWith('video/')) {
+                            product.videoUrl = filePath;
+                        }
+                    }
+                }
+            }
+            
+            // Reconstruct Brands Array
+            newStoreData.brands = Array.from(brandsMap.values());
+            
+            // Add generated data.json to zip
+            const jsonString = JSON.stringify(newStoreData, null, 2);
+            zip.file("data.json", jsonString);
+            
+            // Add all original files to zip
+            files.forEach(file => {
+                 const path = (file as any).webkitRelativePath || file.name;
+                 zip.file(path, file);
+            });
+            
+            // Generate Zip Blob
+            const content = await zip.generateAsync({ type: "blob" });
+
+            // Download Trigger
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "kiosk-data-converted.zip";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // Process (Upload)
+            await processZipFile(new File([content], "kiosk-data-converted.zip"));
+        }
+
+    } catch (e) {
+        console.error("Folder upload failed", e);
+        alert("Error processing folder.");
+        setIsImporting(false);
     }
   };
 
@@ -527,7 +695,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
   const handleSaveProduct = (product: Product) => { if (!activeBrand || !activeCategory || !storeData) return; const newBrands = [...storeData.brands]; const bIdx = newBrands.findIndex(b => b.id === activeBrand.id); const newCats = [...newBrands[bIdx].categories]; const cIdx = newCats.findIndex(c => c.id === activeCategory.id); const newProds = [...newCats[cIdx].products]; const pIdx = newProds.findIndex(p => p.id === product.id); if (pIdx >= 0) newProds[pIdx] = product; else newProds.push(product); newCats[cIdx] = { ...newCats[cIdx], products: newProds }; newBrands[bIdx] = { ...newBrands[bIdx], categories: newCats }; onUpdateData({ ...storeData, brands: newBrands }); setEditingItem(null); };
   const deleteItem = (type: 'brand'|'category'|'product', id: string) => { if(!storeData || !confirm("Delete item?")) return; const newBrands = [...storeData.brands]; if(type === 'brand') { onUpdateData({ ...storeData, brands: newBrands.filter(b => b.id !== id) }); } else if (type === 'category' && activeBrand) { const bIdx = newBrands.findIndex(b => b.id === activeBrand.id); newBrands[bIdx].categories = newBrands[bIdx].categories.filter(c => c.id !== id); onUpdateData({ ...storeData, brands: newBrands }); } else if (type === 'product' && activeBrand && activeCategory) { const bIdx = newBrands.findIndex(b => b.id === activeBrand.id); const cIdx = newBrands[bIdx].categories.findIndex(c => c.id === activeCategory.id); newBrands[bIdx].categories[cIdx].products = newBrands[bIdx].categories[cIdx].products.filter(p => p.id !== id); onUpdateData({ ...storeData, brands: newBrands }); } };
 
-  if (!session) return <div className="h-full relative bg-slate-900"><button onClick={onExit} className="absolute top-6 left-6 text-white/50 hover:text-white flex items-center gap-2 z-10 font-bold uppercase tracking-widest text-xs"><ArrowLeft size={16} /> Exit to Kiosk</button><Auth setSession={setSession} /></div>;
+  if (!session) return <div className="h-full relative bg-slate-900"><div className="absolute top-6 left-6 text-white/50 hover:text-white flex items-center gap-2 z-10 font-bold uppercase tracking-widest text-xs pointer-events-none select-none"><Monitor size={16} /> Admin Secured Area</div><Auth setSession={setSession} /></div>;
 
   return (
     <div className="flex flex-col h-full bg-slate-100 font-sans text-slate-900">
@@ -541,7 +709,7 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
                ))}
             </nav>
          </div>
-         <div className="flex items-center gap-2"><button onClick={() => setSession(false)} className="bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 p-2 rounded-lg transition-all shadow-md border border-slate-700" title="Logout"><LogOut size={16} /></button><div className="w-px h-6 bg-slate-700 mx-1"></div><button onClick={onExit} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 hover:scale-105 border-b-2 border-blue-800 active:border-b-0 active:translate-y-0.5">Exit Hub</button></div>
+         <div className="flex items-center gap-2"><button onClick={onExit} className="text-white/50 hover:text-white hover:underline text-[10px] font-bold uppercase tracking-wider mr-4">Go to Store Mode</button><div className="w-px h-6 bg-slate-700 mx-1"></div><button onClick={() => setSession(false)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 hover:scale-105 border-b-2 border-blue-800 active:border-b-0 active:translate-y-0.5 flex items-center gap-2"><LogOut size={14} /> Logout</button></div>
       </header>
       <main className="flex-1 overflow-hidden relative bg-slate-200">
          <div className="absolute inset-0 bg-slate-200 pointer-events-none z-0 opacity-50" style={{backgroundImage: 'radial-gradient(circle at 50% 50%, #e2e8f0 1px, transparent 1px)', backgroundSize: '24px 24px'}}></div>
@@ -609,27 +777,38 @@ const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: () => voi
 
                      <div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow">
                         <h3 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2"><BookOpen size={20} className="text-blue-500" /> Digital Catalog</h3>
-                        <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 mb-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div><h4 className="font-bold text-blue-900 text-sm">Upload Catalog PDF</h4><p className="text-xs text-blue-600 mt-1">System will automatically convert PDF pages to images for the Flipbook Viewer.</p></div>
-                                {isProcessingPdf && (<div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full shadow-sm"><div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div><span className="text-[10px] font-black uppercase text-blue-500">Processing...</span></div>)}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div><h4 className="font-bold text-blue-900 text-sm">Upload Catalog PDF</h4><p className="text-xs text-blue-600 mt-1">Automatically convert PDF to images.</p></div>
+                                </div>
+                                <label className={`w-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-blue-300 rounded-xl bg-white hover:bg-blue-50 transition-all cursor-pointer group ${isProcessingPdf ? 'opacity-50 pointer-events-none' : ''}`}>
+                                    <Upload size={32} className="text-blue-300 group-hover:text-blue-500 mb-2 transition-colors" /><span className="font-black text-blue-400 group-hover:text-blue-600 uppercase tracking-widest text-xs">Select PDF File</span><input type="file" className="hidden" accept=".pdf" onChange={handlePdfUpload} />
+                                </label>
                             </div>
-                            <label className={`w-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-blue-300 rounded-xl bg-white hover:bg-blue-50 transition-all cursor-pointer group ${isProcessingPdf ? 'opacity-50 pointer-events-none' : ''}`}>
-                                <Upload size={32} className="text-blue-300 group-hover:text-blue-500 mb-2 transition-colors" /><span className="font-black text-blue-400 group-hover:text-blue-600 uppercase tracking-widest text-xs">Select PDF File</span><input type="file" className="hidden" accept=".pdf" onChange={handlePdfUpload} />
-                            </label>
+                            <div className="bg-purple-50 p-6 rounded-xl border border-purple-100">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div><h4 className="font-bold text-purple-900 text-sm">Upload Multi-Images</h4><p className="text-xs text-purple-600 mt-1">Select multiple JPG/PNG files for the catalog.</p></div>
+                                </div>
+                                <label className={`w-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-purple-300 rounded-xl bg-white hover:bg-purple-50 transition-all cursor-pointer group ${isProcessingPdf ? 'opacity-50 pointer-events-none' : ''}`}>
+                                    <ImageIcon size={32} className="text-purple-300 group-hover:text-purple-500 mb-2 transition-colors" /><span className="font-black text-purple-400 group-hover:text-purple-600 uppercase tracking-widest text-xs">Select Images</span><input type="file" className="hidden" accept="image/*" multiple onChange={handleCatalogImagesUpload} />
+                                </label>
+                            </div>
                         </div>
+
                         {storeData.catalog?.pages && storeData.catalog.pages.length > 0 && (
                             <div>
                                 <div className="flex items-center justify-between mb-2"><h4 className="font-black text-xs uppercase text-slate-400">Preview ({storeData.catalog.pages.length} Pages)</h4><button onClick={() => onUpdateData({ ...storeData, catalog: { pdfUrl: '', pages: [] } })} className="text-red-500 text-[10px] font-bold uppercase hover:underline">Remove Catalog</button></div>
                                 <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">{storeData.catalog.pages.map((page, idx) => ( <div key={idx} className="aspect-[2/3] bg-slate-100 rounded border border-slate-200 overflow-hidden relative group"><img src={page} alt="" className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">{idx + 1}</div></div> ))}</div>
                             </div>
                         )}
+                        {isProcessingPdf && (<div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full shadow-sm mt-4"><div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div><span className="text-[10px] font-black uppercase text-blue-500">Processing...</span></div>)}
                      </div>
                  </div>
              </div>
          )}
          {activeTab === 'fleet' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><FleetManager /></div> )}
-         {activeTab === 'settings' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><div className="max-w-7xl mx-auto animate-fade-in"><h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight drop-shadow-sm">System</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><FolderInput className="text-blue-600" size={20} /> Data Import</h4><p className="text-xs text-slate-500 mb-4 font-medium">Populate system. Supports <span className="font-mono bg-slate-100 px-1 rounded">.zip</span> or folder with <span className="font-mono bg-slate-100 px-1 rounded">data.json</span>.</p><div className="space-y-3"><label className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-100 hover:border-blue-200 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-blue-900 group-hover:text-blue-700 uppercase tracking-wide text-xs flex items-center gap-2"><FileArchive size={16} /> Upload Zip</div></div><Upload size={16} className="text-blue-400 group-hover:text-blue-600" /><input type="file" className="hidden" accept=".zip" onChange={handleZipUpload} disabled={isImporting} /></label><label className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide text-xs flex items-center gap-2"><FolderInput size={16} /> Convert Folder & Upload</div></div><Upload size={16} className="text-slate-400 group-hover:text-slate-600" /><input type="file" className="hidden" {...({ webkitdirectory: "", directory: "" } as any)} onChange={handleFolderUpload} disabled={isImporting} /></label>{isImporting && (<div className="text-center p-2"><span className="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span><p className="text-[10px] font-bold text-blue-600 mt-1 uppercase tracking-widest">Processing...</p></div>)}</div></div><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><Save className="text-green-600" size={20} /> Backup & Reset</h4><div className="space-y-3"><button onClick={() => { const blob = new Blob([JSON.stringify(storeData, null, 2)], {type : 'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `kiosk-backup-${new Date().toISOString().split('T')[0]}.json`; a.click(); }} className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl border border-green-100 hover:border-green-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-green-800 group-hover:text-green-900 uppercase tracking-wide text-xs">Download Config</div></div><ArrowLeft size={16} className="rotate-[-90deg] text-green-400 group-hover:text-green-600" /></button><button onClick={async () => { if(confirm("DANGER: Wipe all data?")) { const d = await resetStoreData(); onUpdateData(d); } }} className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 hover:border-red-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-red-700 uppercase tracking-wide text-xs">Factory Reset</div></div><RotateCcw size={16} className="text-red-400 group-hover:text-red-600" /></button></div></div></div></div></div> )}
+         {activeTab === 'settings' && ( <div className="h-full overflow-y-auto p-6 md:p-8 relative z-10"><div className="max-w-7xl mx-auto animate-fade-in"><h2 className="text-3xl font-black text-slate-900 mb-8 tracking-tight drop-shadow-sm">System</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><FolderInput className="text-blue-600" size={20} /> Data Import</h4><p className="text-xs text-slate-500 mb-4 font-medium">Populate system. Supports <span className="font-mono bg-slate-100 px-1 rounded">.zip</span> or folder with <span className="font-mono bg-slate-100 px-1 rounded">data.json</span>.</p><div className="space-y-3"><label className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-100 hover:border-blue-200 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-blue-900 group-hover:text-blue-700 uppercase tracking-wide text-xs flex items-center gap-2"><FileArchive size={16} /> Upload Zip</div></div><Upload size={16} className="text-blue-400 group-hover:text-blue-600" /><input type="file" className="hidden" accept=".zip" onChange={handleZipUpload} disabled={isImporting} /></label><label className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer shadow-sm"><div className="text-left"><div className="font-black text-slate-700 group-hover:text-slate-900 uppercase tracking-wide text-xs flex items-center gap-2"><FolderInput size={16} /> Convert Folder & Upload</div><p className="text-[9px] text-slate-500 mt-1">Auto-detects structure, builds JSON, downloads & imports.</p></div><Download size={16} className="text-slate-400 group-hover:text-slate-600" /><input type="file" className="hidden" {...({ webkitdirectory: "", directory: "" } as any)} onChange={handleFolderUpload} disabled={isImporting} /></label>{isImporting && (<div className="text-center p-2"><span className="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span><p className="text-[10px] font-bold text-blue-600 mt-1 uppercase tracking-widest">Processing...</p></div>)}</div></div><div className="bg-white p-6 rounded-2xl shadow-xl border border-white depth-shadow"><h4 className="font-black text-lg text-slate-900 mb-4 flex items-center gap-2"><Save className="text-green-600" size={20} /> Backup & Reset</h4><div className="space-y-3"><button onClick={() => { const blob = new Blob([JSON.stringify(storeData, null, 2)], {type : 'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `kiosk-backup-${new Date().toISOString().split('T')[0]}.json`; a.click(); }} className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-xl border border-green-100 hover:border-green-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-green-800 group-hover:text-green-900 uppercase tracking-wide text-xs">Download Config</div></div><ArrowLeft size={16} className="rotate-[-90deg] text-green-400 group-hover:text-green-600" /></button><button onClick={async () => { if(confirm("DANGER: Wipe all data?")) { const d = await resetStoreData(); onUpdateData(d); } }} className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 rounded-xl border border-red-100 hover:border-red-200 transition-all group shadow-sm"><div className="text-left"><div className="font-black text-red-700 uppercase tracking-wide text-xs">Factory Reset</div></div><RotateCcw size={16} className="text-red-400 group-hover:text-red-600" /></button></div></div></div></div></div> )}
       </main>
     </div>
   );

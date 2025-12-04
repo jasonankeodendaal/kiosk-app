@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Brand, Catalog, HeroConfig, AdConfig, AdItem } from '../types';
 import { Download, BookOpen, Globe, ChevronRight } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 
 interface BrandGridProps {
   brands: Brand[];
@@ -117,12 +118,49 @@ const CatalogStrip = ({ pages, onView }: { pages?: string[], onView: () => void 
 
 const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads, onSelectBrand, onViewCatalog, onExport }) => {
   
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (catalog?.pdfUrl) {
+        // If an original PDF exists, download it
         const link = document.createElement('a');
         link.href = catalog.pdfUrl;
         link.download = 'store_catalog.pdf';
         link.click();
+    } else if (catalog?.pages && catalog.pages.length > 0) {
+        // If only images exist (Multi-Image Upload), generate a PDF using jsPDF
+        try {
+            const doc = new jsPDF();
+            for (let i = 0; i < catalog.pages.length; i++) {
+                if (i > 0) doc.addPage();
+                
+                const imgData = catalog.pages[i];
+                // Get image dimensions to fit page
+                const img = new Image();
+                img.src = imgData;
+                await new Promise((resolve) => { img.onload = resolve; });
+                
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                
+                // Calculate scale to fit
+                const widthRatio = pageWidth / img.width;
+                const heightRatio = pageHeight / img.height;
+                const ratio = Math.min(widthRatio, heightRatio);
+                
+                const w = img.width * ratio;
+                const h = img.height * ratio;
+                
+                // Keep default margin 0 to full bleed or centered
+                // Center the image
+                const x = (pageWidth - w) / 2;
+                const y = (pageHeight - h) / 2;
+                
+                doc.addImage(imgData, 'JPEG', x, y, w, h);
+            }
+            doc.save('store_catalog.pdf');
+        } catch (e) {
+            console.error("Failed to generate PDF", e);
+            alert("Could not generate PDF from images.");
+        }
     }
   };
 
@@ -175,34 +213,44 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, catalog, ads,
                         >
                             <BookOpen size={16} /> View Catalog
                         </button>
-                        <button 
+                    </>
+                )}
+                
+                {/* Download PDF / View Website Buttons */}
+                <div className="flex items-center gap-3">
+                     {catalog && catalog.pages.length > 0 && (
+                         <button 
                             onClick={handleDownloadPdf}
                             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs backdrop-blur-sm border border-white/20 transition-all"
                         >
                             <Download size={16} /> Download PDF
                         </button>
-                    </>
-                )}
-                {heroConfig?.websiteUrl && (
-                     <a 
-                        href={heroConfig.websiteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 bg-white text-slate-900 px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg transition-all hover:-translate-y-0.5 hover:bg-slate-100"
-                    >
-                        <Globe size={16} /> View Website
-                    </a>
-                )}
+                     )}
+
+                     {heroConfig?.websiteUrl && (
+                         <a 
+                            href={heroConfig.websiteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 bg-white text-slate-900 px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg transition-all hover:-translate-y-0.5 hover:bg-slate-100"
+                        >
+                            <Globe size={16} /> View Website
+                        </a>
+                    )}
+                </div>
             </div>
           </div>
 
-          <button 
-            onClick={onExport}
-            className="hidden lg:flex items-center gap-2 text-slate-300 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider border border-slate-700 hover:border-slate-500 hover:bg-slate-800 px-4 py-2 rounded-lg backdrop-blur-sm"
-          >
-            <Download size={16} />
-            <span>Export Data</span>
-          </button>
+          {/* Replaced Export Button with Catalog Download (Redundant visually but requested to replace export) */}
+          {(catalog?.pages && catalog.pages.length > 0) && (
+             <button 
+               onClick={handleDownloadPdf}
+               className="hidden lg:flex items-center gap-2 text-slate-300 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider border border-slate-700 hover:border-slate-500 hover:bg-slate-800 px-4 py-2 rounded-lg backdrop-blur-sm"
+             >
+               <Download size={16} />
+               <span>Download Catalogue</span>
+             </button>
+          )}
         </div>
       </div>
 

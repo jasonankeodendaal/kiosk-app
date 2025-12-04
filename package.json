@@ -14,7 +14,8 @@
     "react-dom": "^19.2.1",
     "@supabase/supabase-js": "^2.86.0",
     "jszip": "3.10.1",
-    "pdfjs-dist": "3.11.174"
+    "pdfjs-dist": "3.11.174",
+    "jspdf": "^2.5.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
