@@ -17,8 +17,10 @@ const DEFAULT_DATA: StoreData = {
   catalogues: [
     {
        id: "cat-main-2025",
-       title: "Main Showcase Pamphlet",
+       title: "Main Showcase Catalogue",
        year: 2025,
+       startDate: "2025-01-01",
+       endDate: "2025-12-31",
        pages: [
          "https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?q=80&w=1000&auto=format&fit=crop",
          "https://images.unsplash.com/photo-1543087903-1ac2ec7aa8c5?q=80&w=1000&auto=format&fit=crop",
@@ -28,8 +30,10 @@ const DEFAULT_DATA: StoreData = {
     {
        id: "cat-nexus-tech",
        brandId: "b1", // Nexus Tech
-       title: "Nexus Features Pamphlet",
+       title: "Nexus Features Catalogue",
        year: 2024,
+       startDate: "2024-03-01",
+       endDate: "2024-09-30",
        pages: [
           "https://images.unsplash.com/photo-1550009158-9ebf69173e03?q=80&w=1000&auto=format&fit=crop",
           "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?q=80&w=1000&auto=format&fit=crop"
@@ -38,8 +42,10 @@ const DEFAULT_DATA: StoreData = {
     {
        id: "cat-urban-fit",
        brandId: "b3", // Urban Fit
-       title: "Urban Collection Pamphlet",
+       title: "Urban Collection Catalogue",
        year: 2025,
+       startDate: "2025-02-15",
+       endDate: "2025-08-15",
        pages: [
           "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?q=80&w=1000&auto=format&fit=crop",
           "https://images.unsplash.com/photo-1560769629-975e13f0c470?q=80&w=1000&auto=format&fit=crop"

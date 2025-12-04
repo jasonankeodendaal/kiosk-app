@@ -51,6 +51,8 @@ export interface Catalogue {
   title: string;
   year?: number;
   month?: number; // 1-12 (e.g., 1 for January, 12 for December)
+  startDate?: string; // ISO Date string (e.g., "2024-01-01")
+  endDate?: string;   // ISO Date string (e.g., "2024-12-31")
   pdfUrl?: string; // The raw PDF data URL (if uploaded as PDF)
   pages: string[]; // Array of images generated from the PDF or uploaded directly
 }

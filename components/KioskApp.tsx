@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -33,6 +32,9 @@ export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
         backgroundPosition: 'center' 
       }}
       onClick={e => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="creator-popup-title"
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
       
@@ -41,7 +43,7 @@ export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
            <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-2xl" />
         </div>
         
-        <h2 className="text-white font-black text-3xl mb-1 drop-shadow-lg tracking-tight">JSTYP.me</h2>
+        <h2 id="creator-popup-title" className="text-white font-black text-3xl mb-1 drop-shadow-lg tracking-tight">JSTYP.me</h2>
         <p className="text-white/90 text-sm font-bold mb-4 drop-shadow-md italic max-w-[90%]">"Jason's Solution To Your Problems, Yes me!"</p>
         
         <p className="text-white text-xs font-bold mb-8 drop-shadow-md text-center px-4 leading-relaxed uppercase tracking-wide bg-black/20 rounded-lg py-2 backdrop-blur-sm border border-white/10">
@@ -59,7 +61,7 @@ export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
         </div>
       </div>
 
-      <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white z-20 bg-black/20 p-1 rounded-full backdrop-blur-sm transition-colors">
+      <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white z-20 bg-black/20 p-1 rounded-full backdrop-blur-sm transition-colors" aria-label="Close creator information">
          <X size={20} />
       </button>
     </div>
@@ -105,17 +107,17 @@ export const SetupScreen = ({
           <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-100">
              <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Assigned ID</span>
-                <button type="button" onClick={() => setIsRestoreMode(!isRestoreMode)} className="text-[10px] text-blue-600 font-bold uppercase hover:underline flex items-center gap-1"><RotateCcw size={10} /> {isRestoreMode ? 'Cancel Restore' : 'Restore Device'}</button>
+                <button type="button" onClick={() => setIsRestoreMode(!isRestoreMode)} className="text-[10px] text-blue-600 font-bold uppercase hover:underline flex items-center gap-1" aria-expanded={isRestoreMode} aria-controls="custom-id-input"><RotateCcw size={10} /> {isRestoreMode ? 'Cancel Restore' : 'Restore Device'}</button>
              </div>
              {isRestoreMode ? (
-               <input type="text" value={customId} onChange={(e) => setCustomId(e.target.value)} placeholder="Enter ID (e.g. LOC-001)" className="w-full font-mono font-bold text-slate-700 bg-white px-3 py-2 rounded border border-blue-300 outline-none text-lg" autoFocus />
+               <input type="text" id="custom-id-input" value={customId} onChange={(e) => setCustomId(e.target.value)} placeholder="Enter ID (e.g. LOC-001)" className="w-full font-mono font-bold text-slate-700 bg-white px-3 py-2 rounded border border-blue-300 outline-none text-lg" autoFocus aria-label="Custom Kiosk ID" />
              ) : (
-               <span className="font-mono font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 text-lg block text-center">{kioskId}</span>
+               <span className="font-mono font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 text-lg block text-center" aria-label="Current Kiosk ID">{kioskId}</span>
              )}
           </div>
-          <div className="mb-6"><label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Shop / Location Name</label><input type="text" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g. Downtown Mall - Entrance 1" className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none font-bold text-lg text-slate-900" autoFocus /></div>
+          <div className="mb-6"><label htmlFor="shop-name" className="block text-sm font-bold text-slate-700 mb-2 ml-1">Shop / Location Name</label><input type="text" id="shop-name" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g. Downtown Mall - Entrance 1" className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none font-bold text-lg text-slate-900" autoFocus aria-required="true" /></div>
           <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 text-white p-4 rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-             {isSubmitting ? <Loader2 className="animate-spin" /> : 'Complete Setup'}
+             {isSubmitting ? <Loader2 className="animate-spin" aria-label="Submitting" /> : 'Complete Setup'}
           </button>
         </form>
       </div>
@@ -137,6 +139,9 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
   const [showCreator, setShowCreator] = useState(false);
   const [showFlipbook, setShowFlipbook] = useState(false);
   const [flipbookPages, setFlipbookPages] = useState<string[]>([]);
+  const [flipbookTitle, setFlipbookTitle] = useState<string | undefined>(undefined); 
+  const [flipbookStartDate, setFlipbookStartDate] = useState<string | undefined>(undefined);
+  const [flipbookEndDate, setFlipbookEndDate] = useState<string | undefined>(undefined);
   
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -220,6 +225,14 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
     setKioskId(id);
     setIsSetup(true);
   };
+
+  const handleViewCatalog = (pages: string[], title?: string, startDate?: string, endDate?: string) => {
+    setFlipbookPages(pages);
+    setFlipbookTitle(title);
+    setFlipbookStartDate(startDate);
+    setFlipbookEndDate(endDate);
+    setShowFlipbook(true);
+  };
   
   if (!isSetup && kioskId) {
     return <SetupScreen kioskId={kioskId} onComplete={handleSetupComplete} onRestoreId={handleRestore} />;
@@ -244,23 +257,16 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
          />
        )}
 
-       {/* Admin Secret Touch Area - Now strictly invisible and requires knowledge to use (Double Tap top left) */}
-       <button 
-         onClick={onGoToAdmin} 
-         className="absolute top-0 left-0 w-24 h-24 z-50 opacity-0" 
-         title="Admin Access (Hidden)"
-       />
-
        <div className="flex-1 overflow-hidden relative flex flex-col">
           <div className="flex-1 overflow-hidden relative">
              {!activeBrand ? (
                <BrandGrid 
                  brands={storeData.brands} 
                  heroConfig={storeData.hero}
-                 globalCatalog={storeData.catalogues?.find(c => !c.brandId)}
+                 allCatalogs={storeData.catalogues || []} 
                  ads={storeData.ads}
                  onSelectBrand={setActiveBrand}
-                 onViewGlobalCatalog={(pages) => { setFlipbookPages(pages); setShowFlipbook(true); }}
+                 onViewGlobalCatalog={handleViewCatalog} 
                  onExport={() => {}} 
                  screensaverEnabled={screensaverEnabled}
                  onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
@@ -270,7 +276,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
                  brand={activeBrand} 
                  storeCatalogs={storeData.catalogues || []}
                  onSelectCategory={setActiveCategory}
-                 onViewCatalog={(pages) => { setFlipbookPages(pages); setShowFlipbook(true); }} 
+                 onViewCatalog={handleViewCatalog} 
                  onBack={() => setActiveBrand(null)} 
                  screensaverEnabled={screensaverEnabled}
                  onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
@@ -282,7 +288,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
                  storeCatalogs={storeData.catalogues || []}
                  onSelectProduct={setActiveProduct} 
                  onBack={() => setActiveCategory(null)}
-                 onViewCatalog={(pages) => { setFlipbookPages(pages); setShowFlipbook(true); }}
+                 onViewCatalog={handleViewCatalog} 
                  screensaverEnabled={screensaverEnabled}
                  onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
                />
@@ -326,6 +332,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
               <button 
                 onClick={() => setShowCreator(true)}
                 className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors"
+                aria-label="Powered by JSTYP"
               >
                  <span>Powered by JSTYP</span>
                  <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" className="w-4 h-4 object-contain opacity-50" alt="" />
@@ -336,7 +343,13 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
        <CreatorPopup isOpen={showCreator} onClose={() => setShowCreator(false)} />
 
        {showFlipbook && (
-         <Flipbook pages={flipbookPages} onClose={() => setShowFlipbook(false)} />
+         <Flipbook 
+           pages={flipbookPages} 
+           onClose={() => setShowFlipbook(false)} 
+           catalogueTitle={flipbookTitle}
+           startDate={flipbookStartDate}
+           endDate={flipbookEndDate}
+         />
        )}
     </div>
   );

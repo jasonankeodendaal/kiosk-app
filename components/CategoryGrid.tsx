@@ -30,6 +30,12 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSel
       return 0;
   }) || [];
 
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
   return (
     <div className="flex flex-col h-full bg-slate-50 animate-fade-in">
       {/* Header */}
@@ -100,36 +106,46 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSel
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><BookOpen size={20} /></div>
                     <div>
-                        <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">{brand.name} Pamphlets</h3>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">Promotional Materials & Lookbooks</p>
+                        <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">{brand.name} Catalogues</h3>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">Digital Catalogues & Lookbooks</p>
                     </div>
                 </div>
                 
                 <div className="flex gap-6 overflow-x-auto pb-4 no-scrollbar">
                     {brandCatalogs.map((catalog, idx) => (
-                        <button 
-                            key={catalog.id} 
-                            onClick={() => onViewCatalog(catalog.pages)} 
-                            className="w-48 md:w-56 aspect-[2/3] bg-white shadow-lg hover:shadow-2xl rounded-xl border border-slate-200 shrink-0 transition-transform transform hover:-translate-y-2 overflow-hidden relative group perspective-1000"
-                        >
-                            {catalog.pages[0] ? (
-                                <img 
-                                  src={catalog.pages[0]} 
-                                  className="w-full h-full object-cover" 
-                                  alt={catalog.title} 
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-300">
-                                    <BookOpen size={40} />
+                        <div key={catalog.id} className="flex flex-col gap-2">
+                            <button 
+                                onClick={() => onViewCatalog(catalog.pages)} 
+                                className="w-48 md:w-56 aspect-[2/3] bg-white shadow-lg hover:shadow-2xl rounded-xl border border-slate-200 shrink-0 transition-transform transform hover:-translate-y-2 overflow-hidden relative group perspective-1000"
+                            >
+                                {catalog.pages[0] ? (
+                                    <img 
+                                      src={catalog.pages[0]} 
+                                      className="w-full h-full object-cover" 
+                                      alt={catalog.title} 
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-300">
+                                        <BookOpen size={40} />
+                                    </div>
+                                )}
+                                
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+                                    <span className="mt-2 text-[10px] uppercase font-black tracking-widest text-white/80 border border-white/30 rounded px-2 py-1 bg-black/50 w-fit">Tap to View</span>
                                 </div>
-                            )}
+                            </button>
                             
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                                <span className="text-white text-sm font-bold leading-tight">{catalog.title}</span>
-                                {catalog.year && <span className="text-blue-300 text-xs font-mono mt-1">{catalog.year}</span>}
-                                <span className="mt-2 text-[10px] uppercase font-black tracking-widest text-white/80 border border-white/30 rounded px-2 py-1 bg-black/50 w-fit">Tap to View</span>
+                            {/* Catalogue Name and Date Display */}
+                            <div className="w-48 md:w-56">
+                                <h4 className="text-xs font-black text-slate-800 uppercase leading-tight line-clamp-2">{catalog.title}</h4>
+                                {(catalog.startDate || catalog.endDate || catalog.year) && (
+                                    <p className="text-[10px] text-slate-500 font-mono mt-0.5 font-bold">
+                                        {catalog.year && <span className="text-blue-600 mr-1">{catalog.year}</span>}
+                                        {catalog.startDate && formatDate(catalog.startDate)}
+                                    </p>
+                                )}
                             </div>
-                        </button>
+                        </div>
                     ))}
                 </div>
             </div>

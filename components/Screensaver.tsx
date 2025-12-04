@@ -15,28 +15,29 @@ interface PlaylistItem {
   url: string;
   title?: string;
   subtitle?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 const ANIMATIONS = [
-  'animate-ken-burns',
-  'animate-zoom-in-jump',
-  'animate-pop-rotate',
-  'animate-fade-drift',
-  'animate-bounce-scale'
+  'animate-fade-in-slow', 
 ];
 
 const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = [], onWake }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  // Default to a simpler fade to prevent layout shifting/flashing during transitions
   const [currentAnimation, setCurrentAnimation] = useState(ANIMATIONS[0]);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Merge ALL content into a massive playlist
+  // Merge ALL content into a massive playlist with weighting for Ads/Pamphlets
   const playlist = useMemo<PlaylistItem[]>(() => {
-    const list: PlaylistItem[] = [];
+    const finalList: PlaylistItem[] = [];
+    const promoItems: PlaylistItem[] = [];
+    const productItems: PlaylistItem[] = [];
 
-    // 1. Add Screensaver Ads specifically
+    // 1. Prepare Screensaver Ads (Promotional)
     ads.forEach((ad, i) => {
-      list.push({
+      promoItems.push({
         id: `ad-${ad.id}-${i}`,
         type: ad.type,
         url: ad.url,
@@ -45,11 +46,26 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
       });
     });
 
-    // 2. Add All Product Content
-    products.forEach((p, i) => {
-        // A. Product Main Image
+    // 2. Prepare Pamphlet Pages (Promotional)
+    pamphlets.forEach((pamphlet) => {
+       if (pamphlet.pages && pamphlet.pages.length > 0) {
+          // Add first page (cover) of the pamphlet
+          promoItems.push({
+            id: `pamphlet-${pamphlet.id}-cover`,
+            type: 'image',
+            url: pamphlet.pages[0],
+            title: pamphlet.title,
+            subtitle: "Showcase Catalogue",
+            startDate: pamphlet.startDate,
+            endDate: pamphlet.endDate
+         });
+       }
+    });
+
+    // 3. Prepare Product Content (Standard)
+    products.forEach((p) => {
         if (p.imageUrl) {
-            list.push({
+            productItems.push({
                 id: `prod-img-${p.id}`,
                 type: 'image',
                 url: p.imageUrl,
@@ -57,23 +73,8 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
                 subtitle: p.name
             });
         }
-        
-        // B. Product Gallery Images
-        if (p.galleryUrls && p.galleryUrls.length > 0) {
-            p.galleryUrls.forEach((gUrl, gIdx) => {
-                list.push({
-                    id: `prod-gal-${p.id}-${gIdx}`,
-                    type: 'image',
-                    url: gUrl,
-                    title: p.brandName,
-                    subtitle: `${p.name} - Gallery`
-                });
-            });
-        }
-
-        // C. Product Video if available
         if (p.videoUrl) {
-            list.push({
+            productItems.push({
                 id: `prod-vid-${p.id}`,
                 type: 'video',
                 url: p.videoUrl,
@@ -83,150 +84,119 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
         }
     });
     
-    // 3. Add Pamphlet Pages (Catalogues)
-    pamphlets.forEach((pamphlet) => {
-       if (pamphlet.pages && pamphlet.pages.length > 0) {
-          pamphlet.pages.forEach((pageUrl, pIdx) => {
-             list.push({
-                id: `pamphlet-${pamphlet.id}-${pIdx}`,
-                type: 'image',
-                url: pageUrl,
-                title: "Showcase Pamphlet",
-                subtitle: pamphlet.title
-             });
-          });
-       }
-    });
+    // 4. Assemble Weighted List
+    finalList.push(...productItems);
 
-    // Shuffle slightly to ensure variety
-    return list.sort(() => Math.random() - 0.5); 
+    // Add Promotional items (Weight: 3x)
+    const PROMO_WEIGHT = 3; 
+    for (let i = 0; i < PROMO_WEIGHT; i++) {
+        const weightedPromos = promoItems.map(item => ({
+            ...item,
+            id: `${item.id}-w${i}` 
+        }));
+        finalList.push(...weightedPromos);
+    }
+
+    // 5. Shuffle
+    return finalList.sort(() => Math.random() - 0.5); 
   }, [products, ads, pamphlets]);
 
   const handleNext = () => {
      setCurrentIndex((prev) => (prev + 1) % playlist.length);
-     // Pick a random animation for the next slide (only affects images)
-     const nextAnim = ANIMATIONS[Math.floor(Math.random() * ANIMATIONS.length)];
-     setCurrentAnimation(nextAnim);
   };
 
+  const item = playlist[currentIndex];
+
   useEffect(() => {
-    if (playlist.length === 0) return;
-    
-    const currentItem = playlist[currentIndex];
+    if (!item) return;
+
     let timer: number;
 
-    if (currentItem.type === 'image') {
-        // Image: Fixed Duration (e.g., 6 seconds)
-        timer = window.setTimeout(handleNext, 6000);
-    } else {
-        // Video: handled primarily by onEnded event on the <video> tag.
-        // However, we add a fallback safety timeout (e.g. 180s) in case video hangs or is infinite loop, 
-        // to ensure screensaver doesn't get stuck forever on one broken video.
-        timer = window.setTimeout(handleNext, 180000); // 3 minutes max safety
-    }
-
-    return () => clearTimeout(timer);
-  }, [currentIndex, playlist]);
+    // Strict Logic Separation
+    if (item.type === 'image') {
+        // Display images for 10 seconds fixed
+        timer = window.setTimeout(handleNext, 10000);
+    } 
+    // If VIDEO: We do NOTHING here. We rely strictly on the <video onEnded={handleNext}> event.
+    
+    return () => {
+        if (timer) clearTimeout(timer);
+    };
+  }, [item]); // Only re-run when the specific item changes
 
   if (playlist.length === 0) return null;
 
-  const item = playlist[currentIndex];
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
 
   return (
     <div 
       onClick={onWake}
-      className="fixed inset-0 z-[100] bg-black cursor-pointer overflow-hidden"
+      className="fixed inset-0 z-[100] bg-black cursor-pointer overflow-hidden flex items-center justify-center"
     >
-      <div key={item.id} className="absolute inset-0 w-full h-full flex items-center justify-center bg-black">
+      {/* Background container is pure black to support shrink-to-fit */}
+      <div key={item.id} className="w-full h-full flex items-center justify-center bg-black animate-fade-in-slow">
+         
          {item.type === 'video' ? (
              <video 
+               key={item.url} // Force remount on URL change
                ref={videoRef}
                src={item.url} 
                autoPlay 
-               muted 
                playsInline
-               className="w-full h-full object-contain"
+               // Removed 'muted' to allow sound if desired, add 'muted' back if autoplay policies block it
+               className="max-w-full max-h-full w-full h-full object-contain"
                onEnded={handleNext}
-               onError={(e) => { console.warn("Video Error, skipping", e); handleNext(); }} 
+               onError={(e) => { 
+                   console.warn("Video Error, skipping:", item.url); 
+                   handleNext(); 
+               }} 
              />
          ) : (
              <img 
+               key={item.id}
                src={item.url} 
                alt="Screensaver" 
-               className={`w-full h-full object-contain origin-center ${currentAnimation}`}
-               onError={(e) => { console.warn("Image Error, skipping", e); handleNext(); }}
+               className="max-w-full max-h-full w-full h-full object-contain"
+               onError={(e) => { 
+                   console.warn("Image Error, skipping:", item.url); 
+                   handleNext(); 
+               }}
              />
          )}
 
          {/* Overlay Text */}
-         <div className="absolute bottom-10 right-10 flex flex-col items-end opacity-80 text-shadow-lg animate-fade-in pointer-events-none z-10">
+         <div className="absolute bottom-10 right-10 flex flex-col items-end opacity-90 text-shadow-lg pointer-events-none z-10">
             {item.title && (
                 <h1 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter drop-shadow-2xl text-right">
                     {item.title}
                 </h1>
             )}
             {item.subtitle && (
-                <h2 className="text-2xl md:text-4xl font-bold text-yellow-400 drop-shadow-md text-right">
+                <h2 className="text-2xl md:text-4xl font-bold text-yellow-400 drop-shadow-md text-right mb-2">
                     {item.subtitle}
                 </h2>
             )}
-         </div>
-         
-         {/* Call to Action */}
-         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none mix-blend-overlay z-10">
-            <div className="bg-white/10 backdrop-blur-sm border border-white/30 text-white px-8 py-3 rounded-full font-bold uppercase tracking-widest text-lg shadow-2xl animate-pulse-slow">
-               Touch to Start
-            </div>
+            {(item.startDate || item.endDate) && (
+                <p className="text-xl md:text-2xl text-slate-300 font-medium drop-shadow-md text-right bg-black/60 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/10">
+                    {item.startDate && `From: ${formatDate(item.startDate)}`}
+                    {item.startDate && item.endDate && ` • `}
+                    {item.endDate && `To: ${formatDate(item.endDate)}`}
+                </p>
+            )}
          </div>
       </div>
       
       <style>{`
-        @keyframes kenBurns {
-          0% { transform: scale(1.0) translate(0,0); opacity: 0; }
-          10% { opacity: 1; }
-          100% { transform: scale(1.05) translate(-1%, -1%); opacity: 1; }
+        @keyframes fadeInSlow {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
-
-        @keyframes zoomInJump {
-          0% { transform: scale(0.5); opacity: 0; }
-          60% { transform: scale(1.02); opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-
-        @keyframes popRotate {
-          0% { transform: scale(0.8) rotate(-2deg); opacity: 0; }
-          50% { transform: scale(1.02) rotate(1deg); opacity: 1; }
-          100% { transform: scale(1) rotate(0deg); opacity: 1; }
-        }
-
-        @keyframes fadeDrift {
-          0% { transform: translateX(2%) scale(1.0); opacity: 0; }
-          20% { opacity: 1; }
-          100% { transform: translateX(-2%) scale(1.0); opacity: 1; }
-        }
-
-        @keyframes bounceScale {
-            0% { transform: scale(0.95); opacity: 0; }
-            40% { transform: scale(1.02); opacity: 1; }
-            60% { transform: scale(0.98); }
-            80% { transform: scale(1.01); }
-            100% { transform: scale(1); }
-        }
-        
-        @keyframes pulseSlow {
-           0%, 100% { transform: scale(1); opacity: 0.8; }
-           50% { transform: scale(1.1); opacity: 1; }
-        }
-
-        .animate-ken-burns { animation: kenBurns 6s ease-out forwards; }
-        .animate-zoom-in-jump { animation: zoomInJump 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        .animate-pop-rotate { animation: popRotate 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
-        .animate-fade-drift { animation: fadeDrift 6s linear forwards; }
-        .animate-bounce-scale { animation: bounceScale 2s ease-out forwards; }
-        
-        .animate-pulse-slow { animation: pulseSlow 3s infinite; }
-        
-        .text-shadow-lg { text-shadow: 2px 2px 10px rgba(0,0,0,0.8); }
+        .animate-fade-in-slow { animation: fadeInSlow 1s ease-out forwards; } 
+        .text-shadow-lg { text-shadow: 2px 2px 15px rgba(0,0,0,0.9); }
       `}</style>
     </div>
   );
