@@ -69,6 +69,7 @@ export const initSupabase = () => {
 
 const STORAGE_KEY_ID = 'kiosk_pro_device_id';
 const STORAGE_KEY_NAME = 'kiosk_pro_shop_name';
+const STORAGE_KEY_TYPE = 'kiosk_pro_device_type';
 
 // 1. Get Device ID (Local Only)
 export const getKioskId = (): string | null => {
@@ -114,9 +115,13 @@ export const provisionKioskId = async (): Promise<string> => {
   }
 };
 
-// 4. Get Shop Name
+// 4. Get Shop Name & Type
 export const getShopName = (): string | null => {
   return localStorage.getItem(STORAGE_KEY_NAME);
+};
+
+export const getDeviceType = (): 'kiosk' | 'mobile' => {
+    return (localStorage.getItem(STORAGE_KEY_TYPE) as 'kiosk' | 'mobile') || 'kiosk';
 };
 
 // 5. Check Config
@@ -125,10 +130,12 @@ export const isKioskConfigured = (): boolean => {
 };
 
 // 6. Complete Setup
-export const completeKioskSetup = async (shopName: string): Promise<boolean> => {
+export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' | 'mobile'): Promise<boolean> => {
   const id = getKioskId();
   if (!id) return false;
+  
   localStorage.setItem(STORAGE_KEY_NAME, shopName);
+  localStorage.setItem(STORAGE_KEY_TYPE, deviceType);
   
   // Register in DB
   initSupabase();
@@ -138,6 +145,7 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
         const kioskData: KioskRegistry = {
           id,
           name: shopName,
+          deviceType,
           status: 'online',
           last_seen: new Date().toISOString(),
           wifiStrength: 100,
@@ -199,6 +207,8 @@ export const completeKioskSetup = async (shopName: string): Promise<boolean> => 
 export const sendHeartbeat = async (snapshotBase64?: string) => {
   const id = getKioskId();
   const name = getShopName();
+  const deviceType = getDeviceType();
+
   if (!id || !name) return;
 
   // Attempt init if not ready
@@ -221,6 +231,7 @@ export const sendHeartbeat = async (snapshotBase64?: string) => {
       const payload: any = {
           id,
           name, // Ensure name is always fresh
+          device_type: deviceType,
           last_seen: new Date().toISOString(),
           status: 'online',
           wifi_strength: wifiStrength,

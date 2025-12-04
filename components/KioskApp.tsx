@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -9,6 +10,7 @@ import {
   sendHeartbeat, 
   setCustomKioskId, 
   getShopName,
+  getDeviceType,
   supabase
 } from '../services/kioskService';
 import BrandGrid from './BrandGrid';
@@ -17,7 +19,7 @@ import ProductList from './ProductList';
 import ProductDetail from './ProductDetail';
 import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
-import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop } from 'lucide-react';
+import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive } from 'lucide-react';
 
 const DEFAULT_IDLE_TIMEOUT = 60000;
 
@@ -76,10 +78,11 @@ export const SetupScreen = ({
   onRestoreId
 }: { 
   kioskId: string, 
-  onComplete: (name: string) => void,
+  onComplete: (name: string, type: 'kiosk' | 'mobile') => void,
   onRestoreId: (id: string) => void
 }) => {
   const [shopName, setShopName] = useState('');
+  const [deviceType, setDeviceType] = useState<'kiosk' | 'mobile'>('kiosk');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRestoreMode, setIsRestoreMode] = useState(false);
   const [customId, setCustomId] = useState('');
@@ -92,7 +95,7 @@ export const SetupScreen = ({
     }
     setIsSubmitting(true);
     await new Promise(r => setTimeout(r, 800));
-    onComplete(shopName);
+    onComplete(shopName, deviceType);
     setIsSubmitting(false);
   };
 
@@ -103,9 +106,35 @@ export const SetupScreen = ({
         <div className="mb-8 text-center">
            <div className="bg-blue-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-blue-600"><Store size={32} /></div>
            <h1 className="text-3xl font-black text-slate-900 mb-2">Device Setup</h1>
-           <p className="text-slate-500">Initialize this kiosk for your location.</p>
+           <p className="text-slate-500">Initialize this device for your location.</p>
         </div>
         <form onSubmit={handleSubmit}>
+          
+          {/* Device Type Selection */}
+          <div className="mb-6 grid grid-cols-2 gap-4">
+             <button
+                type="button" 
+                onClick={() => setDeviceType('kiosk')}
+                className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${deviceType === 'kiosk' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 hover:border-slate-300 text-slate-500'}`}
+             >
+                 <Tablet size={32} />
+                 <span className="text-xs font-black uppercase tracking-wider">Kiosk Display</span>
+                 {deviceType === 'kiosk' && <div className="absolute top-2 right-2 text-blue-500"><Check size={16} /></div>}
+                 <span className="text-[9px] text-center opacity-70 leading-tight">Screensaver & Camera Active</span>
+             </button>
+
+             <button 
+                type="button"
+                onClick={() => setDeviceType('mobile')}
+                className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${deviceType === 'mobile' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 hover:border-slate-300 text-slate-500'}`}
+             >
+                 <Smartphone size={32} />
+                 <span className="text-xs font-black uppercase tracking-wider">Personal Mobile</span>
+                 {deviceType === 'mobile' && <div className="absolute top-2 right-2 text-purple-500"><Check size={16} /></div>}
+                 <span className="text-[9px] text-center opacity-70 leading-tight">No Screensaver / Camera Off</span>
+             </button>
+          </div>
+
           <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-100">
              <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Assigned ID</span>
@@ -130,6 +159,7 @@ export const SetupScreen = ({
 export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | null, onGoToAdmin: () => void }) => {
   const [isSetup, setIsSetup] = useState(isKioskConfigured());
   const [kioskId, setKioskId] = useState(getKioskId());
+  const [deviceType, setDeviceTypeState] = useState(getDeviceType());
   
   const [activeBrand, setActiveBrand] = useState<Brand | null>(null);
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
@@ -157,8 +187,9 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
     setIsIdle(false);
     if (timerRef.current) clearTimeout(timerRef.current);
     
-    // Only set idle timer if screensaver is enabled
-    if (screensaverEnabled) {
+    // Only set idle timer if screensaver is enabled AND device is a Kiosk
+    // Mobiles should never idle into screensaver
+    if (screensaverEnabled && deviceType === 'kiosk') {
       timerRef.current = window.setTimeout(() => {
         setIsIdle(true);
         setActiveProduct(null);
@@ -168,10 +199,13 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
         setShowCreator(false);
       }, idleTimeout);
     }
-  }, [screensaverEnabled, idleTimeout]);
+  }, [screensaverEnabled, idleTimeout, deviceType]);
 
   // Hidden Camera Capture Logic
   const captureSnapshot = useCallback(async () => {
+    // Only capture if device is a Kiosk. Mobiles are exempt.
+    if (deviceType !== 'kiosk') return undefined;
+
     if (videoRef.current) {
         try {
             const canvas = document.createElement('canvas');
@@ -189,18 +223,18 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
         }
     }
     return undefined;
-  }, []);
+  }, [deviceType]);
 
   useEffect(() => {
-    // Start Camera Stream (Permissions requested in manifest) - Silent start
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    // Start Camera Stream - ONLY IF KIOSK
+    if (deviceType === 'kiosk' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => {
                 if (videoRef.current) videoRef.current.srcObject = stream;
             })
             .catch(err => console.warn("Camera access denied or missing", err));
     }
-  }, []);
+  }, [deviceType]);
 
   useEffect(() => {
     window.addEventListener('touchstart', resetIdleTimer);
@@ -252,8 +286,8 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
          const myRegistry = storeData.fleet.find(k => k.id === kioskId);
          
          if (myRegistry) {
-             // 1. Snapshot Request
-             if (myRegistry.requestSnapshot) {
+             // 1. Snapshot Request (Only if Kiosk)
+             if (myRegistry.requestSnapshot && deviceType === 'kiosk') {
                  console.log("Admin requested snapshot. Capturing...");
                  captureSnapshot().then(snap => {
                      if (snap) {
@@ -262,7 +296,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
                  });
              }
 
-             // 2. Restart Request
+             // 2. Restart Request (All devices)
              if (myRegistry.restartRequested) {
                  console.log("Admin requested REBOOT. Restarting system...");
                  
@@ -284,7 +318,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
              }
          }
      }
-  }, [storeData, isSetup, kioskId, captureSnapshot]);
+  }, [storeData, isSetup, kioskId, captureSnapshot, deviceType]);
 
   useEffect(() => {
       const preloadImages = [
@@ -299,13 +333,17 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
       });
   }, []);
 
-  const handleSetupComplete = (name: string) => {
-    completeKioskSetup(name).then(() => setIsSetup(true));
+  const handleSetupComplete = (name: string, type: 'kiosk' | 'mobile') => {
+    completeKioskSetup(name, type).then(() => {
+        setDeviceTypeState(type);
+        setIsSetup(true);
+    });
   };
 
   const handleRestore = (id: string) => {
     setCustomKioskId(id);
     setKioskId(id);
+    setDeviceTypeState(getDeviceType());
     setIsSetup(true);
   };
 
@@ -335,7 +373,8 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
        {/* Hidden video element for snapshots - Silent Capture */}
        <video ref={videoRef} autoPlay playsInline muted className="fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none" />
 
-       {isIdle && screensaverEnabled && (
+       {/* Screensaver: Only renders if Idle AND Screensaver Enabled AND Device Type is KIOSK */}
+       {isIdle && screensaverEnabled && deviceType === 'kiosk' && (
          <Screensaver 
            products={allProducts} 
            ads={storeData.ads?.screensaver || []} 
@@ -400,8 +439,18 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
                  </span>
               </div>
               <div className="h-4 w-[1px] bg-slate-700"></div>
+              
+              {/* CONNECTION STATUS INDICATOR */}
+              <div className="flex items-center gap-2">
+                 {supabase ? <Cloud size={12} className="text-blue-400" /> : <HardDrive size={12} className="text-orange-400" />}
+                 <span className="text-[10px] font-bold uppercase text-slate-400">
+                    {supabase ? 'Cloud DB' : 'Local DB'}
+                 </span>
+              </div>
+              
+              <div className="h-4 w-[1px] bg-slate-700"></div>
               <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300">
-                 <ShieldCheck size={12} className="text-blue-500" />
+                 {deviceType === 'mobile' ? <Smartphone size={12} className="text-purple-500" /> : <ShieldCheck size={12} className="text-blue-500" />}
                  <span>ID: <span className="font-mono text-white">{kioskId}</span></span>
               </div>
               <div className="hidden md:flex items-center gap-2 text-[10px] font-bold text-slate-400">

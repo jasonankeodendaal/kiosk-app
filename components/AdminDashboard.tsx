@@ -4,11 +4,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Megaphone as MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Megaphone as MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings } from '../types';
 import { resetStoreData } from '../services/geminiService';
-import { uploadFileToStorage } from '../services/kioskService';
+import { uploadFileToStorage, supabase } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -84,6 +84,7 @@ const Auth = ({ setSession }: { setSession: (s: boolean) => void }) => {
   );
 };
 
+// ... (FileUpload, BulkImporter, KioskEditorModal components remain the same) ...
 const FileUpload = ({ 
   currentUrl, 
   onUpload, 
@@ -447,32 +448,6 @@ const BulkImporter = ({ onImport, onStatus, targetBrandName }: { onImport: (data
     );
 };
 
-// ... (KioskEditorModal, CameraViewerModal, DataManagerModal unchanged) ...
-
-const BrandImportModal = ({ brand, onImport, onClose }: { brand: Brand, onImport: (d: Partial<StoreData>) => void, onClose: () => void }) => {
-    const [status, setStatus] = useState("");
-
-    return (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
-                 <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
-                    <h3 className="font-bold text-lg flex items-center gap-2"><FolderInput size={20}/> Bulk Import: {brand.name}</h3>
-                    <button onClick={onClose}><X size={20} /></button>
-                 </div>
-                 <div className="p-6">
-                     <BulkImporter onImport={onImport} onStatus={setStatus} targetBrandName={brand.name} />
-                     {status && (
-                        <div className="mt-4 p-3 bg-slate-900 text-white text-[10px] font-mono rounded-lg max-h-32 overflow-y-auto">
-                            <span className="text-green-400 font-bold">&gt;</span> {status}
-                        </div>
-                    )}
-                 </div>
-             </div>
-        </div>
-    );
-};
-
-// ... (DataManagerModal, HeroEditor, AdsManager, CatalogueManager, InputField, ProductEditor, ScreensaverEditor - all remain same) ...
 const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, onSave: (k: KioskRegistry) => void, onClose: () => void }) => {
     const [data, setData] = useState(kiosk);
 
@@ -516,6 +491,7 @@ const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, on
     );
 };
 
+// ... (Rest of components remain same until AdminDashboard) ...
 const CameraViewerModal = ({ kiosk, onClose, onRequestSnapshot }: { kiosk: KioskRegistry, onClose: () => void, onRequestSnapshot: (k: KioskRegistry) => void }) => {
     
     useEffect(() => {
@@ -674,10 +650,107 @@ const DataManagerModal = ({ storeData, onImport, onClose }: { storeData: StoreDa
     );
 };
 
-// ... (HeroEditor, AdsManager, CatalogueManager, InputField, ProductEditor, ScreensaverEditor - remain same) ...
+// ... (BrandImportModal, HeroEditor, AdsManager, CatalogueManager, InputField, ProductEditor, ScreensaverEditor remain same) ...
+const BrandImportModal = ({ brand, onImport, onClose }: { brand: Brand, onImport: (d: Partial<StoreData>) => void, onClose: () => void }) => {
+    const [status, setStatus] = useState("");
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
+                 <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
+                    <h3 className="font-bold text-lg flex items-center gap-2"><FolderInput size={20}/> Bulk Import: {brand.name}</h3>
+                    <button onClick={onClose}><X size={20} /></button>
+                 </div>
+                 <div className="p-6">
+                     <BulkImporter onImport={onImport} onStatus={setStatus} targetBrandName={brand.name} />
+                     {status && (
+                        <div className="mt-4 p-3 bg-slate-900 text-white text-[10px] font-mono rounded-lg max-h-32 overflow-y-auto">
+                            <span className="text-green-400 font-bold">&gt;</span> {status}
+                        </div>
+                    )}
+                 </div>
+             </div>
+        </div>
+    );
+};
+
+const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false }: any) => (
+    <div className={`mb-4 ${half ? 'w-full' : ''}`}>
+      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">{label}</label>
+      {isArea ? <textarea value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl h-24 focus:ring-2 focus:ring-blue-500 outline-none leading-relaxed shadow-inner font-medium resize-none text-sm" placeholder={placeholder} /> : <input value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm shadow-inner" placeholder={placeholder} />}
+    </div>
+);
+
+const ProductEditor = ({ product, onSave, onCancel }: any) => {
+    const [formData, setFormData] = useState<Product>(product || { id: generateId('p'), name: '', sku: '', description: '', terms: '', imageUrl: '', galleryUrls: [], videoUrl: '', manualUrl: '', manualImages: [], specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' } });
+    const [activeTab, setActiveTab] = useState<'general' | 'specs' | 'media' | 'terms'>('general');
+    const [specKey, setSpecKey] = useState('');
+    const [specVal, setSpecVal] = useState('');
+    const [featureInput, setFeatureInput] = useState('');
+    const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  
+    const addSpec = () => { if(!specKey || !specVal) return; setFormData(prev => ({ ...prev, specs: { ...prev.specs, [specKey]: specVal } })); setSpecKey(''); setSpecVal(''); };
+    const removeSpec = (key: string) => { const newSpecs = { ...formData.specs }; delete newSpecs[key]; setFormData(prev => ({ ...prev, specs: newSpecs })); };
+    const addFeature = () => { if(!featureInput) return; setFormData(prev => ({ ...prev, features: [...prev.features, featureInput] })); setFeatureInput(''); };
+  
+    const handleManualUpload = async (data: string | string[]) => { if (Array.isArray(data)) return; setFormData(prev => ({...prev, manualUrl: data})); setIsProcessingPdf(true); const images = await convertPdfToImages(data); setFormData(prev => ({...prev, manualImages: images})); setIsProcessingPdf(false); };
+    const handleGalleryUpload = (data: string | string[]) => { if (Array.isArray(data)) { setFormData(prev => ({...prev, galleryUrls: [...(prev.galleryUrls || []), ...data]})); } else { setFormData(prev => ({...prev, galleryUrls: [...(prev.galleryUrls || []), data]})); } };
+
+    return (
+        <div className="bg-slate-100 rounded-3xl shadow-2xl border border-slate-300 overflow-hidden flex flex-col h-[calc(100vh-140px)] depth-shadow">
+          <div className="bg-white border-b border-slate-200 p-4 flex justify-between items-center shrink-0 shadow-sm relative z-10">
+             <div><h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">{product ? 'Edit Product' : 'New Product'}</h3></div>
+             <div className="flex gap-2"><button onClick={onCancel} className="px-4 py-2 rounded-lg font-bold text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200 text-xs uppercase">Cancel</button><button onClick={() => onSave(formData)} className="px-4 py-2 rounded-lg font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/30 flex items-center gap-2 transform hover:-translate-y-0.5 transition-all text-xs uppercase"><Save size={14} /> Save</button></div>
+          </div>
+          <div className="flex border-b border-slate-200 bg-white shrink-0 px-4 shadow-sm z-0 overflow-x-auto">
+             {['general', 'specs', 'media', 'terms'].map(tab => (<button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-4 py-3 font-black text-[10px] uppercase tracking-widest border-b-4 transition-all whitespace-nowrap ${activeTab === tab ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>{tab}</button>))}
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+             <div className="max-w-4xl mx-auto">
+                {activeTab === 'general' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2 border-b border-slate-100 pb-2">Basic Info</h4>
+                        <div className="grid grid-cols-2 gap-4"><div className="col-span-2"><InputField label="Product Name" val={formData.name} onChange={(e: any) => setFormData({...formData, name: e.target.value})} placeholder="e.g. Nexus Prime" /></div><InputField label="SKU / Code" val={formData.sku || ''} onChange={(e: any) => setFormData({...formData, sku: e.target.value})} placeholder="e.g. NEX-X1-BLK" /><InputField label="Weight" val={formData.dimensions.weight || ''} onChange={(e: any) => setFormData({...formData, dimensions: {...formData.dimensions, weight: e.target.value}})} placeholder="200g" /></div>
+                        <InputField label="Description" val={formData.description} onChange={(e: any) => setFormData({...formData, description: e.target.value})} placeholder="Marketing copy..." isArea />
+                     </div>
+                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
+                        <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2"><Box size={16} className="text-blue-500" /> Dimensions</h4>
+                        <div className="grid grid-cols-1 gap-4">{['width', 'height', 'depth'].map((dim) => (<div key={dim} className="flex items-center gap-4"><label className="w-16 text-[10px] font-black text-slate-400 uppercase text-right">{dim}</label><input className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-black shadow-inner focus:outline-none focus:border-blue-500" placeholder="0mm" value={(formData.dimensions as any)[dim]} onChange={e => setFormData({...formData, dimensions: {...formData.dimensions, [dim]: e.target.value}})} /></div>))}</div>
+                     </div>
+                  </div>
+                )}
+                {activeTab === 'specs' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
+                        <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2"><Monitor size={16} className="text-blue-500" /> Technical Specs</h4>
+                        <div className="flex gap-2 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200"><input placeholder="Spec (e.g. CPU)" className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={specKey} onChange={e => setSpecKey(e.target.value)} /><input placeholder="Value" className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={specVal} onChange={e => setSpecVal(e.target.value)} /><button onClick={addSpec} className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 shadow-md"><Plus size={14} /></button></div>
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto">{Object.entries(formData.specs).map(([k, v]) => (<div key={k} className="flex justify-between items-center text-xs p-3 bg-slate-50/50 rounded-lg border border-slate-100"><span className="font-bold text-slate-500 uppercase">{k}</span><div className="flex items-center gap-3"><span className="font-bold text-slate-900">{v}</span><button onClick={() => removeSpec(k)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button></div></div>))}</div>
+                     </div>
+                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
+                        <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2"><BarChart3 size={16} className="text-blue-500" /> Key Features</h4>
+                        <div className="flex gap-2 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200"><input placeholder="Add a feature bullet..." className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={featureInput} onChange={e => setFeatureInput(e.target.value)} /><button onClick={addFeature} className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 shadow-md"><Plus size={14} /></button></div>
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto">{formData.features.map((f: string, i: number) => (<div key={i} className="flex justify-between items-center text-xs p-3 bg-slate-50/50 rounded-lg border border-slate-100"><span className="text-slate-900 font-bold truncate max-w-[200px]">{f}</span><button onClick={() => setFormData({...formData, features: formData.features.filter((_, idx) => idx !== i)})} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button></div>))}</div>
+                     </div>
+                  </div>
+                )}
+                {activeTab === 'media' && (
+                   <div className="space-y-6 animate-fade-in">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h4 className="font-black text-slate-900 mb-4 border-b border-slate-100 pb-2 text-sm">Main Image</h4><FileUpload label="Primary Display Image" currentUrl={formData.imageUrl} onUpload={(data) => setFormData({...formData, imageUrl: data as string})} /></div>
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h4 className="font-black text-slate-900 mb-4 border-b border-slate-100 pb-2 text-sm">Multimedia</h4><FileUpload label="Product Video (MP4/WebM)" accept="video/*" icon={<Video />} helperText="MP4/WAV/WebM up to 50MB (Storage)" currentUrl={formData.videoUrl} onUpload={(data) => setFormData({...formData, videoUrl: data as string})} /><div className="mt-4 border-t border-slate-100 pt-4"><FileUpload label="Product Manual (PDF)" accept="application/pdf" icon={<FileText size={20} className="text-slate-400" />} helperText="PDF Auto-Converts to Flipbook" currentUrl={formData.manualUrl} onUpload={handleManualUpload} isProcessing={isProcessingPdf} />{formData.manualImages && formData.manualImages.length > 0 && (<div className="mt-2 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded inline-block"><Check size={10} className="inline mr-1" />{formData.manualImages.length} Pages Extracted</div>)}</div></div>
+                      </div>
+                      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h4 className="font-black text-slate-900 mb-4 border-b border-slate-100 pb-2 text-sm">Gallery Images</h4><div className="grid grid-cols-4 md:grid-cols-6 gap-4">{formData.galleryUrls?.map((url: string, idx: number) => (<div key={idx} className="aspect-square bg-slate-100 rounded-xl relative overflow-hidden group shadow-inner border border-slate-200"><img src={url} className="w-full h-full object-cover" alt="" /><button onClick={() => setFormData({...formData, galleryUrls: formData.galleryUrls?.filter((_, i) => i !== idx)})} className="absolute top-1 right-1 bg-red-500 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-red-600"><Trash2 size={12} /></button></div>))}<div className="aspect-square"><FileUpload label="" currentUrl="" allowMultiple={true} onUpload={handleGalleryUpload} icon={<div className="flex flex-col items-center justify-center text-slate-300 hover:text-blue-500 transition-colors"><Plus size={24} /><span className="text-[9px] font-black uppercase mt-1">Add Bulk</span></div>} /></div></div></div>
+                   </div>
+                )}
+                {activeTab === 'terms' && (<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm animate-fade-in h-full"><h4 className="font-black text-slate-900 mb-4 border-b border-slate-100 pb-2 text-sm">Warranty & Legal</h4><textarea className="w-full h-[300px] p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-xs font-mono leading-relaxed resize-none shadow-inner" value={formData.terms} onChange={e => setFormData({...formData, terms: e.target.value})} placeholder="Enter terms and conditions..." /></div>)}
+             </div>
+          </div>
+        </div>
+    );
+};
 
 const HeroEditor = ({ data, onUpdate }: { data: HeroConfig, onUpdate: (h: HeroConfig) => void }) => {
-    // ... same as before
     const [localData, setLocalData] = useState<HeroConfig>(data);
     const [hasChanges, setHasChanges] = useState(false);
 
@@ -748,7 +821,6 @@ const HeroEditor = ({ data, onUpdate }: { data: HeroConfig, onUpdate: (h: HeroCo
 };
 
 const AdsManager = ({ ads, onUpdate }: { ads: AdConfig, onUpdate: (a: AdConfig) => void }) => {
-    // ... same as before
     const [localAds, setLocalAds] = useState<AdConfig>(ads);
     const [hasChanges, setHasChanges] = useState(false);
 
@@ -836,7 +908,6 @@ const AdsManager = ({ ads, onUpdate }: { ads: AdConfig, onUpdate: (a: AdConfig) 
 };
 
 const CatalogueManager = ({ catalogues, onUpdate, mode = 'global', brandId }: { catalogues: Catalogue[], onUpdate: (c: Catalogue[]) => void, mode?: 'global' | 'brand', brandId?: string }) => {
-    // ... same as before
     const [localCatalogues, setLocalCatalogues] = useState<Catalogue[]>(catalogues);
     const [hasChanges, setHasChanges] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -902,83 +973,6 @@ const CatalogueManager = ({ catalogues, onUpdate, mode = 'global', brandId }: { 
                     </div>
                 ))}
             </div>
-        </div>
-    );
-};
-
-const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false }: any) => (
-    <div className={`mb-4 ${half ? 'w-full' : ''}`}>
-      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">{label}</label>
-      {isArea ? <textarea value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl h-24 focus:ring-2 focus:ring-blue-500 outline-none leading-relaxed shadow-inner font-medium resize-none text-sm" placeholder={placeholder} /> : <input value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm shadow-inner" placeholder={placeholder} />}
-    </div>
-);
-
-const ProductEditor = ({ product, onSave, onCancel }: any) => {
-    // ... same as before
-    const [formData, setFormData] = useState<Product>(product || { id: generateId('p'), name: '', sku: '', description: '', terms: '', imageUrl: '', galleryUrls: [], videoUrl: '', manualUrl: '', manualImages: [], specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' } });
-    const [activeTab, setActiveTab] = useState<'general' | 'specs' | 'media' | 'terms'>('general');
-    const [specKey, setSpecKey] = useState('');
-    const [specVal, setSpecVal] = useState('');
-    const [featureInput, setFeatureInput] = useState('');
-    const [isProcessingPdf, setIsProcessingPdf] = useState(false);
-  
-    const addSpec = () => { if(!specKey || !specVal) return; setFormData(prev => ({ ...prev, specs: { ...prev.specs, [specKey]: specVal } })); setSpecKey(''); setSpecVal(''); };
-    const removeSpec = (key: string) => { const newSpecs = { ...formData.specs }; delete newSpecs[key]; setFormData(prev => ({ ...prev, specs: newSpecs })); };
-    const addFeature = () => { if(!featureInput) return; setFormData(prev => ({ ...prev, features: [...prev.features, featureInput] })); setFeatureInput(''); };
-  
-    const handleManualUpload = async (data: string | string[]) => { if (Array.isArray(data)) return; setFormData(prev => ({...prev, manualUrl: data})); setIsProcessingPdf(true); const images = await convertPdfToImages(data); setFormData(prev => ({...prev, manualImages: images})); setIsProcessingPdf(false); };
-    const handleGalleryUpload = (data: string | string[]) => { if (Array.isArray(data)) { setFormData(prev => ({...prev, galleryUrls: [...(prev.galleryUrls || []), ...data]})); } else { setFormData(prev => ({...prev, galleryUrls: [...(prev.galleryUrls || []), data]})); } };
-
-    return (
-        <div className="bg-slate-100 rounded-3xl shadow-2xl border border-slate-300 overflow-hidden flex flex-col h-[calc(100vh-140px)] depth-shadow">
-          <div className="bg-white border-b border-slate-200 p-4 flex justify-between items-center shrink-0 shadow-sm relative z-10">
-             <div><h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">{product ? 'Edit Product' : 'New Product'}</h3></div>
-             <div className="flex gap-2"><button onClick={onCancel} className="px-4 py-2 rounded-lg font-bold text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200 text-xs uppercase">Cancel</button><button onClick={() => onSave(formData)} className="px-4 py-2 rounded-lg font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/30 flex items-center gap-2 transform hover:-translate-y-0.5 transition-all text-xs uppercase"><Save size={14} /> Save</button></div>
-          </div>
-          <div className="flex border-b border-slate-200 bg-white shrink-0 px-4 shadow-sm z-0 overflow-x-auto">
-             {['general', 'specs', 'media', 'terms'].map(tab => (<button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-4 py-3 font-black text-[10px] uppercase tracking-widest border-b-4 transition-all whitespace-nowrap ${activeTab === tab ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>{tab}</button>))}
-          </div>
-          <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
-             <div className="max-w-4xl mx-auto">
-                {activeTab === 'general' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                        <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2 border-b border-slate-100 pb-2">Basic Info</h4>
-                        <div className="grid grid-cols-2 gap-4"><div className="col-span-2"><InputField label="Product Name" val={formData.name} onChange={(e: any) => setFormData({...formData, name: e.target.value})} placeholder="e.g. Nexus Prime" /></div><InputField label="SKU / Code" val={formData.sku || ''} onChange={(e: any) => setFormData({...formData, sku: e.target.value})} placeholder="e.g. NEX-X1-BLK" /><InputField label="Weight" val={formData.dimensions.weight || ''} onChange={(e: any) => setFormData({...formData, dimensions: {...formData.dimensions, weight: e.target.value}})} placeholder="200g" /></div>
-                        <InputField label="Description" val={formData.description} onChange={(e: any) => setFormData({...formData, description: e.target.value})} placeholder="Marketing copy..." isArea />
-                     </div>
-                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
-                        <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2"><Box size={16} className="text-blue-500" /> Dimensions</h4>
-                        <div className="grid grid-cols-1 gap-4">{['width', 'height', 'depth'].map((dim) => (<div key={dim} className="flex items-center gap-4"><label className="w-16 text-[10px] font-black text-slate-400 uppercase text-right">{dim}</label><input className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-black shadow-inner focus:outline-none focus:border-blue-500" placeholder="0mm" value={(formData.dimensions as any)[dim]} onChange={e => setFormData({...formData, dimensions: {...formData.dimensions, [dim]: e.target.value}})} /></div>))}</div>
-                     </div>
-                  </div>
-                )}
-                {activeTab === 'specs' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
-                        <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2"><Monitor size={16} className="text-blue-500" /> Technical Specs</h4>
-                        <div className="flex gap-2 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200"><input placeholder="Spec (e.g. CPU)" className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={specKey} onChange={e => setSpecKey(e.target.value)} /><input placeholder="Value" className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={specVal} onChange={e => setSpecVal(e.target.value)} /><button onClick={addSpec} className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 shadow-md"><Plus size={14} /></button></div>
-                        <div className="space-y-2 max-h-[300px] overflow-y-auto">{Object.entries(formData.specs).map(([k, v]) => (<div key={k} className="flex justify-between items-center text-xs p-3 bg-slate-50/50 rounded-lg border border-slate-100"><span className="font-bold text-slate-500 uppercase">{k}</span><div className="flex items-center gap-3"><span className="font-bold text-slate-900">{v}</span><button onClick={() => removeSpec(k)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button></div></div>))}</div>
-                     </div>
-                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
-                        <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2"><BarChart3 size={16} className="text-blue-500" /> Key Features</h4>
-                        <div className="flex gap-2 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200"><input placeholder="Add a feature bullet..." className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={featureInput} onChange={e => setFeatureInput(e.target.value)} /><button onClick={addFeature} className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 shadow-md"><Plus size={14} /></button></div>
-                        <div className="space-y-2 max-h-[300px] overflow-y-auto">{formData.features.map((f: string, i: number) => (<div key={i} className="flex justify-between items-center text-xs p-3 bg-slate-50/50 rounded-lg border border-slate-100"><span className="text-slate-900 font-bold truncate max-w-[200px]">{f}</span><button onClick={() => setFormData({...formData, features: formData.features.filter((_, idx) => idx !== i)})} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button></div>))}</div>
-                     </div>
-                  </div>
-                )}
-                {activeTab === 'media' && (
-                   <div className="space-y-6 animate-fade-in">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h4 className="font-black text-slate-900 mb-4 border-b border-slate-100 pb-2 text-sm">Main Image</h4><FileUpload label="Primary Display Image" currentUrl={formData.imageUrl} onUpload={(data) => setFormData({...formData, imageUrl: data as string})} /></div>
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h4 className="font-black text-slate-900 mb-4 border-b border-slate-100 pb-2 text-sm">Multimedia</h4><FileUpload label="Product Video (MP4/WebM)" accept="video/*" icon={<Video />} helperText="MP4/WAV/WebM up to 50MB (Storage)" currentUrl={formData.videoUrl} onUpload={(data) => setFormData({...formData, videoUrl: data as string})} /><div className="mt-4 border-t border-slate-100 pt-4"><FileUpload label="Product Manual (PDF)" accept="application/pdf" icon={<FileText size={20} className="text-slate-400" />} helperText="PDF Auto-Converts to Flipbook" currentUrl={formData.manualUrl} onUpload={handleManualUpload} isProcessing={isProcessingPdf} />{formData.manualImages && formData.manualImages.length > 0 && (<div className="mt-2 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded inline-block"><Check size={10} className="inline mr-1" />{formData.manualImages.length} Pages Extracted</div>)}</div></div>
-                      </div>
-                      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h4 className="font-black text-slate-900 mb-4 border-b border-slate-100 pb-2 text-sm">Gallery Images</h4><div className="grid grid-cols-4 md:grid-cols-6 gap-4">{formData.galleryUrls?.map((url: string, idx: number) => (<div key={idx} className="aspect-square bg-slate-100 rounded-xl relative overflow-hidden group shadow-inner border border-slate-200"><img src={url} className="w-full h-full object-cover" alt="" /><button onClick={() => setFormData({...formData, galleryUrls: formData.galleryUrls?.filter((_, i) => i !== idx)})} className="absolute top-1 right-1 bg-red-500 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-red-600"><Trash2 size={12} /></button></div>))}<div className="aspect-square"><FileUpload label="" currentUrl="" allowMultiple={true} onUpload={handleGalleryUpload} icon={<div className="flex flex-col items-center justify-center text-slate-300 hover:text-blue-500 transition-colors"><Plus size={24} /><span className="text-[9px] font-black uppercase mt-1">Add Bulk</span></div>} /></div></div></div>
-                   </div>
-                )}
-                {activeTab === 'terms' && (<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm animate-fade-in h-full"><h4 className="font-black text-slate-900 mb-4 border-b border-slate-100 pb-2 text-sm">Warranty & Legal</h4><textarea className="w-full h-[300px] p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-xs font-mono leading-relaxed resize-none shadow-inner" value={formData.terms} onChange={e => setFormData({...formData, terms: e.target.value})} placeholder="Enter terms and conditions..." /></div>)}
-             </div>
-          </div>
         </div>
     );
 };
@@ -1069,43 +1063,32 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
   const handleRequestSnapshot = (kiosk: KioskRegistry) => { if (!storeData?.fleet) return; const newFleet = storeData.fleet.map(k => k.id === kiosk.id ? { ...k, requestSnapshot: true } : k); onUpdateData({ ...storeData, fleet: newFleet }); };
   const handleRequestReboot = (kiosk: KioskRegistry) => { if (!storeData?.fleet) return; if (confirm(`Are you sure you want to REBOOT kiosk ${kiosk.name}?`)) { const newFleet = storeData.fleet.map(k => k.id === kiosk.id ? { ...k, restartRequested: true } : k); onUpdateData({ ...storeData, fleet: newFleet }); } };
 
-  // New logic for merging imported brand data
   const handleBrandImportMerge = (partialData: Partial<StoreData>) => {
       if (!activeBrand || !partialData.brands || partialData.brands.length === 0) return;
       
-      const importedBrand = partialData.brands[0]; // Since targetBrandName was used, we expect 1 result
+      const importedBrand = partialData.brands[0]; 
       
       const updatedBrands = storeData?.brands.map(existingBrand => {
           if (existingBrand.id !== activeBrand.id) return existingBrand;
-          
-          // Merge Categories
           const mergedCategories = [...existingBrand.categories];
-          
           importedBrand.categories.forEach(importedCat => {
               const catIndex = mergedCategories.findIndex(c => c.name === importedCat.name);
-              
               if (catIndex === -1) {
-                  // New Category
                   mergedCategories.push(importedCat);
               } else {
-                  // Merge Products within existing category
                   const existingCat = mergedCategories[catIndex];
                   const mergedProducts = [...existingCat.products];
-                  
                   importedCat.products.forEach(importedProd => {
                       const prodIndex = mergedProducts.findIndex(p => p.name === importedProd.name);
                       if (prodIndex === -1) {
                           mergedProducts.push(importedProd);
                       } else {
-                          // Update existing product
                           mergedProducts[prodIndex] = importedProd;
                       }
                   });
-                  
                   mergedCategories[catIndex] = { ...existingCat, products: mergedProducts };
               }
           });
-          
           return { ...existingBrand, categories: mergedCategories };
       });
 
@@ -1122,7 +1105,17 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
     <div className="flex flex-col h-screen bg-slate-100 overflow-hidden font-sans">
        <div className="bg-slate-900 text-white shrink-0 shadow-xl z-30">
           <div className="flex items-center justify-between p-3 md:p-4 border-b border-slate-800">
-             <div className="flex items-center gap-3"><div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-black">A</div><span className="font-bold text-lg tracking-tight hidden md:inline">Admin Hub</span><span className="font-bold text-lg tracking-tight md:hidden">Hub</span></div>
+             <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-black">A</div>
+                <span className="font-bold text-lg tracking-tight hidden md:inline">Admin Hub</span>
+                <span className="font-bold text-lg tracking-tight md:hidden">Hub</span>
+                 <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-800 rounded-full border border-slate-700">
+                    {supabase ? <Cloud size={12} className="text-blue-400" /> : <HardDrive size={12} className="text-orange-400" />}
+                    <span className="text-[10px] font-bold uppercase text-slate-400">
+                        {supabase ? 'Supabase' : 'Local'}
+                    </span>
+                </div>
+             </div>
              <div className="flex items-center gap-3"><button onClick={() => setShowDataManager(true)} className="p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-colors flex items-center gap-2 border border-blue-500/30"><Database size={18} /><span className="hidden md:inline text-xs font-bold uppercase">System Data</span></button><button onClick={() => onRefresh ? onRefresh() : onUpdateData({...storeData!})} className="p-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500 hover:text-white transition-colors flex items-center gap-2 border border-green-500/30 shadow-lg shadow-green-900/20 animate-pulse"><RefreshCw size={18} /><span className="hidden md:inline text-xs font-bold uppercase">Sync Changes</span></button><button onClick={() => setShowSetup(true)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors" title="Setup Guide"><HelpCircle size={18} /></button><button onClick={onExit} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2"><LogOut size={18} /><span className="hidden md:inline text-xs font-bold uppercase">Exit</span></button></div>
           </div>
           <div className="flex overflow-x-auto">
@@ -1169,21 +1162,39 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                    <h3 className="text-xl font-black text-slate-900 mb-4">Fleet Status</h3>
                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden overflow-x-auto">
                        <table className="w-full text-left min-w-[500px]">
-                          <thead className="bg-slate-50 border-b border-slate-100"><tr><th className="p-4 text-xs font-black uppercase text-slate-500">ID / Location</th><th className="p-4 text-xs font-black uppercase text-slate-500">Status</th><th className="p-4 text-xs font-black uppercase text-slate-500">Telemetry</th><th className="p-4 text-xs font-black uppercase text-slate-500 text-right">Actions</th></tr></thead>
+                          <thead className="bg-slate-50 border-b border-slate-100"><tr><th className="p-4 text-xs font-black uppercase text-slate-500">ID / Location</th><th className="p-4 text-xs font-black uppercase text-slate-500">Device</th><th className="p-4 text-xs font-black uppercase text-slate-500">Status</th><th className="p-4 text-xs font-black uppercase text-slate-500">Telemetry</th><th className="p-4 text-xs font-black uppercase text-slate-500 text-right">Actions</th></tr></thead>
                           <tbody>
                              {storeData?.fleet?.map(k => (<tr key={k.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
                                    <td className="p-4"><div className="font-bold text-slate-900">{k.name}</div><div className="font-mono text-xs text-slate-400">{k.id}</div>{k.assignedZone && <div className="inline-block mt-1 bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold">{k.assignedZone}</div>}</td>
+                                   <td className="p-4">
+                                       {k.deviceType === 'mobile' ? (
+                                           <div className="flex items-center gap-1.5 text-purple-600 font-bold text-xs"><Smartphone size={14} /> Mobile</div>
+                                       ) : (
+                                           <div className="flex items-center gap-1.5 text-blue-600 font-bold text-xs"><Tablet size={14} /> Kiosk</div>
+                                       )}
+                                   </td>
                                    <td className="p-4"><div className="flex items-center gap-2"><span className={`inline-block w-2 h-2 rounded-full ${k.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></span><span className="text-xs font-bold uppercase">{k.status}</span></div><div className="text-[10px] text-slate-400 mt-1">Last: {new Date(k.last_seen).toLocaleTimeString()}</div></td>
                                    <td className="p-4"><div className="flex items-center gap-2 text-xs font-mono text-slate-600"><Wifi size={12} /> {k.wifiStrength}%</div><div className="text-[10px] text-slate-400 mt-0.5">IP: {k.ipAddress || '---'}</div></td>
-                                   <td className="p-4 text-right"><div className="flex justify-end gap-2"><button onClick={() => handleRequestReboot(k)} className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors border border-red-200" title="Reboot Kiosk"><Power size={16} /></button><button onClick={() => setViewingCameraKiosk(k)} className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors" title="Live Camera View"><Camera size={16} /></button><button onClick={() => setEditingKiosk(k)} className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors" title="Edit Details"><Edit2 size={16} /></button></div></td>
+                                   <td className="p-4 text-right"><div className="flex justify-end gap-2">
+                                       <button onClick={() => handleRequestReboot(k)} className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors border border-red-200" title="Reboot Device"><Power size={16} /></button>
+                                       <button 
+                                            onClick={() => setViewingCameraKiosk(k)} 
+                                            className={`p-2 rounded-lg transition-colors ${k.deviceType === 'mobile' ? 'bg-slate-50 text-slate-300 cursor-not-allowed' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`} 
+                                            title={k.deviceType === 'mobile' ? 'Camera disabled on mobile' : 'Live Camera View'}
+                                            disabled={k.deviceType === 'mobile'}
+                                       >
+                                           <Camera size={16} />
+                                       </button>
+                                       <button onClick={() => setEditingKiosk(k)} className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors" title="Edit Details"><Edit2 size={16} /></button></div></td>
                                 </tr>
                              ))}
-                             {(!storeData?.fleet || storeData.fleet.length === 0) && (<tr><td colSpan={4} className="p-8 text-center text-slate-400 font-bold italic">No devices registered.</td></tr>)}
+                             {(!storeData?.fleet || storeData.fleet.length === 0) && (<tr><td colSpan={5} className="p-8 text-center text-slate-400 font-bold italic">No devices registered.</td></tr>)}
                           </tbody>
                        </table>
                    </div>
                 </div>
              ) : !activeBrand ? (
+                // ... (Rest of Admin Dashboard logic remains unchanged)
                 <div className="animate-fade-in text-center py-20"><Box size={48} className="mx-auto text-slate-300 mb-4" /><h2 className="text-2xl font-black text-slate-400 mb-2">Select a Brand</h2><p className="text-slate-500 text-sm">Use the top bar to select or create a brand to manage.</p></div>
              ) : !activeCategory ? (
                 <div className="animate-fade-in">

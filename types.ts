@@ -85,6 +85,7 @@ export interface ScreensaverSettings {
 export interface KioskRegistry {
   id: string;
   name: string;
+  deviceType?: 'kiosk' | 'mobile'; // New Field
   status: 'online' | 'offline';
   last_seen: string;
   wifiStrength: number; // 0-100
