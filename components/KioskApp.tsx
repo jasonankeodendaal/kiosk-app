@@ -40,7 +40,7 @@ const CreatorPopup = ({ onClose }: { onClose: () => void }) => (
       {/* Dark Overlay for Readability */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
       
-      <div className="relative z-10 flex flex-col items-center w-full">
+      <div className="relative z-10 flex flex-col items-center w-full h-full justify-center">
         {/* Creator Logo */}
         <div className="w-24 h-24 mb-4 rounded-full bg-white/10 backdrop-blur-md border border-white/30 p-2 shadow-xl hover:scale-105 transition-transform duration-500">
            <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" alt="Logo" className="w-full h-full object-contain" />
@@ -49,16 +49,14 @@ const CreatorPopup = ({ onClose }: { onClose: () => void }) => (
         <h2 className="text-white font-black text-3xl mb-1 drop-shadow-lg tracking-tight">JSTYP.me</h2>
         <p className="text-white/90 text-sm font-bold mb-8 drop-shadow-md italic max-w-[80%]">"Jason's Solution To Your Problems, Yes me!"</p>
         
-        {/* Contact Links */}
-        <div className="w-full space-y-3">
-           <a href="https://wa.me/27695989427" target="_blank" rel="noreferrer" className="flex items-center gap-3 bg-white/90 hover:bg-white text-slate-900 p-3 rounded-xl transition-transform hover:scale-105 shadow-lg mx-2">
-              <img src="https://i.ibb.co/Z1YHvjgT/image-removebg-preview-1.png" className="w-6 h-6 object-contain" alt="WhatsApp" />
-              <span className="font-bold text-sm">+27 695 989 427</span>
+        {/* Contact Links - ICONS ONLY */}
+        <div className="flex items-center justify-center gap-6">
+           <a href="https://wa.me/27695989427" target="_blank" rel="noreferrer" className="bg-white/90 hover:bg-white text-slate-900 p-4 rounded-full transition-all hover:scale-110 shadow-lg" title="WhatsApp">
+              <img src="https://i.ibb.co/Z1YHvjgT/image-removebg-preview-1.png" className="w-8 h-8 object-contain" alt="WhatsApp" />
            </a>
            
-           <a href="mailto:jstypme@gmail.com" className="flex items-center gap-3 bg-white/90 hover:bg-white text-slate-900 p-3 rounded-xl transition-transform hover:scale-105 shadow-lg mx-2">
-              <img src="https://i.ibb.co/r2HkbjLj/image-removebg-preview-2.png" className="w-6 h-6 object-contain" alt="Email" />
-              <span className="font-bold text-sm">jstypme@gmail.com</span>
+           <a href="mailto:jstypme@gmail.com" className="bg-white/90 hover:bg-white text-slate-900 p-4 rounded-full transition-all hover:scale-110 shadow-lg" title="Email">
+              <img src="https://i.ibb.co/r2HkbjLj/image-removebg-preview-2.png" className="w-8 h-8 object-contain" alt="Email" />
            </a>
         </div>
       </div>
