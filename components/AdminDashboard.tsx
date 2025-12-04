@@ -1,12 +1,11 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Megaphone as MegaphoneIcon, Book
 } from 'lucide-react';
-import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, ScreensaverSettings } from '../types';
+import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings } from '../types';
 import { resetStoreData } from '../services/geminiService';
 import SetupGuide from './SetupGuide';
 import JSZip from 'jszip';
@@ -147,6 +146,217 @@ const FileUpload = ({
     </div>
   );
 };
+
+// --- NEW MARKETING COMPONENTS ---
+
+const HeroEditor = ({ data, onUpdate }: { data: HeroConfig, onUpdate: (h: HeroConfig) => void }) => {
+    const handleChange = (key: keyof HeroConfig, value: string) => {
+        onUpdate({ ...data, [key]: value });
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto p-4 animate-fade-in">
+            <h2 className="text-3xl font-black text-slate-900 mb-8 flex items-center gap-2">
+                <Layout size={32} className="text-blue-600" /> Hero & Branding
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h3 className="font-black text-slate-900 mb-4 text-sm uppercase tracking-wide">Main Banner Content</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Title</label>
+                            <input value={data.title} onChange={e => handleChange('title', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-blue-500" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Subtitle</label>
+                            <textarea value={data.subtitle} onChange={e => handleChange('subtitle', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 h-24 resize-none focus:outline-none focus:border-blue-500" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Website URL</label>
+                            <input value={data.websiteUrl || ''} onChange={e => handleChange('websiteUrl', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-blue-500" placeholder="https://..." />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h3 className="font-black text-slate-900 mb-4 text-sm uppercase tracking-wide">Visual Assets</h3>
+                    <FileUpload 
+                        label="Background Image (Landscape)" 
+                        currentUrl={data.backgroundImageUrl} 
+                        onUpload={(url) => handleChange('backgroundImageUrl', url)} 
+                    />
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                         <FileUpload 
+                            label="Company Logo (Transparent PNG)" 
+                            currentUrl={data.logoUrl} 
+                            onUpload={(url) => handleChange('logoUrl', url)} 
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AdsManager = ({ ads, onUpdate }: { ads: AdConfig, onUpdate: (a: AdConfig) => void }) => {
+    const updateZone = (zone: keyof AdConfig, items: AdItem[]) => {
+        onUpdate({ ...ads, [zone]: items });
+    };
+
+    const addAd = (zone: keyof AdConfig, url: string, type: 'image' | 'video') => {
+        const newItem: AdItem = { id: generateId('ad'), type, url };
+        const currentItems = ads[zone] || [];
+        updateZone(zone, [...currentItems, newItem]);
+    };
+
+    const removeAd = (zone: keyof AdConfig, id: string) => {
+        const currentItems = ads[zone] || [];
+        updateZone(zone, currentItems.filter(i => i.id !== id));
+    };
+
+    const ZoneEditor = ({ zoneName, zoneKey, items }: { zoneName: string, zoneKey: keyof AdConfig, items: AdItem[] }) => (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="font-black text-slate-900 text-sm uppercase tracking-wide">{zoneName}</h3>
+                <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded">{items?.length || 0} Items</span>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                {items?.map(item => (
+                    <div key={item.id} className="relative group aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                        {item.type === 'video' ? <video src={item.url} className="w-full h-full object-cover" /> : <img src={item.url} className="w-full h-full object-cover" />}
+                        <button onClick={() => removeAd(zoneKey, item.id)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button>
+                        <span className="absolute bottom-1 left-1 bg-black/50 text-white text-[8px] font-bold px-1 rounded uppercase">{item.type}</span>
+                    </div>
+                ))}
+            </div>
+
+            <div className="flex gap-2">
+                <label className="flex items-center gap-1 bg-slate-900 text-white px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-slate-800 transition-colors">
+                    <Plus size={14} /> Add Image
+                    <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                        if(e.target.files?.[0]) {
+                            const reader = new FileReader();
+                            reader.onload = () => addAd(zoneKey, reader.result as string, 'image');
+                            reader.readAsDataURL(e.target.files[0]);
+                        }
+                    }} />
+                </label>
+                <label className="flex items-center gap-1 bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-slate-200 transition-colors">
+                    <Video size={14} /> Add Video
+                    <input type="file" className="hidden" accept="video/*" onChange={(e) => {
+                        if(e.target.files?.[0]) {
+                            const reader = new FileReader();
+                            reader.onload = () => addAd(zoneKey, reader.result as string, 'video');
+                            reader.readAsDataURL(e.target.files[0]);
+                        }
+                    }} />
+                </label>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="max-w-4xl mx-auto p-4 animate-fade-in">
+             <h2 className="text-3xl font-black text-slate-900 mb-8 flex items-center gap-2">
+                <MegaphoneIcon size={32} className="text-purple-600" /> Home Page Ads
+            </h2>
+            <div className="grid grid-cols-1 gap-6">
+                <ZoneEditor zoneName="Bottom Left (Square/Landscape)" zoneKey="homeBottomLeft" items={ads.homeBottomLeft} />
+                <ZoneEditor zoneName="Bottom Right (Square/Landscape)" zoneKey="homeBottomRight" items={ads.homeBottomRight} />
+                <ZoneEditor zoneName="Side Vertical (Tall)" zoneKey="homeSideVertical" items={ads.homeSideVertical} />
+            </div>
+        </div>
+    );
+};
+
+const CatalogueManager = ({ catalogues, onUpdate }: { catalogues: Catalogue[], onUpdate: (c: Catalogue[]) => void }) => {
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleUpload = async (file: File) => {
+        setIsUploading(true);
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const rawPdf = reader.result as string;
+            const images = await convertPdfToImages(rawPdf);
+            const newCat: Catalogue = {
+                id: generateId('cat'),
+                title: file.name.replace('.pdf', ''),
+                pages: images,
+                year: new Date().getFullYear(),
+                startDate: new Date().toISOString().split('T')[0],
+                pdfUrl: rawPdf
+            };
+            onUpdate([...catalogues, newCat]);
+            setIsUploading(false);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const removeCatalogue = (id: string) => {
+        onUpdate(catalogues.filter(c => c.id !== id));
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto p-4 animate-fade-in">
+             <div className="flex justify-between items-center mb-8">
+                 <h2 className="text-3xl font-black text-slate-900 flex items-center gap-2">
+                    <BookOpen size={32} className="text-orange-600" /> Catalogues
+                </h2>
+                <label className={`flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl font-bold uppercase text-xs cursor-pointer hover:bg-blue-700 transition-colors shadow-lg ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {isUploading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+                    {isUploading ? 'Processing PDF...' : 'Upload PDF'}
+                    <input type="file" className="hidden" accept="application/pdf" onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} disabled={isUploading} />
+                </label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {catalogues.map(cat => (
+                    <div key={cat.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group">
+                        <div className="aspect-[2/3] bg-slate-100 relative">
+                             {cat.pages && cat.pages[0] ? (
+                                 <img src={cat.pages[0]} className="w-full h-full object-cover" />
+                             ) : (
+                                 <div className="w-full h-full flex items-center justify-center text-slate-300"><FileText size={48} /></div>
+                             )}
+                             <button onClick={() => removeCatalogue(cat.id)} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600">
+                                 <Trash2 size={16} />
+                             </button>
+                        </div>
+                        <div className="p-4">
+                            <input 
+                                value={cat.title} 
+                                onChange={(e) => onUpdate(catalogues.map(c => c.id === cat.id ? {...c, title: e.target.value} : c))}
+                                className="font-bold text-slate-900 text-sm w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 outline-none mb-2"
+                            />
+                            <div className="flex gap-2">
+                                <input 
+                                    type="date"
+                                    value={cat.startDate || ''}
+                                    onChange={(e) => onUpdate(catalogues.map(c => c.id === cat.id ? {...c, startDate: e.target.value} : c))}
+                                    className="text-[10px] bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-500 font-mono w-full"
+                                />
+                            </div>
+                            <div className="mt-2 text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
+                                <Book size={12} /> {cat.pages.length} Pages
+                            </div>
+                        </div>
+                    </div>
+                ))}
+                {catalogues.length === 0 && (
+                    <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 rounded-2xl">
+                        <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
+                        <h3 className="text-slate-400 font-bold uppercase tracking-wider">No Catalogues</h3>
+                        <p className="text-slate-400 text-xs mt-2">Upload a PDF to get started.</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+
+// --- END NEW COMPONENTS ---
 
 const ProductEditor = ({ product, onSave, onCancel }: any) => {
   const [formData, setFormData] = useState<Product>(product || {
@@ -517,7 +727,10 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
-  const [activeView, setActiveView] = useState<'dashboard' | 'inventory' | 'screensaver'>('dashboard');
+  
+  // Tabs state
+  const [activeView, setActiveView] = useState<'dashboard' | 'inventory' | 'marketing' | 'screensaver'>('dashboard');
+  const [marketingView, setMarketingView] = useState<'hero' | 'ads' | 'catalogues'>('hero');
 
   if (!session) return <Auth setSession={setSession} />;
 
@@ -606,6 +819,12 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
                 Inventory
              </button>
              <button 
+               onClick={() => { setActiveView('marketing'); }} 
+               className={`flex-1 min-w-[100px] p-4 text-xs font-black uppercase tracking-widest text-center transition-colors border-b-4 ${activeView === 'marketing' ? 'border-blue-500 bg-slate-800 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+             >
+                Marketing
+             </button>
+             <button 
                onClick={() => { setActiveView('screensaver'); setActiveBrandId(null); }} 
                className={`flex-1 min-w-[100px] p-4 text-xs font-black uppercase tracking-widest text-center transition-colors border-b-4 ${activeView === 'screensaver' ? 'border-blue-500 bg-slate-800 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
              >
@@ -640,21 +859,38 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData }: { onExit: ()
           </div>
        )}
 
+       {activeView === 'marketing' && (
+           <div className="bg-white border-b border-slate-200 p-2 overflow-x-auto flex items-center gap-2 shrink-0 z-20 shadow-sm justify-center md:justify-start">
+              <button onClick={() => setMarketingView('hero')} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${marketingView === 'hero' ? 'bg-blue-100 text-blue-800' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                  <Layout size={16} /> Hero & Branding
+              </button>
+              <button onClick={() => setMarketingView('ads')} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${marketingView === 'ads' ? 'bg-purple-100 text-purple-800' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                  <MegaphoneIcon size={16} /> Home Ads
+              </button>
+              <button onClick={() => setMarketingView('catalogues')} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${marketingView === 'catalogues' ? 'bg-orange-100 text-orange-800' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                  <BookOpen size={16} /> Catalogues
+              </button>
+           </div>
+       )}
+
        {/* Main View Content Area */}
        <div className="flex-1 overflow-y-auto bg-slate-100 relative p-4 md:p-8">
           
-          {/* Header Status Bar (Simplified) */}
-          <div className="mb-6 flex items-center justify-between text-slate-400">
-             <div className="flex items-center gap-2 text-xs font-bold uppercase">
-                <span>{activeView}</span>
-                {activeBrand && <><ChevronRight size={12} /> <span>{activeBrand.name}</span></>}
-                {activeCategory && <><ChevronRight size={12} /> <span>{activeCategory.name}</span></>}
-             </div>
-          </div>
-
           <div className="max-w-6xl mx-auto">
              {activeView === 'screensaver' ? (
                  <ScreensaverEditor storeData={storeData!} onUpdate={onUpdateData} />
+             ) : activeView === 'marketing' ? (
+                 <>
+                    {marketingView === 'hero' && (
+                        <HeroEditor data={storeData!.hero} onUpdate={(hero) => onUpdateData({...storeData!, hero})} />
+                    )}
+                    {marketingView === 'ads' && (
+                        <AdsManager ads={storeData!.ads || { homeBottomLeft: [], homeBottomRight: [], homeSideVertical: [], screensaver: [] }} onUpdate={(ads) => onUpdateData({...storeData!, ads})} />
+                    )}
+                    {marketingView === 'catalogues' && (
+                        <CatalogueManager catalogues={storeData!.catalogues || []} onUpdate={(catalogues) => onUpdateData({...storeData!, catalogues})} />
+                    )}
+                 </>
              ) : activeView === 'dashboard' ? (
                 // Dashboard Home
                 <div className="animate-fade-in">
