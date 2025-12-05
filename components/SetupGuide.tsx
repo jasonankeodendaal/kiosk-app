@@ -389,22 +389,27 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key`}
                             <CodeBlock 
                                 id="supabase-storage-sql"
                                 label="SQL Editor - Storage Fix"
-                                code={`-- 1. Create the Bucket
+                                code={`-- 1. Create the Bucket (Safe to run multiple times)
 insert into storage.buckets (id, name, public)
 values ('kiosk-media', 'kiosk-media', true)
 on conflict (id) do nothing;
 
--- 2. Allow Public Access (Read)
+-- 2. Drop old policies to prevent errors
+drop policy if exists "Public Access" on storage.objects;
+drop policy if exists "Public Upload" on storage.objects;
+drop policy if exists "Public Update" on storage.objects;
+
+-- 3. Allow Public Access (Read)
 create policy "Public Access"
 on storage.objects for select
 using ( bucket_id = 'kiosk-media' );
 
--- 3. Allow Public Uploads (Insert)
+-- 4. Allow Public Uploads (Insert)
 create policy "Public Upload"
 on storage.objects for insert
 with check ( bucket_id = 'kiosk-media' );
 
--- 4. Allow Updates
+-- 5. Allow Updates
 create policy "Public Update"
 on storage.objects for update
 using ( bucket_id = 'kiosk-media' );`}

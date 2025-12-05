@@ -131,8 +131,11 @@ export default function App() {
         storeData={storeData}
         onUpdateData={handleUpdateData}
         onRefresh={() => {
-            setLoading(true);
-            fetchData().then(() => setLoading(false));
+            // Use Syncing UI instead of full screen Loading to prevent "Reboot" feel
+            setIsSyncing(true);
+            fetchData().then(() => {
+                setIsSyncing(false);
+            });
         }}
       />
     );
