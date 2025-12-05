@@ -93,6 +93,12 @@ export interface ScreensaverSettings {
   showProductVideos: boolean;
   showPamphlets: boolean;
   showCustomAds: boolean;
+  // New Enhanced Controls
+  displayStyle?: 'contain' | 'cover';
+  showInfoOverlay?: boolean;
+  activeHoursStart?: string; // e.g. "08:00"
+  activeHoursEnd?: string;   // e.g. "20:00"
+  enableSleepMode?: boolean; // Turn screen black outside active hours
 }
 
 export interface KioskRegistry {

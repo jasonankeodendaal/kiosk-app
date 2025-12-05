@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { FlatProduct, AdItem, Catalogue, ScreensaverSettings } from '../types';
+import { Moon } from 'lucide-react';
 
 interface ScreensaverProps {
   products: FlatProduct[];
@@ -24,20 +25,64 @@ interface PlaylistItem {
 const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = [], onWake, settings }) => {
   const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isSleepMode, setIsSleepMode] = useState(false);
   const timerRef = useRef<number | null>(null);
 
   // Default config
-  const config = settings || {
+  const config: ScreensaverSettings = {
       idleTimeout: 60,
       imageDuration: 8,
       muteVideos: false,
       showProductImages: true,
       showProductVideos: true,
       showPamphlets: true,
-      showCustomAds: true
+      showCustomAds: true,
+      displayStyle: 'contain',
+      showInfoOverlay: true,
+      enableSleepMode: false,
+      activeHoursStart: '08:00',
+      activeHoursEnd: '20:00',
+      ...settings
   };
 
-  // 1. Build & Shuffle Playlist (Once on Mount or when data drastically changes)
+  // Check Active Hours for Sleep Mode
+  useEffect(() => {
+      if (!config.enableSleepMode || !config.activeHoursStart || !config.activeHoursEnd) {
+          setIsSleepMode(false);
+          return;
+      }
+
+      const checkTime = () => {
+          const now = new Date();
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+          
+          const [startH, startM] = config.activeHoursStart!.split(':').map(Number);
+          const [endH, endM] = config.activeHoursEnd!.split(':').map(Number);
+          const startMinutes = startH * 60 + startM;
+          const endMinutes = endH * 60 + endM;
+
+          // Simple logic: If start < end (e.g. 08:00 to 20:00), active inside range.
+          // If start > end (e.g. 20:00 to 08:00), active outside range? usually shops open day.
+          // Let's assume standard day shift for active hours. 
+          // If current is NOT between start and end, it is Sleep Mode.
+          
+          let isActive = false;
+          if (startMinutes < endMinutes) {
+              isActive = currentMinutes >= startMinutes && currentMinutes < endMinutes;
+          } else {
+              // Night shift scenario
+              isActive = currentMinutes >= startMinutes || currentMinutes < endMinutes;
+          }
+          
+          setIsSleepMode(!isActive);
+      };
+
+      checkTime();
+      const interval = setInterval(checkTime, 60000); // Check every minute
+      return () => clearInterval(interval);
+  }, [config.activeHoursStart, config.activeHoursEnd, config.enableSleepMode]);
+
+  // 1. Build & Shuffle Playlist
   useEffect(() => {
     const list: PlaylistItem[] = [];
 
@@ -96,7 +141,6 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
             // Support multiple videos
             if (p.videoUrls) {
                 p.videoUrls.forEach((url, idx) => {
-                    // Dedupe if legacy url is also in the list
                     if (url !== p.videoUrl) {
                         list.push({
                             id: `prod-vid-${p.id}-${idx}`,
@@ -118,7 +162,7 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
     }
 
     setPlaylist(list);
-    setCurrentIndex(0); // Reset index on new playlist
+    setCurrentIndex(0);
   }, [products.length, ads.length, pamphlets.length, config.showProductImages, config.showProductVideos, config.showCustomAds, config.showPamphlets]);
 
   // Helper to move to next slide
@@ -126,10 +170,8 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
       setCurrentIndex((prev) => (prev + 1) % playlist.length);
   };
 
-  // Safer error handling to prevent rapid race condition skipping
   const handleMediaError = () => {
       console.warn("Media failed to load:", currentItem?.url);
-      // Delay skip to prevent CPU spinning/rapid flashing if everything fails
       timerRef.current = window.setTimeout(() => {
           nextSlide();
       }, 2000); 
@@ -139,23 +181,17 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
   const currentItem = playlist[currentIndex];
 
   useEffect(() => {
+    if (isSleepMode) return; // Stop playback logic in sleep mode
     if (!currentItem || playlist.length === 0) return;
 
-    // Clean up previous timer
     if (timerRef.current) clearTimeout(timerRef.current);
 
     if (currentItem.type === 'image') {
-        // IMAGE: Wait for configured duration then next
-        // Default to 8000ms if config value is bad
         const duration = (config.imageDuration && config.imageDuration > 0) ? config.imageDuration * 1000 : 8000;
-        
         timerRef.current = window.setTimeout(() => {
             nextSlide();
         }, duration);
     } else {
-        // VIDEO:
-        // Main logic is handled by onEnded event in JSX.
-        // But we add a safety fallback (e.g. 3 mins) in case video stalls or loops.
         timerRef.current = window.setTimeout(() => {
             console.warn("Video timeout reached, skipping.");
             nextSlide();
@@ -165,9 +201,25 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
     return () => {
         if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [currentIndex, currentItem, config.imageDuration, playlist.length]);
+  }, [currentIndex, currentItem, config.imageDuration, playlist.length, isSleepMode]);
 
-  // Initial buffer to prevent rapid mount/unmount cycle on empty list
+  // Sleep Mode Render
+  if (isSleepMode) {
+      return (
+          <div 
+             onClick={onWake} 
+             className="fixed inset-0 z-[100] bg-black cursor-pointer flex items-center justify-center"
+          >
+              <div className="flex flex-col items-center opacity-30 animate-pulse">
+                  <Moon size={48} className="text-blue-500 mb-4" />
+                  <div className="text-white font-mono text-sm">Sleep Mode Active</div>
+                  <div className="text-white/50 text-xs mt-2">Tap to Wake</div>
+              </div>
+          </div>
+      );
+  }
+
+  // Initial buffer
   if (playlist.length === 0) return (
       <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center cursor-pointer" onClick={onWake}>
           <div className="text-white opacity-30 text-xs font-mono">...</div>
@@ -180,29 +232,22 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
   };
 
+  const objectFitClass = config.displayStyle === 'cover' ? 'object-cover' : 'object-contain';
+
   return (
     <div 
       onClick={onWake}
       className="fixed inset-0 z-[100] bg-black cursor-pointer flex items-center justify-center overflow-hidden"
     >
-      {/* 
-        Key changes for layout:
-        - Fixed inset-0 to cover full screen.
-        - bg-black for bars.
-        - object-contain to 'Shrink to Fit' without cropping.
-      */}
-      
       <div key={currentItem.id} className="w-full h-full relative animate-fade-in flex items-center justify-center">
          
          {currentItem.type === 'video' ? (
              <video 
                src={currentItem.url} 
-               className="w-full h-full object-contain" 
-               // Settings
+               className={`w-full h-full ${objectFitClass}`}
                muted={config.muteVideos} 
                autoPlay
                playsInline
-               // Playback Control
                onEnded={nextSlide} 
                onError={handleMediaError} 
              />
@@ -210,31 +255,33 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
              <img 
                src={currentItem.url} 
                alt="Screensaver" 
-               className="w-full h-full object-contain" 
+               className={`w-full h-full ${objectFitClass}`}
                onError={handleMediaError}
              />
          )}
 
-         {/* Overlay Info */}
-         <div className="absolute bottom-12 right-12 flex flex-col items-end max-w-[80%] pointer-events-none z-20">
-            {currentItem.title && (
-                <h1 className="text-4xl md:text-7xl font-black text-white uppercase tracking-tighter drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] text-right mb-2 leading-none">
-                    {currentItem.title}
-                </h1>
-            )}
-            {currentItem.subtitle && (
-                <h2 className="text-xl md:text-3xl font-bold text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] text-right bg-black/50 px-4 py-1 rounded">
-                    {currentItem.subtitle}
-                </h2>
-            )}
-            {(currentItem.startDate || currentItem.endDate) && (
-                <p className="mt-4 text-lg md:text-xl text-slate-200 font-mono bg-blue-900/80 px-4 py-2 rounded-lg backdrop-blur-md border border-white/10 shadow-lg">
-                    {currentItem.startDate && formatDate(currentItem.startDate)}
-                    {currentItem.startDate && currentItem.endDate && ` - `}
-                    {currentItem.endDate && formatDate(currentItem.endDate)}
-                </p>
-            )}
-         </div>
+         {/* Overlay Info (Conditional) */}
+         {config.showInfoOverlay && (
+             <div className="absolute bottom-12 right-12 flex flex-col items-end max-w-[80%] pointer-events-none z-20">
+                {currentItem.title && (
+                    <h1 className="text-4xl md:text-7xl font-black text-white uppercase tracking-tighter drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] text-right mb-2 leading-none">
+                        {currentItem.title}
+                    </h1>
+                )}
+                {currentItem.subtitle && (
+                    <h2 className="text-xl md:text-3xl font-bold text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] text-right bg-black/50 px-4 py-1 rounded">
+                        {currentItem.subtitle}
+                    </h2>
+                )}
+                {(currentItem.startDate || currentItem.endDate) && (
+                    <p className="mt-4 text-lg md:text-xl text-slate-200 font-mono bg-blue-900/80 px-4 py-2 rounded-lg backdrop-blur-md border border-white/10 shadow-lg">
+                        {currentItem.startDate && formatDate(currentItem.startDate)}
+                        {currentItem.startDate && currentItem.endDate && ` - `}
+                        {currentItem.endDate && formatDate(currentItem.endDate)}
+                    </p>
+                )}
+             </div>
+         )}
       </div>
       
       <style>{`
