@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -478,6 +477,9 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   if (!session) return <Auth setSession={setSession} />;
   if (!storeData) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /> Loading...</div>;
 
+  // SAFETY: Ensure brands is an array before rendering
+  const brands = Array.isArray(storeData.brands) ? storeData.brands : [];
+
   return (
     <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
         <header className="bg-slate-900 text-white shrink-0 shadow-xl z-20">
@@ -517,14 +519,14 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             {activeTab === 'inventory' && (
                 !selectedBrand ? (
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
-                       <button onClick={() => { const name = prompt("Brand Name:"); if(name) onUpdateData({ ...storeData, brands: [...storeData.brands, { id: generateId('b'), name, categories: [] }] }) }} className="bg-white border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-8 text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all group min-h-[200px]">
+                       <button onClick={() => { const name = prompt("Brand Name:"); if(name) onUpdateData({ ...storeData, brands: [...brands, { id: generateId('b'), name, categories: [] }] }) }} className="bg-white border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-8 text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all group min-h-[200px]">
                            <Plus size={24} className="mb-2" /><span className="font-bold uppercase text-xs tracking-wider">Add Brand</span>
                        </button>
-                       {storeData.brands.map(brand => (
+                       {brands.map(brand => (
                            <div key={brand.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition-all group relative">
                                <div className="h-32 bg-slate-50 flex items-center justify-center p-4 relative">
                                    {brand.logoUrl ? <img src={brand.logoUrl} className="max-h-full max-w-full object-contain" /> : <span className="text-4xl font-black text-slate-200">{brand.name.charAt(0)}</span>}
-                                   <button onClick={(e) => { e.stopPropagation(); if(confirm("Move to archive?")) { onUpdateData({...storeData, brands: storeData.brands.filter(b=>b.id!==brand.id), archive: {...storeData.archive, brands: [...(storeData.archive?.brands||[]), brand]}}); } }} className="absolute top-2 right-2 p-2 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14}/></button>
+                                   <button onClick={(e) => { e.stopPropagation(); if(confirm("Move to archive?")) { onUpdateData({...storeData, brands: brands.filter(b=>b.id!==brand.id), archive: {...storeData.archive, brands: [...(storeData.archive?.brands||[]), brand]}}); } }} className="absolute top-2 right-2 p-2 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14}/></button>
                                </div>
                                <div className="p-4">
                                    <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight mb-1">{brand.name}</h3>
@@ -536,10 +538,10 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                    </div>
                ) : !selectedCategory ? (
                    <div className="animate-fade-in">
-                       <div className="flex items-center gap-4 mb-6"><button onClick={() => setSelectedBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500"><ArrowLeft size={20} /></button><h2 className="text-2xl font-black uppercase text-slate-900 flex-1">{selectedBrand.name}</h2><FileUpload label="Brand Logo" currentUrl={selectedBrand.logoUrl} onUpload={(url: any) => { const updated = {...selectedBrand, logoUrl: url}; onUpdateData({...storeData, brands: storeData.brands.map(b=>b.id===updated.id?updated:b)}); setSelectedBrand(updated); }} /></div>
+                       <div className="flex items-center gap-4 mb-6"><button onClick={() => setSelectedBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500"><ArrowLeft size={20} /></button><h2 className="text-2xl font-black uppercase text-slate-900 flex-1">{selectedBrand.name}</h2><FileUpload label="Brand Logo" currentUrl={selectedBrand.logoUrl} onUpload={(url: any) => { const updated = {...selectedBrand, logoUrl: url}; onUpdateData({...storeData, brands: brands.map(b=>b.id===updated.id?updated:b)}); setSelectedBrand(updated); }} /></div>
                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                           <button onClick={() => { const name = prompt("Category Name:"); if(name) { const updated = {...selectedBrand, categories: [...selectedBrand.categories, { id: generateId('c'), name, icon: 'Box', products: [] }]}; onUpdateData({...storeData, brands: storeData.brands.map(b=>b.id===updated.id?updated:b)}); setSelectedBrand(updated); } }} className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-6 text-slate-400 hover:border-blue-500 hover:text-blue-500"><Plus size={24} /><span className="font-bold text-xs uppercase mt-2">New Category</span></button>
-                           {selectedBrand.categories.map(cat => (<button key={cat.id} onClick={() => setSelectedCategory(cat)} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md text-left group relative"><Box size={24} className="mb-4 text-slate-400" /><h3 className="font-black text-slate-900 uppercase text-sm">{cat.name}</h3><p className="text-xs text-slate-500 font-bold">{cat.products.length} Products</p><div onClick={(e)=>{e.stopPropagation(); if(confirm("Delete?")){ const updated={...selectedBrand, categories: selectedBrand.categories.filter(c=>c.id!==cat.id)}; onUpdateData({...storeData, brands: storeData.brands.map(b=>b.id===updated.id?updated:b)}); setSelectedBrand(updated); }}} className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded"><Trash2 size={14}/></div></button>))}
+                           <button onClick={() => { const name = prompt("Category Name:"); if(name) { const updated = {...selectedBrand, categories: [...selectedBrand.categories, { id: generateId('c'), name, icon: 'Box', products: [] }]}; onUpdateData({...storeData, brands: brands.map(b=>b.id===updated.id?updated:b)}); setSelectedBrand(updated); } }} className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-6 text-slate-400 hover:border-blue-500 hover:text-blue-500"><Plus size={24} /><span className="font-bold text-xs uppercase mt-2">New Category</span></button>
+                           {selectedBrand.categories.map(cat => (<button key={cat.id} onClick={() => setSelectedCategory(cat)} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md text-left group relative"><Box size={24} className="mb-4 text-slate-400" /><h3 className="font-black text-slate-900 uppercase text-sm">{cat.name}</h3><p className="text-xs text-slate-500 font-bold">{cat.products.length} Products</p><div onClick={(e)=>{e.stopPropagation(); if(confirm("Delete?")){ const updated={...selectedBrand, categories: selectedBrand.categories.filter(c=>c.id!==cat.id)}; onUpdateData({...storeData, brands: brands.map(b=>b.id===updated.id?updated:b)}); setSelectedBrand(updated); }}} className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded"><Trash2 size={14}/></div></button>))}
                        </div>
                        <div className="mt-8 border-t border-slate-200 pt-8"><h3 className="font-bold text-slate-900 uppercase text-sm mb-4">Brand Catalogues</h3><CatalogueManager catalogues={storeData.catalogues?.filter(c => c.brandId === selectedBrand.id) || []} brandId={selectedBrand.id} onSave={(c) => onUpdateData({ ...storeData, catalogues: [...(storeData.catalogues?.filter(x => x.brandId !== selectedBrand.id) || []), ...c] })} /></div>
                    </div>
@@ -669,7 +671,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
         </main>
 
         {/* MODALS */}
-        {editingProduct && <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-5xl h-full max-h-[90vh]"><ProductEditor product={editingProduct} onSave={(p) => { if (!selectedCategory || !selectedBrand) return; const isNew = !selectedCategory.products.find(x => x.id === p.id); const newCats = selectedBrand.categories.map(c => c.id === selectedCategory.id ? { ...c, products: isNew ? [...c.products, p] : c.products.map(px => px.id === p.id ? p : px) } : c); const newBrands = storeData.brands.map(b => b.id === selectedBrand.id ? { ...b, categories: newCats } : b); onUpdateData({ ...storeData, brands: newBrands }); setSelectedCategory(newCats.find(c => c.id === selectedCategory.id) || null); setEditingProduct(null); }} onCancel={() => setEditingProduct(null)} /></div></div>}
+        {editingProduct && <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-5xl h-full max-h-[90vh]"><ProductEditor product={editingProduct} onSave={(p) => { if (!selectedCategory || !selectedBrand) return; const isNew = !selectedCategory.products.find(x => x.id === p.id); const newCats = selectedBrand.categories.map(c => c.id === selectedCategory.id ? { ...c, products: isNew ? [...c.products, p] : c.products.map(px => px.id === p.id ? p : px) } : c); const newBrands = brands.map(b => b.id === selectedBrand.id ? { ...b, categories: newCats } : b); onUpdateData({ ...storeData, brands: newBrands }); setSelectedCategory(newCats.find(c => c.id === selectedCategory.id) || null); setEditingProduct(null); }} onCancel={() => setEditingProduct(null)} /></div></div>}
         {editingKiosk && <KioskEditorModal kiosk={editingKiosk} onSave={(k) => { updateFleetMember(k); setEditingKiosk(null); }} onClose={() => setEditingKiosk(null)} />}
         {showGuide && <SetupGuide onClose={() => setShowGuide(false)} />}
     </div>

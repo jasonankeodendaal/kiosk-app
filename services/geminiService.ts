@@ -1,14 +1,57 @@
+
 import { StoreData, Product, Catalogue, ArchiveData, KioskRegistry } from "../types";
 import { supabase, getEnv, initSupabase } from "./kioskService";
 
 const STORAGE_KEY_DATA = 'kiosk_pro_store_data';
 
-// Helper to migrate legacy data structures
+// Full Static Default Data (Fallback)
+const DEFAULT_DATA: StoreData = {
+  companyLogoUrl: "https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png",
+  hero: {
+    title: "Future Retail Experience",
+    subtitle: "Discover the latest in Tech, Fashion, and Lifestyle.",
+    backgroundImageUrl: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070&auto=format&fit=crop",
+    logoUrl: "https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png",
+    websiteUrl: "https://jstyp.me"
+  },
+  screensaverSettings: {
+    idleTimeout: 60,
+    imageDuration: 8,
+    muteVideos: false,
+    showProductImages: true,
+    showProductVideos: true,
+    showPamphlets: true,
+    showCustomAds: true
+  },
+  catalogues: [],
+  ads: {
+    homeBottomLeft: [],
+    homeBottomRight: [],
+    homeSideVertical: [],
+    screensaver: []
+  },
+  fleet: [],
+  brands: []
+};
+
+// Helper to migrate legacy data structures and Hydrate empty DB responses
 const migrateData = (data: any): StoreData => {
-    // Migrate Dimensions: Object -> Array
+    // 1. Force Critical Arrays to Exist (Fixes 'flatMap' error on fresh DB)
+    if (!data.brands || !Array.isArray(data.brands)) data.brands = [];
+    if (!data.catalogues || !Array.isArray(data.catalogues)) data.catalogues = [];
+    if (!data.fleet || !Array.isArray(data.fleet)) data.fleet = [];
+    
+    // 2. Force Config Objects to Exist
+    if (!data.hero) data.hero = { ...DEFAULT_DATA.hero };
+    if (!data.ads) data.ads = { ...DEFAULT_DATA.ads };
+    if (!data.screensaverSettings) data.screensaverSettings = { ...DEFAULT_DATA.screensaverSettings };
+
+    // 3. Migrate Deep Structures
     if (data.brands) {
         data.brands.forEach((b: any) => {
+            if (!b.categories) b.categories = [];
             b.categories.forEach((c: any) => {
+                if (!c.products) c.products = [];
                 c.products.forEach((p: any) => {
                     // Check if dimensions is an object (legacy) instead of array
                     if (p.dimensions && !Array.isArray(p.dimensions)) {
@@ -30,9 +73,6 @@ const migrateData = (data: any): StoreData => {
              }
         });
     }
-
-    // Initialize missing arrays
-    if (!data.fleet) data.fleet = [];
 
     return data as StoreData;
 };
@@ -80,36 +120,6 @@ const handleExpiration = async (data: StoreData): Promise<StoreData> => {
     return data;
 };
 
-// Full Static Default Data (Fallback)
-const DEFAULT_DATA: StoreData = {
-  companyLogoUrl: "https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png",
-  hero: {
-    title: "Future Retail Experience",
-    subtitle: "Discover the latest in Tech, Fashion, and Lifestyle.",
-    backgroundImageUrl: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070&auto=format&fit=crop",
-    logoUrl: "https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png",
-    websiteUrl: "https://jstyp.me"
-  },
-  screensaverSettings: {
-    idleTimeout: 60,
-    imageDuration: 8,
-    muteVideos: false,
-    showProductImages: true,
-    showProductVideos: true,
-    showPamphlets: true,
-    showCustomAds: true
-  },
-  catalogues: [],
-  ads: {
-    homeBottomLeft: [],
-    homeBottomRight: [],
-    homeSideVertical: [],
-    screensaver: []
-  },
-  fleet: [],
-  brands: []
-};
-
 // 1. Fetch Data - STRATEGY: AGGRESSIVE CLOUD FETCH + FLEET MERGE
 const generateStoreData = async (): Promise<StoreData> => {
   if (!supabase) initSupabase();
@@ -125,12 +135,10 @@ const generateStoreData = async (): Promise<StoreData> => {
               supabase.from('kiosks').select('*')
           ]);
           
-          const configData = configResponse.data?.data || DEFAULT_DATA;
-          
-          let processedData = migrateData(configData);
+          const rawConfig = configResponse.data?.data || {};
+          let processedData = migrateData(rawConfig);
           
           // CRITICAL FIX: Override JSON fleet with SQL Table fleet
-          // This prevents devices from overwriting each other in the JSON blob
           if (fleetResponse.data) {
               const mappedFleet: KioskRegistry[] = fleetResponse.data.map((k: any) => ({
                   id: k.id,
@@ -179,7 +187,7 @@ const generateStoreData = async (): Promise<StoreData> => {
     console.error("Failed to load local data", e);
   }
 
-  return DEFAULT_DATA;
+  return migrateData(DEFAULT_DATA);
 };
 
 // 2. Save Data
@@ -200,7 +208,6 @@ const saveStoreData = async (data: StoreData): Promise<void> => {
         try {
             // We do NOT save fleet back to the JSON blob to avoid race conditions.
             // Fleet is managed via the 'kiosks' table exclusively.
-            // We strip fleet before saving to store_config to save bandwidth and confusion.
             const { fleet, ...dataToSave } = data;
             
             const { error } = await supabase

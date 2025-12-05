@@ -357,17 +357,18 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
 
   // Filter Expired Content
   const filteredCatalogs = useMemo(() => {
-      if(!storeData?.catalogues) return [];
+      if(!storeData?.catalogues || !Array.isArray(storeData.catalogues)) return [];
       const now = new Date();
       return storeData.catalogues.filter(c => !c.endDate || new Date(c.endDate) >= now);
   }, [storeData?.catalogues]);
 
   // MEMOIZED TO PREVENT SCREENSAVER RE-RENDERS
+  // SAFETY: Added aggressive null checks to prevent "flatMap of undefined" error on fresh DB load
   const allProducts = useMemo(() => {
-      if (!storeData) return [];
+      if (!storeData || !Array.isArray(storeData.brands)) return [];
       return storeData.brands.flatMap(b => 
-        b.categories.flatMap(c => 
-          c.products.map(p => ({...p, brandName: b.name, categoryName: c.name} as FlatProduct))
+        (b.categories || []).flatMap(c => 
+          (c.products || []).map(p => ({...p, brandName: b.name, categoryName: c.name} as FlatProduct))
         )
       );
   }, [storeData]);
@@ -452,7 +453,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
           <div className="flex-1 overflow-hidden relative">
              {!activeBrand ? (
                <BrandGrid 
-                 brands={storeData.brands} 
+                 brands={storeData.brands || []} 
                  heroConfig={storeData.hero}
                  allCatalogs={filteredCatalogs} 
                  ads={storeData.ads}
