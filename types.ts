@@ -21,7 +21,8 @@ export interface Product {
   dimensions: DimensionSet[]; 
   imageUrl: string;
   galleryUrls?: string[]; 
-  videoUrl?: string; 
+  videoUrl?: string; // Legacy support
+  videoUrls?: string[]; // Support for multiple videos
   manualUrl?: string; 
   manualImages?: string[]; 
 }

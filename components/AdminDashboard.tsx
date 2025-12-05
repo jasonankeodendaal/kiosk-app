@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -214,11 +215,13 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
 };
 
 const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave: (p: Product) => void, onCancel: () => void }) => {
+    // Migrate legacy data on init (single video -> multiple array)
     const [draft, setDraft] = useState<Product>({ 
         ...product, 
         dimensions: Array.isArray(product.dimensions) 
             ? product.dimensions 
-            : (product.dimensions ? [{label: "Device", ...(product.dimensions as any)}] : []) 
+            : (product.dimensions ? [{label: "Device", ...(product.dimensions as any)}] : []),
+        videoUrls: product.videoUrls || (product.videoUrl ? [product.videoUrl] : [])
     });
     const [newFeature, setNewFeature] = useState('');
     const [newBoxItem, setNewBoxItem] = useState('');
@@ -283,7 +286,67 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
 
                     <div className="space-y-4">
                         <FileUpload label="Main Image" currentUrl={draft.imageUrl} onUpload={(url: any) => setDraft({ ...draft, imageUrl: url as string })} />
-                        <FileUpload label="Product Video" currentUrl={draft.videoUrl} accept="video/*" icon={<Video />} onUpload={(url: any) => setDraft({ ...draft, videoUrl: url as string })} />
+                        
+                        {/* IMAGE LIBRARY UPLOAD */}
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Image Gallery (Multiple)</label>
+                            <FileUpload 
+                                label="Add Images" 
+                                allowMultiple={true} 
+                                currentUrl="" 
+                                onUpload={(urls: any) => {
+                                    const newUrls = Array.isArray(urls) ? urls : [urls];
+                                    setDraft(prev => ({ ...prev, galleryUrls: [...(prev.galleryUrls || []), ...newUrls] }));
+                                }} 
+                            />
+                            {draft.galleryUrls && draft.galleryUrls.length > 0 && (
+                                <div className="grid grid-cols-4 gap-2 mt-2">
+                                    {draft.galleryUrls.map((url, idx) => (
+                                        <div key={idx} className="relative group aspect-square bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                                            <img src={url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
+                                            <button 
+                                                onClick={() => setDraft(prev => ({...prev, galleryUrls: prev.galleryUrls?.filter((_, i) => i !== idx)}))}
+                                                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* VIDEO LIBRARY UPLOAD (MULTIPLE) */}
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Product Videos</label>
+                            <FileUpload 
+                                label="Add Videos" 
+                                allowMultiple={true} 
+                                accept="video/*"
+                                icon={<Video />}
+                                currentUrl="" 
+                                onUpload={(urls: any) => {
+                                    const newUrls = Array.isArray(urls) ? urls : [urls];
+                                    setDraft(prev => ({ ...prev, videoUrls: [...(prev.videoUrls || []), ...newUrls] }));
+                                }} 
+                            />
+                            {draft.videoUrls && draft.videoUrls.length > 0 && (
+                                <div className="grid grid-cols-4 gap-2 mt-2">
+                                    {draft.videoUrls.map((url, idx) => (
+                                        <div key={idx} className="relative group aspect-square bg-slate-900 border border-slate-700 rounded-lg overflow-hidden shadow-sm flex items-center justify-center">
+                                            <video src={url} className="w-full h-full object-cover opacity-60" muted />
+                                            <Video size={20} className="absolute text-white" />
+                                            <button 
+                                                onClick={() => setDraft(prev => ({...prev, videoUrls: prev.videoUrls?.filter((_, i) => i !== idx)}))}
+                                                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                         
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Key Features</label>

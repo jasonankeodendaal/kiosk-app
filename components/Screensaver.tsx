@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState, useRef } from 'react';
 import { FlatProduct, AdItem, Catalogue, ScreensaverSettings } from '../types';
 
@@ -81,14 +82,32 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
                 subtitle: p.name
             });
         }
-        if (config.showProductVideos && p.videoUrl) {
-            list.push({
-                id: `prod-vid-${p.id}`,
-                type: 'video',
-                url: p.videoUrl,
-                title: p.brandName,
-                subtitle: `${p.name} - Official Video`
-            });
+        if (config.showProductVideos) {
+            // Support legacy single video
+            if (p.videoUrl) {
+                 list.push({
+                    id: `prod-vid-${p.id}`,
+                    type: 'video',
+                    url: p.videoUrl,
+                    title: p.brandName,
+                    subtitle: `${p.name} - Official Video`
+                 });
+            }
+            // Support multiple videos
+            if (p.videoUrls) {
+                p.videoUrls.forEach((url, idx) => {
+                    // Dedupe if legacy url is also in the list
+                    if (url !== p.videoUrl) {
+                        list.push({
+                            id: `prod-vid-${p.id}-${idx}`,
+                            type: 'video',
+                            url: url,
+                            title: p.brandName,
+                            subtitle: `${p.name} - Video Showcase`
+                        });
+                    }
+                });
+            }
         }
     });
 

@@ -34,9 +34,16 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
     product.galleryUrls?.forEach(url => {
       media.push({ type: 'image', url });
     });
+    // Handle legacy single video
     if (product.videoUrl) {
       media.push({ type: 'video', url: product.videoUrl });
     }
+    // Handle new multiple videos (avoid duplicates if migrated)
+    product.videoUrls?.forEach(url => {
+        if (url !== product.videoUrl) {
+             media.push({ type: 'video', url });
+        }
+    });
     return media;
   }, [product]);
 
