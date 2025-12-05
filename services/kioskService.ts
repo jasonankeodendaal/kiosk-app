@@ -1,5 +1,3 @@
-
-
 import { createClient } from '@supabase/supabase-js';
 import { KioskRegistry } from '../types';
 
@@ -41,14 +39,10 @@ export const initSupabase = () => {
   if (supabase) return true;
 
   console.log("Initializing Supabase...");
-  console.log("URL Configured:", SUPABASE_URL?.startsWith('http') ? 'YES' : 'NO');
-  console.log("Key Configured:", SUPABASE_ANON_KEY?.length > 10 ? 'YES' : 'NO');
-
   // 1. Try initializing with values (Env vars or manual replacement)
-  if (SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10) {
+  if (SUPABASE_URL && SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length > 10) {
     try {
       supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      console.log("Supabase Client Created Successfully");
       return true;
     } catch (e) {
       console.warn("Supabase init failed with provided keys", e);
@@ -65,6 +59,29 @@ export const initSupabase = () => {
     }
   }
   return false;
+};
+
+// NEW: Real Network Check (Not just config check)
+export const checkCloudConnection = async (): Promise<boolean> => {
+    if (!supabase) {
+        initSupabase();
+        if(!supabase) return false;
+    }
+    try {
+        // Perform a lightweight check against the database
+        const { error, count } = await supabase
+            .from('store_config')
+            .select('id', { count: 'exact', head: true });
+        
+        if (error) {
+            console.warn("Cloud Ping Failed:", error.message);
+            return false;
+        }
+        return true;
+    } catch (e) {
+        console.warn("Cloud Network Error");
+        return false;
+    }
 };
 
 const STORAGE_KEY_ID = 'kiosk_pro_device_id';

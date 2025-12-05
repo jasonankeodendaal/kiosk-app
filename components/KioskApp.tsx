@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -11,7 +9,8 @@ import {
   setCustomKioskId, 
   getShopName,
   getDeviceType,
-  supabase
+  supabase,
+  checkCloudConnection
 } from '../services/kioskService';
 import BrandGrid from './BrandGrid';
 import CategoryGrid from './CategoryGrid';
@@ -177,6 +176,7 @@ export const KioskApp = ({ storeData, onGoToAdmin, lastSyncTime }: { storeData: 
   
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isCloudConnected, setIsCloudConnected] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<number | null>(null);
@@ -232,6 +232,7 @@ export const KioskApp = ({ storeData, onGoToAdmin, lastSyncTime }: { storeData: 
     }
   }, [deviceType]);
 
+  // Network & Time
   useEffect(() => {
     window.addEventListener('touchstart', resetIdleTimer);
     window.addEventListener('click', resetIdleTimer);
@@ -245,6 +246,12 @@ export const KioskApp = ({ storeData, onGoToAdmin, lastSyncTime }: { storeData: 
     
     resetIdleTimer();
     
+    // Initial Real Cloud Check
+    checkCloudConnection().then(setIsCloudConnected);
+    const cloudInterval = setInterval(() => {
+        checkCloudConnection().then(setIsCloudConnected);
+    }, 60000); // Check every minute
+
     return () => {
       window.removeEventListener('touchstart', resetIdleTimer);
       window.removeEventListener('click', resetIdleTimer);
@@ -252,6 +259,7 @@ export const KioskApp = ({ storeData, onGoToAdmin, lastSyncTime }: { storeData: 
       window.removeEventListener('online', onlineHandler);
       window.removeEventListener('offline', offlineHandler);
       clearInterval(clockInterval);
+      clearInterval(cloudInterval);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [resetIdleTimer]);
@@ -325,7 +333,6 @@ export const KioskApp = ({ storeData, onGoToAdmin, lastSyncTime }: { storeData: 
   }, [storeData?.catalogues]);
 
   // MEMOIZED TO PREVENT SCREENSAVER RE-RENDERS
-  // MOVED BEFORE CONDITIONAL RETURNS TO FIX REACT ERROR #300
   const allProducts = useMemo(() => {
       if (!storeData) return [];
       return storeData.brands.flatMap(b => 
@@ -377,6 +384,39 @@ export const KioskApp = ({ storeData, onGoToAdmin, lastSyncTime }: { storeData: 
          />
        )}
 
+       {/* --- NEW SYSTEM HEADER BAR --- */}
+       <header className="shrink-0 h-10 bg-slate-900 text-white flex items-center justify-between px-4 z-50 border-b border-slate-800 shadow-md">
+           <div className="flex items-center gap-4">
+               {storeData.companyLogoUrl ? (
+                   <img src={storeData.companyLogoUrl} className="h-6 object-contain opacity-80" alt="Logo" />
+               ) : (
+                   <Store size={16} className="text-blue-500" />
+               )}
+               <div className="h-4 w-[1px] bg-slate-700"></div>
+               <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300">
+                  {deviceType === 'mobile' ? <Smartphone size={12} className="text-purple-500" /> : <ShieldCheck size={12} className="text-blue-500" />}
+                  <span>ID: <span className="font-mono text-white tracking-wider">{kioskId}</span></span>
+               </div>
+               <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
+                  <MapPin size={12} />
+                  <span className="truncate max-w-[150px]">{getShopName()}</span>
+               </div>
+           </div>
+           
+           <div className="flex items-center gap-4">
+                <div className={`flex items-center gap-2 px-2 py-0.5 rounded-full ${isCloudConnected ? 'bg-blue-900/50 text-blue-300 border border-blue-800' : 'bg-orange-900/50 text-orange-300 border border-orange-800'}`}>
+                    {isCloudConnected ? <Cloud size={10} /> : <HardDrive size={10} />}
+                    <span className="text-[9px] font-black uppercase">{isCloudConnected ? 'Cloud' : 'Local'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Clock size={12} className="text-slate-400" />
+                    <span className="text-xs font-mono font-bold">
+                        {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                </div>
+           </div>
+       </header>
+
        <div className="flex-1 overflow-hidden relative flex flex-col">
           <div className="flex-1 overflow-hidden relative">
              {!activeBrand ? (
@@ -423,54 +463,30 @@ export const KioskApp = ({ storeData, onGoToAdmin, lastSyncTime }: { storeData: 
           </div>
        </div>
 
-       <footer className="shrink-0 bg-slate-900 text-white h-12 flex items-center justify-between px-6 z-50 border-t border-slate-800 shadow-[0_-5px_15px_rgba(0,0,0,0.3)]">
-          <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                 <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    {isOnline ? 'System Online' : 'Offline Mode'}
+       <footer className="shrink-0 bg-white border-t border-slate-200 text-slate-500 h-8 flex items-center justify-between px-6 z-50 text-[10px]">
+          <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                 <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                 <span className="font-bold uppercase tracking-wider">
+                    {isOnline ? 'Network Online' : 'Network Offline'}
                  </span>
-              </div>
-              <div className="h-4 w-[1px] bg-slate-700"></div>
-              
-              <div className="flex items-center gap-2">
-                 {supabase ? <Cloud size={12} className="text-blue-400" /> : <HardDrive size={12} className="text-orange-400" />}
-                 <span className="text-[10px] font-bold uppercase text-slate-400">
-                    {supabase ? 'Cloud DB' : 'Local DB'}
-                 </span>
-              </div>
-              
-              <div className="h-4 w-[1px] bg-slate-700"></div>
-              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300">
-                 {deviceType === 'mobile' ? <Smartphone size={12} className="text-purple-500" /> : <ShieldCheck size={12} className="text-blue-500" />}
-                 <span>ID: <span className="font-mono text-white">{kioskId}</span></span>
-              </div>
-              <div className="hidden md:flex items-center gap-2 text-[10px] font-bold text-slate-400">
-                 <MapPin size={12} />
-                 <span className="truncate max-w-[200px]">{getShopName()}</span>
               </div>
           </div>
 
           <div className="flex items-center gap-6">
               {lastSyncTime && (
-                  <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                  <div className="flex items-center gap-1.5 font-bold">
                       <RefreshCw size={10} />
-                      <span>Sync: {lastSyncTime}</span>
+                      <span>Last Sync: {lastSyncTime}</span>
                   </div>
               )}
-              <div className="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
-                 <Clock size={12} className="text-blue-400" />
-                 <span className="text-xs font-mono font-bold">
-                    {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                 </span>
-              </div>
               <button 
                 onClick={() => setShowCreator(true)}
-                className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors"
+                className="flex items-center gap-2 font-black uppercase tracking-widest hover:text-blue-600 transition-colors"
                 aria-label="Powered by JSTYP"
               >
                  <span>Powered by JSTYP</span>
-                 <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" className="w-4 h-4 object-contain opacity-50" alt="" />
+                 <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" className="w-3 h-3 object-contain opacity-50" alt="" />
               </button>
           </div>
        </footer>

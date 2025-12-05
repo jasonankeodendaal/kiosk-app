@@ -23,7 +23,8 @@ const IconMap: Record<string, React.ReactNode> = {
 
 const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSelectCategory, onViewCatalog, onBack, screensaverEnabled, onToggleScreensaver }) => {
   
-  // Filter catalogs for this brand
+  // Filter catalogs for this brand ONLY
+  // This logic is strict: c.brandId === brand.id
   const brandCatalogs = storeCatalogs?.filter(c => c.brandId === brand.id).sort((a, b) => {
       if (a.year && b.year && a.year !== b.year) return b.year - a.year; // Recent first
       return 0;
@@ -100,14 +101,15 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSel
           ))}
         </div>
 
-        {/* Brand Catalogs Section */}
+        {/* Brand Catalogs Section - STICKY TO BOTTOM OF CONTENT IF FEW CATEGORIES */}
         {brandCatalogs.length > 0 && onViewCatalog && (
-            <div className="mt-auto border-t-2 border-slate-200 pt-8 bg-slate-100/50 p-4 md:p-6 rounded-2xl">
+            <div className="mt-auto border-t-2 border-slate-200 pt-8 bg-slate-100/50 p-4 md:p-6 rounded-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
                 <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><BookOpen size={20} /></div>
+                    <div className="p-2 bg-blue-100 text-blue-600 rounded-lg shadow-sm"><BookOpen size={20} /></div>
                     <div>
                         <h3 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight">{brand.name} Catalogues</h3>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">Digital Lookbooks</p>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">Brand Specific Brochures</p>
                     </div>
                 </div>
                 
@@ -136,7 +138,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSel
                                 </div>
                             </button>
                             
-                            {/* Info Section - BELOW the thumbnail as requested */}
+                            {/* Info Section */}
                             <div className="flex flex-col">
                                 <h4 className="text-[8px] md:text-xs font-black text-slate-800 uppercase leading-tight line-clamp-2 group-hover:text-blue-700 transition-colors">
                                     {catalog.title}

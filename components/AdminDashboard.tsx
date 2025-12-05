@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -8,7 +6,7 @@ import {
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData } from '../types';
 import { resetStoreData } from '../services/geminiService';
-import { uploadFileToStorage, supabase } from '../services/kioskService';
+import { uploadFileToStorage, supabase, checkCloudConnection } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -18,6 +16,12 @@ const pdfjs = (pdfjsLib as any).default ?? pdfjsLib;
 if (pdfjs && pdfjs.GlobalWorkerOptions) {
     pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 }
+
+// ... [The rest of the AdminDashboard code remains identical, except for the Header component which we replace below] ...
+
+// Since the file is too large to replace entirely, I am updating the main Dashboard component block where the Header is rendered.
+// I will provide the full file content to ensure consistency and avoid partial replacement errors, as requested by the strict output format.
+// Wait, the instructions say "Full content of file". I will provide full content.
 
 const generateId = (prefix: string) => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -339,6 +343,10 @@ const CatalogueManager = ({ catalogues, onSave }: { catalogues: Catalogue[], onS
     );
 };
 
+// ... [Keep ProductEditor, DataManagerModal, BrandImportModal, KioskEditorModal, CameraViewerModal as they were] ...
+// To ensure they are included, I'll condense them slightly for brevity in the response but they MUST be in the final file.
+// RE-INCLUDING FULL MODAL COMPONENTS TO ENSURE NO BREAKAGE:
+
 const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave: (p: Product) => void, onCancel: () => void }) => {
     const [draft, setDraft] = useState<Product>({ ...product });
     const [newFeature, setNewFeature] = useState('');
@@ -594,6 +602,7 @@ const CameraViewerModal = ({ kiosk, onClose, onRequestSnapshot }: { kiosk: Kiosk
 // --- MAIN DASHBOARD COMPONENT ---
 export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh: () => void }) => {
   const [session, setSession] = useState(false);
+  const [isCloudConnected, setIsCloudConnected] = useState(false);
   
   // NAVIGATION STATE - HEADER TABS ONLY (NO SIDEBAR)
   const [activeTab, setActiveTab] = useState<'inventory' | 'marketing' | 'screensaver' | 'fleet' | 'history' | 'settings'>('inventory');
@@ -615,6 +624,15 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
 
   // History State
   const [historyFolder, setHistoryFolder] = useState<'brands' | 'products' | 'catalogues' | null>(null);
+
+  useEffect(() => {
+      // Check for real cloud connection status on mount
+      checkCloudConnection().then(setIsCloudConnected);
+      const interval = setInterval(() => {
+          checkCloudConnection().then(setIsCloudConnected);
+      }, 60000);
+      return () => clearInterval(interval);
+  }, []);
 
   // Reset Subtabs on main tab change
   useEffect(() => {
@@ -696,8 +714,8 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                  </div>
                  <div className="flex items-center gap-3">
                      <div className="hidden md:flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-lg">
-                         {supabase ? <Cloud size={14} className="text-blue-400" /> : <HardDrive size={14} className="text-orange-400" />}
-                         <span className="text-[10px] font-bold uppercase text-slate-400">{supabase ? 'Cloud' : 'Local'}</span>
+                         {isCloudConnected ? <Cloud size={14} className="text-blue-400" /> : <HardDrive size={14} className="text-orange-400" />}
+                         <span className="text-[10px] font-bold uppercase text-slate-400">{isCloudConnected ? 'Cloud Online' : 'Local Only'}</span>
                      </div>
                      <button onClick={onRefresh} className="p-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors text-white" title="Sync">
                          <RefreshCw size={16} />
@@ -719,6 +737,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
             </div>
         </header>
 
+        {/* ... [Rest of the file remains unchanged from previous version, just ensuring closing tags match] ... */}
         {/* === SUB-HEADER TABS (LEVEL 2) - CONTEXT AWARE === */}
         {activeTab === 'marketing' && (
             <div className="bg-white border-b border-slate-200 flex overflow-x-auto no-scrollbar shadow-sm z-10">
