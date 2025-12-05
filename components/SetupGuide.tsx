@@ -319,18 +319,19 @@ vercel --prod`}
                                  <h3 className="text-lg font-black text-blue-900 uppercase">1. Fix Upload Errors (Storage Bucket)</h3>
                              </div>
                              <p className="text-sm text-slate-700 mb-4">
-                                 If you see "File too large" errors, it's because Supabase Storage isn't active. <br/>Run the SQL in <strong>Step 4 (Bottom)</strong> to fix this instantly.
+                                 If you see "File too large" errors or Policy Errors, run the SQL in <strong>Step 4 (Bottom)</strong>. The updated script fixes the "Policy already exists" issue.
                              </p>
                         </div>
 
                         <div>
-                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2">2. Setup Tables</h3>
+                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2">2. Setup Tables (Robust Version)</h3>
                             <p className="text-sm text-slate-600 mb-4">
-                                Go to the <strong>SQL Editor</strong> in Supabase, paste this code, and click <strong>RUN</strong>. This creates the database structure.
+                                Go to the <strong>SQL Editor</strong> in Supabase, paste this code, and click <strong>RUN</strong>. <br/>
+                                <span className="text-green-600 font-bold">UPDATED:</span> This script now auto-adds missing columns (like <code>assigned_zone</code>) to fix Kiosk Registration errors.
                             </p>
                             <CodeBlock 
                                 id="supabase-sql"
-                                label="SQL Editor"
+                                label="SQL Editor - Tables"
                                 code={`-- 1. Store Config Table (Holds all products/settings)
 create table if not exists public.store_config (
   id bigint primary key,
@@ -354,6 +355,12 @@ create table if not exists public.kiosks (
   restart_requested boolean default false
 );
 
+-- SAFEGUARDS: Ensure columns exist if table was created previously (Fixes "Missing Column" errors)
+alter table public.kiosks add column if not exists assigned_zone text;
+alter table public.kiosks add column if not exists location_description text;
+alter table public.kiosks add column if not exists request_snapshot boolean default false;
+alter table public.kiosks add column if not exists restart_requested boolean default false;
+
 -- 3. Initial Data Seed (Only if not exists)
 insert into public.store_config (id, data) 
 select 1, '{}'::jsonb
@@ -364,6 +371,7 @@ where not exists (select 1 from public.store_config where id = 1);
 DO $$
 BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.store_config;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.kiosks;
 EXCEPTION WHEN OTHERS THEN
     -- Ignore error if publication already exists or table is already a member
     NULL;
@@ -384,8 +392,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key`}
                         </div>
 
                         <div>
-                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2 text-red-600">4. Create Media Bucket (REQUIRED FOR VIDEOS)</h3>
-                            <p className="text-sm text-slate-600 mb-4">Run this SQL to create the 'kiosk-media' folder in the cloud and allow public access.</p>
+                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2 text-red-600">4. Create Media Bucket (UPDATED & FIXED)</h3>
+                            <p className="text-sm text-slate-600 mb-4">
+                                Run this SQL to create the 'kiosk-media' folder. <br/>
+                                <span className="font-bold text-blue-600">Fixed Error 42710:</span> This script now safely drops old policies before creating new ones.
+                            </p>
                             <CodeBlock 
                                 id="supabase-storage-sql"
                                 label="SQL Editor - Storage Fix"
@@ -394,23 +405,26 @@ insert into storage.buckets (id, name, public)
 values ('kiosk-media', 'kiosk-media', true)
 on conflict (id) do nothing;
 
--- 2. Drop old policies to prevent errors
+-- 2. Drop old conflicting policies (Fixes "Policy already exists" errors)
 drop policy if exists "Public Access" on storage.objects;
 drop policy if exists "Public Upload" on storage.objects;
 drop policy if exists "Public Update" on storage.objects;
 
--- 3. Allow Public Access (Read)
-create policy "Public Access"
+-- 3. Drop specific Kiosk policies (Idempotency check)
+drop policy if exists "Kiosk Public Read" on storage.objects;
+drop policy if exists "Kiosk Public Insert" on storage.objects;
+drop policy if exists "Kiosk Public Update" on storage.objects;
+
+-- 4. Create New Policies (Unique Names)
+create policy "Kiosk Public Read"
 on storage.objects for select
 using ( bucket_id = 'kiosk-media' );
 
--- 4. Allow Public Uploads (Insert)
-create policy "Public Upload"
+create policy "Kiosk Public Insert"
 on storage.objects for insert
 with check ( bucket_id = 'kiosk-media' );
 
--- 5. Allow Updates
-create policy "Public Update"
+create policy "Kiosk Public Update"
 on storage.objects for update
 using ( bucket_id = 'kiosk-media' );`}
                             />
