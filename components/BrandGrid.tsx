@@ -1,5 +1,3 @@
-
-
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Brand, Catalogue, HeroConfig, AdConfig, AdItem } from '../types';
 import { BookOpen, Globe, ChevronRight, MonitorPlay, MonitorStop, X, Grid } from 'lucide-react';
@@ -335,16 +333,16 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
         </div>
       </div>
 
-      {/* ALL BRANDS MODAL */}
+      {/* ALL BRANDS MODAL - UPDATED: WHITE BLURRY BACKGROUND */}
       {showAllBrands && (
-        <div className="fixed inset-0 z-[60] bg-slate-900/95 backdrop-blur-md p-4 md:p-12 animate-fade-in flex flex-col">
+        <div className="fixed inset-0 z-[60] bg-white/90 backdrop-blur-md p-4 md:p-12 animate-fade-in flex flex-col">
             <div className="flex justify-between items-center mb-8 shrink-0">
-                <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-                   <Grid className="text-blue-500" /> All Brands
+                <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-3">
+                   <Grid className="text-blue-600" /> All Brands
                 </h2>
                 <button 
                   onClick={() => setShowAllBrands(false)}
-                  className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors backdrop-blur-sm"
+                  className="bg-slate-200 hover:bg-slate-300 text-slate-600 p-3 rounded-full transition-colors"
                 >
                    <X size={24} />
                 </button>
@@ -359,22 +357,24 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                           setShowAllBrands(false);
                           onSelectBrand(brand);
                       }}
-                      className="group flex items-center justify-center transition-transform duration-300 hover:scale-110"
+                      className="group flex flex-col items-center justify-center gap-2 transition-transform duration-300 hover:scale-110 p-4 rounded-xl hover:bg-white/50 border border-transparent hover:border-slate-200/50"
                       title={brand.name}
                     >
                       <div className="relative w-24 h-24 md:w-32 md:h-32 flex items-center justify-center">
                         {brand.logoUrl ? (
+                          // REMOVED filters so logos appear naturally (dark logos visible on white bg)
                           <img 
                             src={brand.logoUrl} 
                             alt={brand.name} 
-                            className="w-full h-full object-contain filter grayscale brightness-200 contrast-125 opacity-70 group-hover:grayscale-0 group-hover:brightness-100 group-hover:opacity-100 transition-all duration-300 drop-shadow-lg"
+                            className="w-full h-full object-contain transition-all duration-300 drop-shadow-sm group-hover:drop-shadow-lg"
                           />
                         ) : (
-                          <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/10 text-white/50 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center text-2xl font-black transition-colors duration-300">
+                          <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-slate-200 text-slate-400 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center text-2xl font-black transition-colors duration-300">
                             {brand.name.charAt(0)}
                           </div>
                         )}
                       </div>
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wide group-hover:text-blue-600">{brand.name}</span>
                     </button>
                   ))}
                </div>

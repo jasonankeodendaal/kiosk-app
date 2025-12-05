@@ -422,7 +422,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
        <header className="shrink-0 h-10 bg-slate-900 text-white flex items-center justify-between px-2 md:px-4 z-50 border-b border-slate-800 shadow-md">
            <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
                {storeData.companyLogoUrl ? (
-                   <img src={storeData.companyLogoUrl} className="h-5 md:h-6 object-contain opacity-80" alt="Logo" />
+                   <img src={storeData.companyLogoUrl} className="h-4 md:h-6 object-contain opacity-80" alt="Logo" />
                ) : (
                    <Store size={16} className="text-blue-500" />
                )}
@@ -431,7 +431,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                {/* Device Info - Compact on Mobile */}
                <div className="flex items-center gap-1 md:gap-2 text-[8px] md:text-[10px] font-bold text-slate-300">
                   {deviceType === 'mobile' ? <Smartphone size={10} className="text-purple-500 md:w-3 md:h-3" /> : <ShieldCheck size={10} className="text-blue-500 md:w-3 md:h-3" />}
-                  <span className="font-mono text-white tracking-wider">{kioskId}</span>
+                  <span className="font-mono text-white tracking-wider truncate max-w-[60px] md:max-w-none">{kioskId}</span>
                </div>
                
                {/* Hide Shop Name on Small Screens */}
@@ -445,7 +445,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                 {/* Connection Status - Compact */}
                 <div className={`flex items-center gap-1 md:gap-2 px-1.5 md:px-2 py-0.5 rounded-full ${isCloudConnected ? 'bg-blue-900/50 text-blue-300 border border-blue-800' : 'bg-orange-900/50 text-orange-300 border border-orange-800'}`}>
                     {isCloudConnected ? <Cloud size={8} className="md:w-[10px] md:h-[10px]" /> : <HardDrive size={8} className="md:w-[10px] md:h-[10px]" />}
-                    <span className="text-[7px] md:text-[9px] font-black uppercase">{isCloudConnected ? (window.innerWidth > 768 ? `Cloud: ${getCloudProjectName()}` : 'Cloud') : 'Local'}</span>
+                    <span className="text-[7px] md:text-[9px] font-black uppercase hidden sm:inline">{isCloudConnected ? (window.innerWidth > 768 ? `Cloud: ${getCloudProjectName()}` : 'Cloud') : 'Local'}</span>
                 </div>
 
                 <div className="flex items-center gap-2 border-l border-slate-700 pl-2 md:pl-4">
@@ -461,7 +461,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                     {/* ZOOM CONTROL - Hidden on very small screens to save space, or just icon */}
                     <button 
                        onClick={() => setZoomLevel(zoomLevel === 1 ? 0.75 : 1)}
-                       className={`p-1 rounded flex items-center gap-1 text-[8px] md:text-[10px] font-bold uppercase w-8 md:w-12 justify-center transition-colors ${zoomLevel === 1 ? 'text-blue-400 bg-blue-900/30' : 'text-purple-400 bg-purple-900/30'}`}
+                       className={`p-1 rounded flex items-center gap-1 text-[8px] md:text-[10px] font-bold uppercase w-6 md:w-12 justify-center transition-colors ${zoomLevel === 1 ? 'text-blue-400 bg-blue-900/30' : 'text-purple-400 bg-purple-900/30'}`}
                        title="Toggle UI Zoom"
                     >
                        {zoomLevel === 1 ? <ZoomIn size={12} className="md:w-3.5 md:h-3.5" /> : <ZoomOut size={12} className="md:w-3.5 md:h-3.5" />}
@@ -480,10 +480,10 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
 
        {/* MAIN CONTENT WRAPPER WITH ZOOM */}
        <div 
-         className="flex-1 overflow-hidden relative flex flex-col transition-transform duration-300 origin-top"
+         className="flex-1 relative flex flex-col transition-transform duration-300 origin-top overflow-hidden"
          style={{ zoom: zoomLevel }}
        >
-          <div className="flex-1 overflow-hidden relative">
+          <div className="flex-1 relative flex flex-col min-h-0">
              {!activeBrand ? (
                <BrandGrid 
                  brands={storeData.brands || []} 

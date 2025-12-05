@@ -213,8 +213,8 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
                             )}
                             
                             <FileUpload 
-                                label="Upload Pages (Multiple Images)" 
-                                accept="image/*" 
+                                label="Upload Pages (JPG/PNG Only)" 
+                                accept="image/png, image/jpeg, image/jpg" 
                                 allowMultiple={true}
                                 currentUrl="" 
                                 onUpload={(d: any, t: any, b64: any) => handleUpload(cat.id, d, t, b64)} 
@@ -691,7 +691,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
         </header>
 
         {activeTab === 'marketing' && (
-            <div className="bg-white border-b border-slate-200 flex overflow-x-auto no-scrollbar shadow-sm z-10">
+            <div className="bg-white border-b border-slate-200 flex overflow-x-auto no-scrollbar shadow-sm z-10 shrink-0">
                 <button onClick={() => setActiveSubTab('hero')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'hero' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Hero Banner</button>
                 <button onClick={() => setActiveSubTab('ads')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'ads' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Ad Zones</button>
                 <button onClick={() => setActiveSubTab('catalogues')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'catalogues' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Pamphlets & Catalogues</button>
@@ -759,11 +759,11 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                     )}
                     {activeSubTab === 'ads' && (
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {['homeBottomLeft', 'homeBottomRight', 'homeSideVertical'].map(zone => (
+                            {['homeBottomLeft', 'homeBottomRight', 'homeSideVertical', 'screensaver'].map(zone => (
                                 <div key={zone} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                                     <h4 className="font-bold uppercase text-xs mb-1">{zone.replace('home', '')}</h4>
                                     <p className="text-[10px] text-slate-400 mb-4 uppercase font-bold tracking-wide">
-                                        {zone.includes('Side') ? 'Size: 1080x1920 (Portrait)' : 'Size: 1920x1080 (Landscape)'}
+                                        {zone.includes('Side') ? 'Size: 1080x1920 (Portrait)' : zone.includes('screensaver') ? 'Mixed Media' : 'Size: 1920x1080 (Landscape)'}
                                     </p>
                                     <FileUpload 
                                         label="Upload Media" 
@@ -920,12 +920,52 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                              </div>
                          </div>
                      </div>
+                     
+                     {/* Screensaver Ads Direct Management */}
+                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mt-8">
+                         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+                             <div className="p-2 bg-orange-50 text-orange-600 rounded-lg"><MegaphoneIcon size={20} /></div>
+                             <h3 className="font-black text-slate-900 uppercase tracking-wider text-sm">Screensaver Ads</h3>
+                         </div>
+                         <FileUpload 
+                             label="Upload Custom Screensaver Media" 
+                             accept="image/*,video/*" 
+                             allowMultiple 
+                             onUpload={(urls:any, type:any) => { 
+                                 const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ad'), type, url:u})); 
+                                 handleLocalUpdate({...localData, ads: {...localData.ads, screensaver: [...(localData.ads.screensaver || []), ...newAds]}}); 
+                             }} 
+                         />
+                         <div className="grid grid-cols-4 md:grid-cols-6 gap-2 mt-4">
+                             {(localData.ads?.screensaver || []).map((ad: any, idx: number) => (
+                                 <div key={ad.id} className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                                     {ad.type === 'video' ? (
+                                         <video src={ad.url} className="w-full h-full object-cover opacity-60" />
+                                     ) : (
+                                         <img src={ad.url} alt="Ad" className="w-full h-full object-cover" />
+                                     )}
+                                     <button 
+                                         onClick={() => {
+                                             const newAdsList = localData.ads.screensaver.filter((_: any, i: number) => i !== idx);
+                                             handleLocalUpdate({ ...localData, ads: { ...localData.ads, screensaver: newAdsList } });
+                                         }}
+                                         className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                     >
+                                         <Trash2 size={10} />
+                                     </button>
+                                 </div>
+                             ))}
+                             {(localData.ads?.screensaver || []).length === 0 && (
+                                <div className="col-span-4 text-center text-slate-400 text-xs italic py-4">No custom ads loaded. Use the upload button above.</div>
+                             )}
+                         </div>
+                     </div>
                 </div>
             )}
             
             {/* HISTORY & ARCHIVE TAB */}
             {activeTab === 'history' && (
-                <div className="max-w-4xl mx-auto p-4 md:p-8 animate-fade-in">
+                <div className="max-w-4xl mx-auto p-4 md:p-8 animate-fade-in min-h-[50vh]">
                     <h2 className="text-2xl font-black uppercase mb-6 text-slate-900">Archive & History</h2>
                     <div className="space-y-8">
                          {/* Archived Brands */}
@@ -973,7 +1013,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             
             {/* SYSTEM SETTINGS TAB */}
             {activeTab === 'settings' && (
-                <div className="max-w-4xl mx-auto p-4 md:p-8 animate-fade-in pb-20">
+                <div className="max-w-4xl mx-auto p-4 md:p-8 animate-fade-in pb-20 min-h-[50vh]">
                      <h2 className="text-2xl font-black uppercase mb-6 text-slate-900">System Configuration</h2>
                      
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -1013,9 +1053,9 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             )}
         </main>
         
-        {/* ADMIN FOOTER */}
-        <footer className="bg-white border-t border-slate-200 p-2 px-6 flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-widest shrink-0 z-10">
-            <div>JSTYP Admin Console v1.2</div>
+        {/* ADMIN FOOTER - FIXED VISIBILITY */}
+        <footer className="bg-white border-t border-slate-200 p-3 px-6 flex justify-between items-center text-[10px] text-slate-500 font-bold uppercase tracking-widest shrink-0 z-30 shadow-[0_-5px_10px_rgba(0,0,0,0.02)]">
+            <div>JSTYP Admin Console v1.3</div>
             <div className="flex gap-4">
                 <a href="#" onClick={(e) => {e.preventDefault(); setShowGuide(true);}} className="hover:text-blue-500 transition-colors">Help</a>
                 <span>&copy; {new Date().getFullYear()}</span>
