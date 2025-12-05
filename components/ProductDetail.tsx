@@ -114,44 +114,43 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
           {/* Main Media Stage */}
           <div className="flex-1 flex items-center justify-center p-8 relative bg-gradient-to-b from-slate-800 to-slate-900">
              {allMedia.length > 0 ? (
-                <div className="relative w-full h-full flex items-center justify-center group">
+                <div className="relative w-full h-full flex items-center justify-center group bg-black rounded-xl overflow-hidden shadow-2xl">
                   {currentMedia.type === 'image' ? (
                      <img 
                        src={currentMedia.url} 
                        alt={product.name} 
-                       className="max-w-full max-h-full object-contain relative z-10 drop-shadow-2xl cursor-pointer"
+                       className="w-full h-full object-contain relative z-10 cursor-pointer hover:scale-105 transition-transform duration-500"
                        onClick={() => handleEnlargeMedia(currentMediaIndex)}
                      />
                   ) : (
-                     <div className="relative w-full h-full flex items-center justify-center">
+                     <div className="relative w-full h-full flex items-center justify-center cursor-pointer" onClick={() => handleEnlargeMedia(currentMediaIndex)}>
                        <video 
                          src={currentMedia.url} 
                          controls={false} 
                          autoPlay 
                          loop 
-                         muted={false} 
-                         className="max-w-full max-h-full object-contain relative z-10 drop-shadow-2xl"
+                         muted={true} // Muted is required for browser autoplay policy
+                         playsInline
+                         className="w-full h-full object-contain relative z-10"
                        />
-                       <PlayCircle 
-                         size={64} 
-                         className="absolute text-white/80 transition-transform group-hover:scale-110 cursor-pointer z-20 drop-shadow-lg" 
-                         onClick={() => handleEnlargeMedia(currentMediaIndex)} 
-                       />
+                       <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                            <PlayCircle size={80} className="text-white/50 group-hover:text-white/80 transition-colors drop-shadow-lg" />
+                       </div>
                      </div>
                   )}
 
                   {allMedia.length > 1 && (
                      <>
-                        <button onClick={handlePrevMedia} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/50 text-white p-3 rounded-full backdrop-blur-sm z-20 transition-all border border-white/10"><LeftArrow size={24} /></button>
-                        <button onClick={handleNextMedia} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/50 text-white p-3 rounded-full backdrop-blur-sm z-20 transition-all border border-white/10"><RightArrow size={24} /></button>
+                        <button onClick={handlePrevMedia} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/50 text-white p-3 rounded-full backdrop-blur-sm z-30 transition-all border border-white/10"><LeftArrow size={24} /></button>
+                        <button onClick={handleNextMedia} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/50 text-white p-3 rounded-full backdrop-blur-sm z-30 transition-all border border-white/10"><RightArrow size={24} /></button>
                      </>
                   )}
 
                   {/* View All Grid Button */}
                   {allMedia.length > 0 && (
                       <button 
-                          onClick={() => setShowGalleryModal(true)}
-                          className="absolute bottom-4 right-4 z-20 bg-black/50 hover:bg-black/70 text-white px-3 py-1.5 rounded-lg backdrop-blur-md border border-white/10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setShowGalleryModal(true); }}
+                          className="absolute bottom-4 right-4 z-30 bg-black/50 hover:bg-black/70 text-white px-3 py-1.5 rounded-lg backdrop-blur-md border border-white/10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
                       >
                           <LayoutGrid size={14} /> View Gallery ({allMedia.length})
                       </button>
@@ -178,8 +177,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                       {media.type === 'image' ? (
                          <img src={media.url} className="w-full h-full object-cover" alt="" />
                       ) : (
-                         <div className="w-full h-full flex items-center justify-center bg-slate-800">
-                             <PlayCircle size={20} className="text-white" />
+                         <div className="w-full h-full flex items-center justify-center bg-slate-800 relative">
+                             <video src={media.url} className="w-full h-full object-cover opacity-50" muted />
+                             <PlayCircle size={20} className="text-white absolute" />
                          </div>
                       )}
                    </button>
@@ -299,21 +299,33 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
            </button>
         </div>
 
-        <div className="w-full h-[45vh] bg-white relative shrink-0 group">
+        <div className="w-full h-[45vh] bg-black relative shrink-0 group flex items-center justify-center">
            {currentMedia ? (
              currentMedia.type === 'image' ? (
-                <img src={currentMedia.url} className="w-full h-full object-contain p-6" alt={product.name} onClick={() => handleEnlargeMedia(currentMediaIndex)} />
+                <img src={currentMedia.url} className="w-full h-full object-contain p-6 bg-white" alt={product.name} onClick={() => handleEnlargeMedia(currentMediaIndex)} />
              ) : (
-                <video src={currentMedia.url} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                <div className="w-full h-full relative" onClick={() => handleEnlargeMedia(currentMediaIndex)}>
+                     <video 
+                        src={currentMedia.url} 
+                        className="w-full h-full object-contain" 
+                        autoPlay 
+                        muted 
+                        loop 
+                        playsInline 
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                         <PlayCircle size={48} className="text-white/50" />
+                    </div>
+                </div>
              )
            ) : (
-             <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={48} /></div>
+             <div className="w-full h-full flex items-center justify-center text-slate-300 bg-white"><ImageIcon size={48} /></div>
            )}
 
            {/* Mobile View Gallery Button */}
            {allMedia.length > 0 && (
                <button 
-                  onClick={() => setShowGalleryModal(true)}
+                  onClick={(e) => { e.stopPropagation(); setShowGalleryModal(true); }}
                   className="absolute bottom-4 right-4 z-30 bg-black/50 text-white px-3 py-1.5 rounded-full backdrop-blur-md text-[10px] font-bold uppercase flex items-center gap-1.5 shadow-sm border border-white/10"
                >
                    <LayoutGrid size={12} /> Gallery
@@ -454,7 +466,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
           )}
 
           <div className="relative w-full h-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
-            {enlargedMedia.type === 'image' ? <img src={enlargedMedia.url} className="max-w-full max-h-full object-contain" /> : <video src={enlargedMedia.url} controls autoPlay className="max-w-full max-h-full object-contain" />}
+            {enlargedMedia.type === 'image' ? (
+                <img src={enlargedMedia.url} className="max-w-full max-h-full object-contain" />
+            ) : (
+                // Enlarged view uses CONTROLS and AUTOPLAY (Sound allowed because user interacted)
+                <video src={enlargedMedia.url} controls autoPlay className="max-w-full max-h-full object-contain" />
+            )}
             
             {/* Counter */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-md text-xs font-bold uppercase tracking-widest border border-white/10">
@@ -500,7 +517,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                           />
                       ) : (
                           <div className="w-full h-full bg-slate-800 flex items-center justify-center relative">
-                              <video src={media.url} className="w-full h-full object-cover opacity-60" muted />
+                              <video src={media.url} className="w-full h-full object-cover opacity-60" muted autoPlay loop playsInline />
                               <div className="absolute inset-0 flex items-center justify-center">
                                   <PlayCircle size={32} className="text-white drop-shadow-lg" />
                               </div>

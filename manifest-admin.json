@@ -6,13 +6,14 @@
   "start_url": "/admin",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "scope": "/admin",
   "categories": ["business", "utilities", "management"],
   "icons": [
     {
-      "src": "https://i.ibb.co/sd36Xj4Q/image.png",
+      "src": "https://i.ibb.co/cS36Vp5w/maskable-icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -20,10 +21,10 @@
   ],
   "screenshots": [
     {
-      "src": "https://placehold.co/1280x720/0f172a/white?text=Admin+Dashboard",
-      "sizes": "1280x720",
+      "src": "https://placehold.co/720x1280/0f172a/white?text=Admin+Dashboard",
+      "sizes": "720x1280",
       "type": "image/png",
-      "form_factor": "wide"
+      "form_factor": "narrow"
     }
   ]
 }
