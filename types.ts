@@ -126,6 +126,8 @@ export interface ArchiveData {
 }
 
 export interface AboutConfig {
+    title?: string;
+    text?: string;
     audioUrl?: string;
 }
 

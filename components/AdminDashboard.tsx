@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual } from '../types';
 import { resetStoreData } from '../services/geminiService';
@@ -686,7 +686,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                 <button onClick={() => setActiveSubTab('hero')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'hero' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Hero Banner</button>
                 <button onClick={() => setActiveSubTab('ads')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'ads' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Ad Zones</button>
                 <button onClick={() => setActiveSubTab('catalogues')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'catalogues' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Pamphlets & Catalogues</button>
-                <button onClick={() => setActiveSubTab('about')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'about' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>About Page</button>
             </div>
         )}
 
@@ -733,28 +732,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             {activeTab === 'marketing' && (
                 <div className="max-w-5xl mx-auto">
                     {activeSubTab === 'catalogues' && <CatalogueManager catalogues={localData.catalogues || []} onSave={(c) => handleLocalUpdate({ ...localData, catalogues: c })} />}
-                    {activeSubTab === 'about' && (
-                        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-                            <h2 className="text-xl font-black uppercase text-slate-900">About Page Configuration</h2>
-                            <p className="text-sm text-slate-600">Configure the content for the <code>/about</code> page of your kiosk.</p>
-                            
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                                <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Audio Guide</label>
-                                <FileUpload 
-                                    label="Upload Audio Narration (MP3)" 
-                                    accept="audio/*" 
-                                    icon={<Music />}
-                                    currentUrl="" 
-                                    onUpload={(url: any) => handleLocalUpdate({ ...localData, about: { ...localData.about, audioUrl: url } })} 
-                                />
-                                {localData.about?.audioUrl && (
-                                    <div className="mt-2 p-2 bg-green-50 text-green-700 text-xs font-bold rounded flex items-center gap-2">
-                                        <Check size={12} /> Audio file uploaded successfully.
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                    
                     {activeSubTab === 'hero' && (
                         <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1072,6 +1050,57 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
 
             {activeTab === 'settings' && (
                 <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+                    
+                    {/* ABOUT PAGE CONFIGURATION (MOVED HERE) */}
+                    <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                        <div className="flex justify-between items-start">
+                             <div>
+                                <h2 className="text-xl font-black uppercase text-slate-900">About Page Configuration</h2>
+                                <p className="text-sm text-slate-600">Configure content for the client-facing <code>/about</code> page.</p>
+                             </div>
+                             <button 
+                                onClick={() => window.open('/about', '_blank')}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg font-bold text-xs uppercase hover:bg-blue-100 transition-colors"
+                             >
+                                <Share2 size={16} /> Open Page
+                             </button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <InputField 
+                                label="Page Title" 
+                                val={localData.about?.title || 'About Our Store'} 
+                                onChange={(e: any) => handleLocalUpdate({ ...localData, about: { ...localData.about, title: e.target.value } })} 
+                            />
+                            
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Audio Guide</label>
+                                <FileUpload 
+                                    label="Upload Audio Narration (MP3)" 
+                                    accept="audio/*" 
+                                    icon={<Music />}
+                                    currentUrl="" 
+                                    onUpload={(url: any) => handleLocalUpdate({ ...localData, about: { ...localData.about, audioUrl: url } })} 
+                                />
+                                {localData.about?.audioUrl && (
+                                    <div className="mt-2 p-2 bg-green-50 text-green-700 text-xs font-bold rounded flex items-center gap-2">
+                                        <Check size={12} /> Audio file uploaded successfully.
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">Main Content Text</label>
+                                <textarea 
+                                    value={localData.about?.text || ''} 
+                                    onChange={(e) => handleLocalUpdate({ ...localData, about: { ...localData.about, text: e.target.value } })} 
+                                    className="w-full p-4 bg-white text-black border border-slate-300 rounded-xl h-48 focus:ring-2 focus:ring-blue-500 outline-none text-sm leading-relaxed" 
+                                    placeholder="Enter your company description here..." 
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
                         <div className="flex items-center gap-4 mb-6">
                             <div className="p-3 bg-red-100 text-red-600 rounded-xl"><AlertCircle size={24} /></div>

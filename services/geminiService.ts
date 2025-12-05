@@ -34,6 +34,8 @@ const DEFAULT_DATA: StoreData = {
   fleet: [],
   brands: [],
   about: {
+      title: "About Our Store",
+      text: "Welcome to our interactive kiosk experience.\n\nExplore our latest products, browse catalogues, and discover new brands. Our team is dedicated to providing you with the best service and information.\n\nUse this kiosk to find detailed specifications, view galleries, and compare models.",
       audioUrl: ""
   }
 };
