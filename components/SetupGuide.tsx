@@ -306,7 +306,7 @@ create policy "Enable access to all users" on public.store_config for all using 
 -- Grant permissions to anon role (just in case)
 grant all on table public.kiosks to anon;
 grant all on table public.store_config to anon;
-grant all on sequence public.store_config_id_seq to anon;
+-- REMOVED: grant all on sequence public.store_config_id_seq to anon; (Fixes 42P01 error)
 
 -- 5. ENABLE REALTIME (Safe Mode)
 -- This allows the Kiosk to "listen" for new commands like Snapshot/Restart
