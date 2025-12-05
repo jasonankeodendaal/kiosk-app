@@ -325,22 +325,21 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key`}
                         </div>
 
                         <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
-                            <h3 className="font-bold text-orange-900 uppercase text-sm tracking-wider mb-2">2. Setup Tables (Run This First!)</h3>
+                            <div className="flex items-center gap-2 text-orange-900 font-black uppercase text-sm mb-2">
+                                <Database size={16} />
+                                <h3>2. RUN THIS SQL SCRIPT (Fixes All Errors)</h3>
+                            </div>
                             <p className="text-sm text-slate-600 mb-4">
-                                Go to the <strong>SQL Editor</strong> in Supabase, paste this code, and click <strong>RUN</strong>. <br/>
-                                <span className="text-green-600 font-bold">CRITICAL:</span> This creates the Kiosk tables. If you get "Relation not found" or "Cloud Registration Failed" errors, run this script.
+                                This script fixes <strong>Error 42710</strong> (Policies), <strong>Registration Failures</strong> (Missing Columns), and <strong>Storage Errors</strong>. <br/>
+                                <span className="text-blue-600 font-bold">INSTRUCTIONS:</span> Copy this code -> Go to Supabase <strong>SQL Editor</strong> -> Paste -> Click <strong>Run</strong>.
                             </p>
                             <CodeBlock 
                                 id="supabase-sql"
-                                label="SQL Editor - Tables"
-                                code={`-- 1. Store Config Table
-create table if not exists public.store_config (
-  id bigint primary key,
-  data jsonb,
-  updated_at timestamp with time zone default timezone('utc'::text, now())
-);
+                                label="SQL Editor - COMPLETE SETUP SCRIPT"
+                                code={`-- 0. REFRESH SCHEMA CACHE (Fixes 'Cloud not find column' errors immediately)
+NOTIFY pgrst, 'reload schema';
 
--- 2. Kiosk Telemetry Table
+-- 1. KIOSKS TABLE SETUP
 create table if not exists public.kiosks (
   id text primary key,
   name text,
@@ -349,66 +348,44 @@ create table if not exists public.kiosks (
   last_seen timestamp with time zone,
   wifi_strength int,
   ip_address text,
-  version text,
-  location_description text,
-  assigned_zone text,
-  request_snapshot boolean default false,
-  restart_requested boolean default false
+  version text
 );
 
--- 3. FORCE ADD COLUMNS (Fixes 'Cloud Registration Failed' Errors)
-alter table public.kiosks add column if not exists assigned_zone text;
-alter table public.kiosks add column if not exists location_description text;
+-- Force add columns (Safe to run multiple times)
+alter table public.kiosks add column if not exists assigned_zone text default 'Unassigned';
+alter table public.kiosks add column if not exists location_description text default 'Newly Registered';
 alter table public.kiosks add column if not exists request_snapshot boolean default false;
 alter table public.kiosks add column if not exists restart_requested boolean default false;
+alter table public.kiosks add column if not exists snapshot_url text;
 
--- 4. Initial Data Seed
+-- 2. STORE CONFIG TABLE
+create table if not exists public.store_config (
+  id bigint primary key,
+  data jsonb,
+  updated_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Seed Data (Only if empty)
 insert into public.store_config (id, data) 
 select 1, '{}'::jsonb
 where not exists (select 1 from public.store_config where id = 1);
 
--- 5. Enable Realtime (Auto-Sync)
-DO $$
-BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.store_config;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.kiosks;
-EXCEPTION WHEN OTHERS THEN
-    NULL;
-END;
-$$;`}
-                            />
-                        </div>
-
-                        <div className="border-2 border-blue-500 rounded-xl p-6 bg-blue-50">
-                            <div className="flex items-center gap-2 text-blue-900 font-black uppercase text-sm mb-2">
-                                <AlertTriangle size={16} />
-                                <h3>3. Fix Storage & Policies (Fixes Error 42710)</h3>
-                            </div>
-                            <p className="text-sm text-blue-800 mb-4">
-                                Run this SQL if you see <strong>ERROR: 42710</strong> (Policy already exists). <br/>
-                                This script forcefully cleans up all old policies before creating new ones.
-                            </p>
-                            <CodeBlock 
-                                id="supabase-storage-sql"
-                                label="SQL Editor - Fix Storage"
-                                code={`-- 1. Create the Bucket (if missing)
+-- 3. STORAGE SETUP (Robust Fix for 42710)
 insert into storage.buckets (id, name, public)
 values ('kiosk-media', 'kiosk-media', true)
 on conflict (id) do nothing;
 
--- 2. REMOVE ALL CONFLICTING POLICIES (Fixes 42710 Error)
--- We drop every possible variation of the policy name to be safe
+-- DROP ALL POTENTIAL CONFLICTING POLICIES (Fixes 'Policy already exists' error)
 drop policy if exists "Public Access" on storage.objects;
 drop policy if exists "Public Upload" on storage.objects;
-drop policy if exists "Public Update" on storage.objects;
-drop policy if exists "Give me access" on storage.objects;
 drop policy if exists "Kiosk Public Read" on storage.objects;
 drop policy if exists "Kiosk Public Insert" on storage.objects;
 drop policy if exists "Kiosk Public Update" on storage.objects;
+drop policy if exists "Give me access" on storage.objects;
+drop policy if exists "Allow Public Read" on storage.objects;
 drop policy if exists "Anon Read" on storage.objects;
-drop policy if exists "Authenticated Upload" on storage.objects;
 
--- 3. CREATE CLEAN POLICIES
+-- CREATE FRESH POLICIES
 create policy "Kiosk Public Read"
 on storage.objects for select
 using ( bucket_id = 'kiosk-media' );
@@ -419,9 +396,14 @@ with check ( bucket_id = 'kiosk-media' );
 
 create policy "Kiosk Public Update"
 on storage.objects for update
-using ( bucket_id = 'kiosk-media' );`}
+using ( bucket_id = 'kiosk-media' );
+
+-- 4. ENABLE REALTIME
+alter publication supabase_realtime add table public.store_config;
+alter publication supabase_realtime add table public.kiosks;`}
                             />
                         </div>
+
                     </div>
                 </div>
               )}

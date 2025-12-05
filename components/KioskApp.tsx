@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -156,7 +157,7 @@ export const SetupScreen = ({
   );
 };
 
-export const KioskApp = ({ storeData, onGoToAdmin, lastSyncTime }: { storeData: StoreData | null, onGoToAdmin: () => void, lastSyncTime?: string }) => {
+export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | null, lastSyncTime?: string }) => {
   const [isSetup, setIsSetup] = useState(isKioskConfigured());
   const [kioskId, setKioskId] = useState(getKioskId());
   const [deviceType, setDeviceTypeState] = useState(getDeviceType());

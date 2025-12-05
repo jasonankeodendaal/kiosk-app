@@ -86,7 +86,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
               onClick={onBack}
               className="flex items-center text-white/80 hover:text-white font-bold transition-colors uppercase text-[10px] tracking-widest bg-black/30 backdrop-blur-md px-4 py-2 rounded-full border border-white/10"
             >
-              <ChevronLeft size={14} className="mr-1" /> Back
+              <LeftArrow size={14} className="mr-1" /> Back
             </button>
           </div>
           
@@ -271,7 +271,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
       <div className="lg:hidden flex flex-col h-full bg-slate-100 relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-30 pointer-events-none">
            <button onClick={onBack} className="pointer-events-auto w-10 h-10 bg-white/90 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center text-slate-900 hover:bg-white active:scale-95 transition-all">
-             <ChevronLeft size={24} />
+             <LeftArrow size={24} />
            </button>
            <button onClick={onToggleScreensaver} className={`pointer-events-auto w-10 h-10 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center transition-all ${screensaverEnabled ? 'bg-green-500/90 text-white' : 'bg-black/50 text-white/80'}`}>
              {screensaverEnabled ? <MonitorPlay size={20} /> : <MonitorStop size={20} />}
@@ -288,12 +288,23 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
            ) : (
              <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={48} /></div>
            )}
+
+           {/* Mobile Arrows */}
            {allMedia.length > 1 && (
-             <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-1.5 z-20">
-               {allMedia.map((_, i) => (
-                 <div key={i} className={`h-1.5 rounded-full transition-all shadow-sm ${i === currentMediaIndex ? 'w-6 bg-slate-900' : 'w-1.5 bg-slate-300'}`} />
-               ))}
-             </div>
+             <>
+                 <button onClick={handlePrevMedia} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 text-slate-900 p-2 rounded-full shadow-lg z-30 active:scale-95 transition-transform border border-slate-100">
+                     <LeftArrow size={20} />
+                 </button>
+                 <button onClick={handleNextMedia} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 text-slate-900 p-2 rounded-full shadow-lg z-30 active:scale-95 transition-transform border border-slate-100">
+                     <RightArrow size={20} />
+                 </button>
+                 
+                 <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-20">
+                   {allMedia.map((_, i) => (
+                     <div key={i} className={`h-1.5 rounded-full transition-all shadow-sm ${i === currentMediaIndex ? 'w-6 bg-slate-900' : 'w-1.5 bg-slate-300'}`} />
+                   ))}
+                 </div>
+             </>
            )}
         </div>
 

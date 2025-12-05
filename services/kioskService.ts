@@ -1,3 +1,5 @@
+
+
 import { createClient } from '@supabase/supabase-js';
 import { KioskRegistry } from '../types';
 
@@ -157,7 +159,7 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
         };
 
         // Write directly to Telemetry Table
-        // This acts as the Source of Truth. We do NOT update store_config.data.fleet anymore.
+        // This acts as the Source of Truth.
         const { error: telemetryError } = await supabase.from('kiosks').upsert(kioskData);
         
         if (telemetryError) {
@@ -169,7 +171,31 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
 
       } catch(e: any) {
         console.error("Failed to register kiosk in cloud", e);
-        alert(`Setup Warning: Cloud registration failed (${e.message}). Device is running locally.`);
+        
+        // AUTO-RECOVERY FALLBACK
+        // If the error is missing columns (Schema drift), try to register with minimal data
+        // This prevents the user from being stuck at the setup screen
+        if (e.message && (e.message.includes('assigned_zone') || e.message.includes('column'))) {
+            console.warn("Detected Schema Mismatch. Attempting Legacy Registration...");
+            try {
+                const minimalData = {
+                     id, 
+                     name: shopName, 
+                     device_type: deviceType, 
+                     status: 'online', 
+                     last_seen: new Date().toISOString()
+                };
+                const { error: retryError } = await supabase.from('kiosks').upsert(minimalData);
+                if (!retryError) {
+                    console.log("Legacy Registration Successful. Please run updated SQL scripts in Admin Hub.");
+                    return true;
+                }
+            } catch (retryEx) {
+                console.error("Legacy retry failed", retryEx);
+            }
+        }
+
+        alert(`Setup Warning: Cloud registration failed (${e.message}). Device is running locally. Please check Admin Hub -> Settings -> System Setup.`);
       }
   } else {
       console.warn("Supabase not configured. Kiosk running in local mode.");

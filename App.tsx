@@ -127,7 +127,6 @@ export default function App() {
   if (normalizedRoute === '/admin') {
     return (
       <AdminDashboard 
-        onExit={() => handleNavigate('/')} 
         storeData={storeData}
         onUpdateData={handleUpdateData}
         onRefresh={() => {
@@ -156,7 +155,6 @@ export default function App() {
       <KioskApp 
         storeData={storeData}
         lastSyncTime={lastSyncTime}
-        onGoToAdmin={() => handleNavigate('/admin')}
       />
     </>
   );

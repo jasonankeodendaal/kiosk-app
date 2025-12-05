@@ -428,7 +428,7 @@ const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, on
     );
 };
 
-export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh: () => void }) => {
+export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh: () => void }) => {
   const [session, setSession] = useState(false);
   const [activeTab, setActiveTab] = useState<'inventory' | 'marketing' | 'screensaver' | 'fleet' | 'history' | 'settings'>('inventory');
   const [activeSubTab, setActiveSubTab] = useState<string>('brands'); 
@@ -492,7 +492,10 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                          <span className="text-[10px] font-bold uppercase">{isCloudConnected ? 'Cloud Online' : 'Local Mode'}</span>
                      </div>
                      <button onClick={onRefresh} className="p-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white"><RefreshCw size={16} /></button>
-                     <button onClick={onExit} className="p-2 bg-red-900/50 hover:bg-red-900 text-red-400 hover:text-white rounded-lg"><LogOut size={16} /></button>
+                     <button onClick={() => setSession(false)} className="p-2 bg-red-900/50 hover:bg-red-900 text-red-400 hover:text-white rounded-lg flex items-center gap-2">
+                        <LogOut size={16} />
+                        <span className="text-[10px] font-bold uppercase hidden md:inline">Logout</span>
+                     </button>
                  </div>
             </div>
             <div className="flex overflow-x-auto no-scrollbar">
