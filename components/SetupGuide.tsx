@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { X, Server, Copy, Check, ArrowRight, ExternalLink, ShieldCheck, Database, Key, Settings, Layers, Smartphone, Globe, Cpu, Cloud, ToggleRight, CloudLightning, Book, AlertTriangle, PlayCircle, FolderOpen, Lock } from 'lucide-react';
+import { X, Server, Copy, Check, ArrowRight, ExternalLink, ShieldCheck, Database, Key, Settings, Layers, Smartphone, Globe, Cpu, Cloud, ToggleRight, CloudLightning, Book, AlertTriangle, PlayCircle, FolderOpen, Lock, MousePointer } from 'lucide-react';
 
 interface SetupGuideProps {
   onClose: () => void;
@@ -150,21 +151,53 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
                         <div className="flex gap-6">
                             <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-lg">2</div>
                             <div className="flex-1">
-                                <h3 className="text-xl font-bold text-slate-900 mb-2">Get API Keys</h3>
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">Get API Keys (Detailed)</h3>
                                 <p className="text-slate-600 mb-4 text-sm">
-                                    Your Kiosk app needs a "username" and "password" to talk to Supabase. These are called API Keys.
+                                    This is the most critical step. Your kiosk needs these two keys to log in.
                                 </p>
-                                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-4">
-                                    <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase text-slate-500">
-                                        <Settings size={14} /> Navigation Path
+                                
+                                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                    <div className="bg-slate-50 border-b border-slate-100 p-3 flex items-center gap-2">
+                                        <MousePointer size={14} className="text-blue-600" />
+                                        <span className="text-xs font-black uppercase text-slate-600">Follow these exact clicks:</span>
                                     </div>
-                                    <p className="font-mono text-sm font-bold text-slate-800">
-                                        Project Settings (Gear Icon) &rarr; API
-                                    </p>
+                                    <div className="p-4 space-y-4">
+                                        <div className="flex items-start gap-3">
+                                            <div className="bg-slate-100 p-2 rounded text-slate-600"><Settings size={18} /></div>
+                                            <div>
+                                                <div className="font-bold text-sm text-slate-800">1. Click Project Settings</div>
+                                                <div className="text-xs text-slate-500">Look at the <strong>Bottom Left</strong> of the screen. It is a Gear Icon.</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="bg-slate-100 p-2 rounded text-slate-600"><Key size={18} /></div>
+                                            <div>
+                                                <div className="font-bold text-sm text-slate-800">2. Click API</div>
+                                                <div className="text-xs text-slate-500">In the list that appears, find <strong>API</strong> (usually the 2nd or 3rd item).</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="bg-slate-100 p-2 rounded text-slate-600"><Copy size={18} /></div>
+                                            <div>
+                                                <div className="font-bold text-sm text-slate-800">3. Copy the "Project URL"</div>
+                                                <div className="text-xs text-slate-500 mb-1">It looks like: <code>https://xyz...supabase.co</code></div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="bg-slate-100 p-2 rounded text-slate-600"><Lock size={18} /></div>
+                                            <div>
+                                                <div className="font-bold text-sm text-slate-800">4. Copy the "anon" / "public" Key</div>
+                                                <div className="text-xs text-slate-500 mb-1">It is a long string of random letters.</div>
+                                                <div className="text-[10px] bg-red-50 text-red-600 font-bold px-2 py-1 rounded inline-block">
+                                                    WARNING: Do NOT use the service_role key. Only use ANON.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p className="text-sm text-slate-600">
-                                    You will see <code>Project URL</code> and <code>anon</code> (public) key. <br/>
-                                    <strong>Keep this tab open</strong>, you will need these for Vercel later.
+                                
+                                <p className="text-sm text-slate-600 mt-4">
+                                    <strong>Keep this tab open</strong>. You will paste these keys into Vercel in Step 5.
                                 </p>
                             </div>
                         </div>

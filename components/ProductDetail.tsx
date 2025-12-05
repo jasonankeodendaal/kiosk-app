@@ -1,9 +1,8 @@
 
-
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 import Flipbook from './Flipbook';
-import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon, Package } from 'lucide-react';
+import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon, Package, LayoutGrid } from 'lucide-react';
 
 interface ProductDetailProps {
   product: Product;
@@ -17,6 +16,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
   const [showEnlargedMedia, setShowEnlargedMedia] = useState(false);
   const [enlargedMediaIndex, setEnlargedMediaIndex] = useState(0);
   const [showManual, setShowManual] = useState(false);
+  const [showGalleryModal, setShowGalleryModal] = useState(false);
 
   // Helper to ensure dimensions is always an array
   const dimensionSets = useMemo(() => {
@@ -134,6 +134,16 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                         <button onClick={handlePrevMedia} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/50 text-white p-3 rounded-full backdrop-blur-sm z-20 transition-all border border-white/10"><LeftArrow size={24} /></button>
                         <button onClick={handleNextMedia} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/50 text-white p-3 rounded-full backdrop-blur-sm z-20 transition-all border border-white/10"><RightArrow size={24} /></button>
                      </>
+                  )}
+
+                  {/* View All Grid Button */}
+                  {allMedia.length > 0 && (
+                      <button 
+                          onClick={() => setShowGalleryModal(true)}
+                          className="absolute bottom-4 right-4 z-20 bg-black/50 hover:bg-black/70 text-white px-3 py-1.5 rounded-lg backdrop-blur-md border border-white/10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                      >
+                          <LayoutGrid size={14} /> View Gallery ({allMedia.length})
+                      </button>
                   )}
                 </div>
              ) : (
@@ -289,6 +299,16 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
              <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={48} /></div>
            )}
 
+           {/* Mobile View Gallery Button */}
+           {allMedia.length > 0 && (
+               <button 
+                  onClick={() => setShowGalleryModal(true)}
+                  className="absolute bottom-4 right-4 z-30 bg-black/50 text-white px-3 py-1.5 rounded-full backdrop-blur-md text-[10px] font-bold uppercase flex items-center gap-1.5 shadow-sm border border-white/10"
+               >
+                   <LayoutGrid size={12} /> Gallery
+               </button>
+           )}
+
            {/* Mobile Arrows */}
            {allMedia.length > 1 && (
              <>
@@ -299,7 +319,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                      <RightArrow size={20} />
                  </button>
                  
-                 <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-20">
+                 <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-20 pointer-events-none">
                    {allMedia.map((_, i) => (
                      <div key={i} className={`h-1.5 rounded-full transition-all shadow-sm ${i === currentMediaIndex ? 'w-6 bg-slate-900' : 'w-1.5 bg-slate-300'}`} />
                    ))}
@@ -365,6 +385,59 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
           <div className="relative w-full h-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
             {enlargedMedia.type === 'image' ? <img src={enlargedMedia.url} className="max-w-full max-h-full object-contain" /> : <video src={enlargedMedia.url} controls autoPlay className="max-w-full max-h-full object-contain" />}
           </div>
+        </div>
+      )}
+
+      {/* GALLERY GRID MODAL - FOR VIEWING ALL MEDIA AT ONCE */}
+      {showGalleryModal && (
+        <div className="fixed inset-0 z-[105] bg-slate-900/95 backdrop-blur-md p-4 md:p-12 animate-fade-in flex flex-col">
+            <div className="flex justify-between items-center mb-8 shrink-0">
+                <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
+                   <LayoutGrid className="text-blue-500" /> Media Gallery
+                </h2>
+                <button 
+                  onClick={() => setShowGalleryModal(false)}
+                  className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors backdrop-blur-sm"
+                >
+                   <X size={24} />
+                </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                 {allMedia.map((media, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                          setCurrentMediaIndex(idx);
+                          setEnlargedMediaIndex(idx); // Also set enlarged so if they click, it opens correct one
+                          setShowGalleryModal(false);
+                      }}
+                      className={`group relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${currentMediaIndex === idx ? 'border-blue-500 ring-4 ring-blue-500/20' : 'border-slate-700 hover:border-slate-500'}`}
+                    >
+                      {media.type === 'image' ? (
+                          <img 
+                            src={media.url} 
+                            alt={`Gallery ${idx}`} 
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
+                      ) : (
+                          <div className="w-full h-full bg-slate-800 flex items-center justify-center relative">
+                              <video src={media.url} className="w-full h-full object-cover opacity-60" muted />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                  <PlayCircle size={32} className="text-white drop-shadow-lg" />
+                              </div>
+                          </div>
+                      )}
+                      
+                      {/* Number Badge */}
+                      <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-md">
+                          {idx + 1}
+                      </div>
+                    </button>
+                  ))}
+               </div>
+            </div>
         </div>
       )}
 
