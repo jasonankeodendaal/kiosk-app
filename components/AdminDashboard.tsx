@@ -228,14 +228,21 @@ const InputField = ({ label, val, onChange, placeholder, isArea = false, half = 
     </div>
 );
 
-const CatalogueManager = ({ catalogues, onSave }: { catalogues: Catalogue[], onSave: (c: Catalogue[]) => void }) => {
+const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalogue[], onSave: (c: Catalogue[]) => void, brandId?: string }) => {
     const [localList, setLocalList] = useState(catalogues || []);
+
+    // Sync if props change (e.g. switching brands)
+    useEffect(() => {
+        setLocalList(catalogues || []);
+    }, [catalogues]);
 
     const addCatalogue = () => {
         setLocalList([...localList, {
             id: generateId('cat'),
             title: 'New Catalogue',
+            brandId: brandId, // Link to brand if provided
             pages: [],
+            year: new Date().getFullYear(),
             startDate: '',
             endDate: ''
         }]);
@@ -272,7 +279,7 @@ const CatalogueManager = ({ catalogues, onSave }: { catalogues: Catalogue[], onS
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center mb-4">
-                 <h3 className="font-bold uppercase text-slate-500 text-xs tracking-wider">Pamphlets & Catalogues</h3>
+                 <h3 className="font-bold uppercase text-slate-500 text-xs tracking-wider">{brandId ? 'Brand Catalogues' : 'Global Pamphlets'}</h3>
                  <button onClick={addCatalogue} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-blue-700 flex items-center gap-2">
                      <Plus size={14} /> Add New
                  </button>
@@ -301,15 +308,31 @@ const CatalogueManager = ({ catalogues, onSave }: { catalogues: Catalogue[], onS
                                 className="w-full font-black text-slate-900 border-b border-transparent hover:border-slate-300 focus:border-blue-500 outline-none text-sm"
                                 placeholder="Catalogue Title"
                             />
+                            
+                            {/* Conditional Inputs based on Type */}
                             <div className="grid grid-cols-2 gap-2">
+                                {/* Always show Year for Brand Catalogues */}
+                                <div>
+                                    <label className="text-[8px] font-bold text-slate-400 uppercase">Year</label>
+                                    <input 
+                                        type="number" 
+                                        value={cat.year || new Date().getFullYear()} 
+                                        onChange={(e) => updateCatalogue(cat.id, { year: parseInt(e.target.value) })} 
+                                        className="w-full text-xs border border-slate-200 rounded p-1" 
+                                    />
+                                </div>
+                                
+                                {/* Show Dates mainly for Global Pamphlets or if needed */}
                                 <div>
                                     <label className="text-[8px] font-bold text-slate-400 uppercase">Start Date</label>
                                     <input type="date" value={cat.startDate || ''} onChange={(e) => updateCatalogue(cat.id, { startDate: e.target.value })} className="w-full text-xs border border-slate-200 rounded p-1" />
                                 </div>
-                                <div>
-                                    <label className="text-[8px] font-bold text-slate-400 uppercase">End Date</label>
-                                    <input type="date" value={cat.endDate || ''} onChange={(e) => updateCatalogue(cat.id, { endDate: e.target.value })} className="w-full text-xs border border-slate-200 rounded p-1" />
-                                </div>
+                            </div>
+                             
+                            {/* Only show End Date for expiration logic */}
+                            <div>
+                                <label className="text-[8px] font-bold text-slate-400 uppercase">End Date (Expiration)</label>
+                                <input type="date" value={cat.endDate || ''} onChange={(e) => updateCatalogue(cat.id, { endDate: e.target.value })} className="w-full text-xs border border-slate-200 rounded p-1" />
                             </div>
                             
                             <FileUpload 
@@ -332,7 +355,7 @@ const CatalogueManager = ({ catalogues, onSave }: { catalogues: Catalogue[], onS
             
             <div className="flex justify-end pt-6">
                 <button onClick={() => onSave(localList)} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs hover:bg-green-700 shadow-lg flex items-center gap-2">
-                    <Save size={16} /> Save Catalogues
+                    <Save size={16} /> Save Changes
                 </button>
             </div>
         </div>
@@ -343,6 +366,8 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
     const [draft, setDraft] = useState<Product>({ ...product });
     const [newFeature, setNewFeature] = useState('');
     const [newBoxItem, setNewBoxItem] = useState('');
+    const [newSpecKey, setNewSpecKey] = useState('');
+    const [newSpecValue, setNewSpecValue] = useState('');
 
     const addFeature = () => {
         if (newFeature.trim()) {
@@ -358,12 +383,29 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
         }
     };
 
+    const addSpec = () => {
+        if (newSpecKey.trim() && newSpecValue.trim()) {
+            setDraft({ 
+                ...draft, 
+                specs: { ...draft.specs, [newSpecKey.trim()]: newSpecValue.trim() } 
+            });
+            setNewSpecKey('');
+            setNewSpecValue('');
+        }
+    };
+
     const removeFeature = (index: number) => {
         setDraft({ ...draft, features: draft.features.filter((_, i) => i !== index) });
     };
 
     const removeBoxItem = (index: number) => {
         setDraft({ ...draft, boxContents: (draft.boxContents || []).filter((_, i) => i !== index) });
+    };
+
+    const removeSpec = (key: string) => {
+        const newSpecs = { ...draft.specs };
+        delete newSpecs[key];
+        setDraft({ ...draft, specs: newSpecs });
     };
 
     return (
@@ -456,22 +498,48 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
                 </div>
 
                 <div className="mt-8 border-t border-slate-100 pt-8">
-                     <h4 className="font-bold text-slate-900 uppercase text-sm mb-4">Advanced Specs (JSON Key-Value)</h4>
-                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 font-mono text-xs">
-                         <textarea 
-                             className="w-full h-32 bg-transparent outline-none resize-none"
-                             value={JSON.stringify(draft.specs, null, 2)}
-                             onChange={(e) => {
-                                 try {
-                                     const parsed = JSON.parse(e.target.value);
-                                     setDraft({ ...draft, specs: parsed });
-                                 } catch(e) {
-                                     // ignore parse errors while typing
-                                 }
-                             }}
-                         />
+                     <h4 className="font-bold text-slate-900 uppercase text-sm mb-4">Technical Specifications</h4>
+                     <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                         {/* Input Row */}
+                         <div className="flex flex-col md:flex-row gap-4 mb-4 items-end">
+                            <div className="flex-1 w-full">
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Spec Name</label>
+                                <input 
+                                    value={newSpecKey}
+                                    onChange={(e) => setNewSpecKey(e.target.value)}
+                                    placeholder="e.g. Battery Life"
+                                    className="w-full p-2 border border-slate-300 rounded-lg text-sm font-bold"
+                                />
+                            </div>
+                            <div className="flex-1 w-full">
+                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Value</label>
+                                <input 
+                                    value={newSpecValue}
+                                    onChange={(e) => setNewSpecValue(e.target.value)}
+                                    placeholder="e.g. 24 Hours"
+                                    className="w-full p-2 border border-slate-300 rounded-lg text-sm font-bold"
+                                    onKeyDown={(e) => e.key === 'Enter' && addSpec()}
+                                />
+                            </div>
+                            <button onClick={addSpec} className="bg-blue-600 text-white p-2.5 rounded-lg hover:bg-blue-700 transition-colors w-full md:w-auto flex justify-center"><Plus size={18} /></button>
+                         </div>
+
+                         {/* List */}
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                             {Object.entries(draft.specs).map(([key, value]) => (
+                                 <div key={key} className="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                     <div>
+                                         <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">{key}</span>
+                                         <span className="block text-sm font-black text-slate-900">{value}</span>
+                                     </div>
+                                     <button onClick={() => removeSpec(key)} className="text-red-400 hover:text-red-600 p-2"><Trash2 size={16} /></button>
+                                 </div>
+                             ))}
+                             {Object.keys(draft.specs).length === 0 && (
+                                 <div className="col-span-full text-center text-slate-400 text-xs py-4 italic">No specs added yet.</div>
+                             )}
+                         </div>
                      </div>
-                     <p className="text-[10px] text-slate-400 mt-2">Edit as valid JSON: {"{\"Color\": \"Red\", \"Power\": \"50W\"}"}</p>
                 </div>
             </div>
             <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-4 shrink-0">
@@ -814,6 +882,22 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                                </button>
                            ))}
                        </div>
+
+                       {/* BRAND CATALOGUES SECTION */}
+                       <div className="mt-8 border-t border-slate-200 pt-8">
+                           <h3 className="font-bold text-slate-900 uppercase text-sm mb-4">Brand Catalogues</h3>
+                           <CatalogueManager 
+                               catalogues={storeData.catalogues?.filter(c => c.brandId === selectedBrand.id) || []}
+                               brandId={selectedBrand.id}
+                               onSave={(updatedBrandCats) => {
+                                   // 1. Filter out old versions of THIS brand's catalogues
+                                   const otherCatalogues = storeData.catalogues?.filter(c => c.brandId !== selectedBrand.id) || [];
+                                   // 2. Merge updated brand catalogues with the rest
+                                   const newGlobalList = [...otherCatalogues, ...updatedBrandCats];
+                                   onUpdateData({ ...storeData, catalogues: newGlobalList });
+                               }}
+                           />
+                       </div>
                    </div>
                ) : (
                    <div className="animate-fade-in h-full flex flex-col">
@@ -1030,7 +1114,17 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                                                </div>
                                            </td>
                                            <td className="p-4 font-bold text-slate-700 text-sm">{kiosk.name} <span className="block text-[10px] font-mono text-slate-400 font-normal">{kiosk.id}</span></td>
-                                           <td className="p-4 text-xs font-bold uppercase text-slate-500">{kiosk.deviceType || 'kiosk'}</td>
+                                           <td className="p-4">
+                                               {kiosk.deviceType === 'mobile' ? (
+                                                   <div className="flex items-center gap-2 text-purple-600 font-bold uppercase text-xs" title="Personal Mobile">
+                                                       <Smartphone size={16} /> <span>Mobile</span>
+                                                   </div>
+                                               ) : (
+                                                   <div className="flex items-center gap-2 text-blue-600 font-bold uppercase text-xs" title="Kiosk Display">
+                                                       <Tablet size={16} /> <span>Kiosk</span>
+                                                   </div>
+                                               )}
+                                           </td>
                                            <td className="p-4 text-xs font-mono text-slate-500">{new Date(kiosk.last_seen).toLocaleTimeString()}</td>
                                            <td className="p-4 text-xs font-bold text-slate-600">{kiosk.assignedZone || '-'}</td>
                                            <td className="p-4 flex gap-2">

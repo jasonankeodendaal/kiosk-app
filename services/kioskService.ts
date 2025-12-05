@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { KioskRegistry } from '../types';
 
@@ -151,6 +152,7 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
   const id = getKioskId();
   if (!id) return false;
   
+  // Persist locally immediately
   localStorage.setItem(STORAGE_KEY_NAME, shopName);
   localStorage.setItem(STORAGE_KEY_TYPE, deviceType);
   
@@ -159,11 +161,12 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
   
   if (supabase) {
       try {
-        console.log(`Registering Kiosk: ${id} (${shopName})...`);
+        console.log(`Registering Device: ${id} (${shopName}) Type: ${deviceType}...`);
+        
         const kioskData: KioskRegistry = {
           id,
           name: shopName,
-          deviceType,
+          deviceType: deviceType, // Explicitly set type
           status: 'online',
           last_seen: new Date().toISOString(),
           wifiStrength: 100,
@@ -176,10 +179,10 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
         };
 
         // 1. Write to Telemetry Table (Individual Record)
+        // This ensures the device is "seen" even if the fleet list update fails
         const { error: telemetryError } = await supabase.from('kiosks').upsert(kioskData);
         if (telemetryError) {
              console.warn("Telemetry update failed:", telemetryError.message);
-             throw new Error("Telemetry Write Failed");
         }
 
         // 2. Update the Global Store Config JSON
@@ -190,21 +193,20 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
           .eq('id', 1)
           .single();
 
-        if (fetchError) {
-             console.warn("Could not fetch current fleet config:", fetchError.message);
-        }
-
         let configData: any = { brands: [], fleet: [] };
-        if (currentConfig && currentConfig.data) {
+        
+        if (!fetchError && currentConfig && currentConfig.data) {
              configData = currentConfig.data;
         }
 
         const currentFleet = Array.isArray(configData.fleet) ? configData.fleet : [];
         
         // Remove self if exists (update scenario), then append
+        // Use ID to filter out duplicates
         const newFleet = currentFleet.filter((k: KioskRegistry) => k.id !== id);
         newFleet.push(kioskData);
         
+        // Write back to fleet
         const { error: updateError } = await supabase
           .from('store_config')
           .upsert({ 
@@ -214,14 +216,14 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
           
         if (updateError) {
             console.error("Fleet registry update failed:", updateError.message);
-            alert("Warning: Failed to update Global Fleet list. However, device telemetry is active.");
+            // Don't alert the user, as the telemetry write usually succeeds and that's enough for basic connectivity
         } else {
             console.log("Fleet list updated successfully.");
         }
 
       } catch(e: any) {
         console.error("Failed to register kiosk in cloud", e);
-        alert(`Setup Warning: Cloud registration failed (${e.message}). Kiosk is running locally.`);
+        alert(`Setup Warning: Cloud registration failed (${e.message}). Device is running locally.`);
       }
   } else {
       console.warn("Supabase not configured. Kiosk running in local mode.");
