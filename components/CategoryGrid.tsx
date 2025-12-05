@@ -1,3 +1,5 @@
+
+
 import React, { useMemo } from 'react';
 import { Brand, Category, Catalogue } from '../types';
 import { Smartphone, Laptop, Watch, Headphones, Monitor, Tablet, Box, ChevronLeft, ArrowRight, BookOpen, MonitorPlay, MonitorStop, Calendar } from 'lucide-react';

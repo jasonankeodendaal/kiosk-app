@@ -140,19 +140,15 @@ const Flipbook: React.FC<FlipbookProps> = ({ pages, onClose, catalogueTitle, sta
                         />
                     ) : (
                     <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center text-slate-300">
-                        <BookOpen size={48} className="mb-2 opacity-50" />
-                        <span className="font-bold uppercase tracking-widest text-sm">Inside Cover</span>
+                        <span className="text-xs font-bold uppercase tracking-widest opacity-50">Back Cover / Empty</span>
                     </div>
                     )}
-                    {/* Page Number */}
-                    {leftPageIdx >= 0 && (
-                        <div className="absolute bottom-4 left-6 text-slate-400 font-mono text-xs md:text-sm bg-white/80 px-2 py-0.5 rounded backdrop-blur-sm">{leftPageIdx + 1}</div>
-                    )}
+                    <div className="absolute bottom-4 left-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest">{leftPageIdx >= 0 ? leftPageIdx + 1 : ''}</div>
                 </div>
 
                 {/* Right Page */}
                 <div className="flex-1 bg-white relative overflow-hidden flex items-center justify-center bg-slate-50">
-                    {rightPageIdx < totalPages ? (
+                    {rightPageIdx < pages.length ? (
                         <img 
                             src={pages[rightPageIdx]} 
                             alt={`Page ${rightPageIdx + 1}`} 
@@ -160,14 +156,13 @@ const Flipbook: React.FC<FlipbookProps> = ({ pages, onClose, catalogueTitle, sta
                         />
                     ) : (
                         <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center text-slate-300">
-                        <BookOpen size={48} className="mb-2 opacity-50" />
-                        <span className="font-bold uppercase tracking-widest text-sm">End of Catalog</span>
-                    </div>
+                             <div className="text-center">
+                                 <BookOpen size={48} className="mx-auto mb-2 opacity-20" />
+                                 <span className="text-xs font-bold uppercase tracking-widest opacity-50">End of Catalogue</span>
+                             </div>
+                        </div>
                     )}
-                    {/* Page Number */}
-                    {rightPageIdx < totalPages && (
-                        <div className="absolute bottom-4 right-6 text-slate-400 font-mono text-xs md:text-sm bg-white/80 px-2 py-0.5 rounded backdrop-blur-sm">{rightPageIdx + 1}</div>
-                    )}
+                    <div className="absolute bottom-4 right-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest">{rightPageIdx < pages.length ? rightPageIdx + 1 : ''}</div>
                 </div>
             </div>
         </div>
@@ -182,11 +177,6 @@ const Flipbook: React.FC<FlipbookProps> = ({ pages, onClose, catalogueTitle, sta
             <ChevronRight size={24} className="md:w-8 md:h-8" />
         </button>
 
-      </div>
-      
-      {/* Overall Page Indicator */}
-      <div className="absolute bottom-6 md:bottom-10 bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-white/90 text-xs md:text-sm font-bold uppercase tracking-widest shadow-lg z-50">
-          Pages {leftPageIdx >= 0 ? leftPageIdx + 1 : 0} - {rightPageIdx < totalPages ? rightPageIdx + 1 : totalPages} <span className="text-white/40 mx-2">|</span> {totalPages} Total
       </div>
     </div>
   );

@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo } from 'react';
 import { Category, Product, Brand, Catalogue } from '../types';
 import { ChevronLeft, ArrowRight, MonitorPlay, MonitorStop, Search, X, Tag, Package } from 'lucide-react';
