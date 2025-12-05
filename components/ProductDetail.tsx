@@ -1,7 +1,9 @@
+
+
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 import Flipbook from './Flipbook';
-import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon } from 'lucide-react';
+import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon, Package } from 'lucide-react';
 
 interface ProductDetailProps {
   product: Product;
@@ -218,6 +220,21 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                         </div>
                      </div>
 
+                     {/* What's in the Box (Desktop) */}
+                     {product.boxContents && product.boxContents.length > 0 && (
+                         <div className="bg-orange-50/50 rounded-2xl p-6 border border-orange-100">
+                             <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2"><Package size={16} className="text-orange-500" /> What's in the Box</h3>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                 {product.boxContents.map((item, idx) => (
+                                     <div key={idx} className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                         <div className="w-1.5 h-1.5 rounded-full bg-orange-400"></div>
+                                         {item}
+                                     </div>
+                                 ))}
+                             </div>
+                         </div>
+                     )}
+
                      {/* Specs Grid */}
                      <div className="grid grid-cols-2 gap-4">
                         {Object.entries(product.specs).map(([key, value], idx) => (
@@ -371,6 +388,25 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                                    </li>
                                ))}
                             </ul>
+                        </div>
+                    )}
+
+                    {/* What's in the Box (Mobile) */}
+                    {product.boxContents && product.boxContents.length > 0 && (
+                        <div>
+                            <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                               <Package size={14} className="text-orange-500" /> In The Box
+                            </h3>
+                            <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-100">
+                                <ul className="space-y-2">
+                                   {product.boxContents.map((item, i) => (
+                                       <li key={i} className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0"></div>
+                                            {item}
+                                       </li>
+                                   ))}
+                                </ul>
+                            </div>
                         </div>
                     )}
 

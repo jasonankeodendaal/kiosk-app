@@ -15,6 +15,7 @@ export interface Product {
   terms?: string; // Terms & Conditions text
   specs: Record<string, string>;
   features: string[];
+  boxContents?: string[]; // New: What's in the Box
   dimensions: Dimensions;
   imageUrl: string;
   galleryUrls?: string[]; // Additional images

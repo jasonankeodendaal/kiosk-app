@@ -267,11 +267,10 @@ export const sendHeartbeat = async (snapshotBase64?: string) => {
 };
 
 // 8. NEW: Upload File to Supabase Storage Bucket
-export const uploadFileToStorage = async (file: File): Promise<string | null> => {
+export const uploadFileToStorage = async (file: File): Promise<string> => {
     if (!supabase) initSupabase();
     if (!supabase) {
-        console.error("Supabase client not initialized.");
-        return null;
+        throw new Error("Supabase client not initialized.");
     }
 
     try {
@@ -287,11 +286,14 @@ export const uploadFileToStorage = async (file: File): Promise<string | null> =>
 
         if (error) {
             console.error(`Storage Upload Error: ${error.message}`);
-            // Explicitly warn about missing bucket which is the most common issue
-            if(error.message.includes('bucket not found') || error.message.includes('row-level security')) {
-                console.error("CRITICAL: Bucket 'kiosk-media' missing or permissions wrong. Run SQL from Setup Guide.");
+            // Specific errors
+            if (error.message.includes('row-level security')) {
+                throw new Error("Supabase Error: Row-Level Security policy violation. Check bucket permissions.");
             }
-            return null;
+            if (error.message.includes('bucket not found') || error.message.includes('The resource was not found')) {
+                 throw new Error("Supabase Error: Storage Bucket 'kiosk-media' not found. Please run the SQL script in Setup Guide.");
+            }
+            throw new Error(`Supabase Storage Error: ${error.message}`);
         }
 
         // Get Public URL
@@ -300,8 +302,8 @@ export const uploadFileToStorage = async (file: File): Promise<string | null> =>
             .getPublicUrl(filePath);
 
         return publicUrl;
-    } catch (e) {
+    } catch (e: any) {
         console.error("Unexpected storage error", e);
-        return null;
+        throw e; // Re-throw to be caught by FileUpload component
     }
 };

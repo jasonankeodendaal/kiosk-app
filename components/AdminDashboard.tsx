@@ -1,10 +1,8 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Megaphone as MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Megaphone as MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings } from '../types';
 import { resetStoreData } from '../services/geminiService';
@@ -12,7 +10,6 @@ import { uploadFileToStorage, supabase } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
-import Peer from 'peerjs';
 
 const pdfjs = (pdfjsLib as any).default ?? pdfjsLib;
 
@@ -84,7 +81,6 @@ const Auth = ({ setSession }: { setSession: (s: boolean) => void }) => {
   );
 };
 
-// ... (FileUpload, BulkImporter, KioskEditorModal components remain the same) ...
 const FileUpload = ({ 
   currentUrl, 
   onUpload, 
@@ -122,21 +118,20 @@ const FileUpload = ({
            let url = null;
            if (useStorage) {
                console.log("Attempting Cloud Storage Upload...");
-               url = await uploadFileToStorage(file);
+               try {
+                  url = await uploadFileToStorage(file);
+                  console.log("Cloud Upload Success:", url);
+                  return url;
+               } catch (storageErr: any) {
+                  console.warn("Cloud Upload Failed:", storageErr.message);
+                  
+                  // SAFETY CHECK: If file is too large for local storage fallback
+                  if (file.size > 2 * 1024 * 1024) { // 2MB Limit
+                     throw new Error(`Upload Failed: ${storageErr.message}. File is too large for local fallback (Limit 2MB).`);
+                  }
+               }
            }
            
-           if (url) {
-               console.log("Cloud Upload Success:", url);
-               return url;
-           }
-
-           console.warn("Cloud Upload Failed.");
-           
-           // SAFETY CHECK: If file is too large for local storage fallback
-           if (file.size > 2 * 1024 * 1024) { // 2MB Limit
-               throw new Error(`File ${file.name} is too large for local fallback (Limit 2MB). Please check Supabase Storage configuration.`);
-           }
-
            console.log("Falling back to Base64 (Small File).");
            return new Promise((resolve) => {
               const reader = new FileReader();
@@ -162,7 +157,7 @@ const FileUpload = ({
           }
       } catch (err: any) {
           console.error("Upload failed", err);
-          alert(`Upload failed: ${err.message || 'Unknown error'}`);
+          alert(`${err.message || 'Unknown upload error'}`);
       } finally {
           setTimeout(() => {
               setLocalProcessing(false);
@@ -235,7 +230,6 @@ const BulkImporter = ({ onImport, onStatus, targetBrandName }: { onImport: (data
         onStatus("Analyzing folder structure...");
         
         const files: any[] = Array.from(e.target.files);
-        // We will build a temporary structure map: Brands -> Categories -> Products -> Assets
         const structure: Record<string, any> = {};
 
         const readFileAsText = (file: File): Promise<string> => {
@@ -248,50 +242,39 @@ const BulkImporter = ({ onImport, onStatus, targetBrandName }: { onImport: (data
 
         const uploadAsset = async (file: File): Promise<string> => {
              // Try cloud storage first
-             const url = await uploadFileToStorage(file);
-             if (url) return url;
-             
-             // If cloud fails, check size before fallback
-             if (file.size > 2 * 1024 * 1024) { // 2MB Limit
-                 throw new Error(`File ${file.name} is too large (>2MB) and Cloud Storage failed. Import aborted to prevent crash.`);
+             try {
+                const url = await uploadFileToStorage(file);
+                return url;
+             } catch (e: any) {
+                 console.warn("Import Cloud Upload Failed:", e.message);
+                 if (file.size > 2 * 1024 * 1024) { // 2MB Limit
+                     throw new Error(`File ${file.name} is too large (>2MB) and Cloud Storage failed (${e.message}). Import aborted.`);
+                 }
+                 // Fallback to base64 for small files
+                 return new Promise((resolve) => {
+                     const reader = new FileReader();
+                     reader.onload = (e) => resolve(e.target?.result as string || '');
+                     reader.readAsDataURL(file);
+                 });
              }
-
-             // Fallback to base64 for small files
-             return new Promise((resolve) => {
-                 const reader = new FileReader();
-                 reader.onload = (e) => resolve(e.target?.result as string || '');
-                 reader.readAsDataURL(file);
-             });
         };
 
-        // 1. Group files by path
         const brandsMap: Record<string, Brand> = {};
         
         try {
-            // Pre-scan to group
             const fileGroups: Record<string, File[]> = {};
 
             for (const file of files) {
                 const pathParts = file.webkitRelativePath ? file.webkitRelativePath.split('/') : [];
-                
                 let brandName = '', categoryName = '', productName = '';
                 
-                // Logic Separation: Single Brand vs Global Import
                 if (targetBrandName) {
-                    // MODE: TARGET BRAND
-                    // Expected Path: RootFolder / Category / Product / file.ext
-                    // Example: "Samsung_Data" / "Smartphones" / "Galaxy S24" / "image.jpg"
                     if (pathParts.length < 4) continue;
-                    
                     brandName = targetBrandName;
                     categoryName = pathParts[1];
                     productName = pathParts[2];
                 } else {
-                    // MODE: GLOBAL IMPORT
-                    // Expected Path: RootFolder / Brand / Category / Product / file.ext
-                    // Example: "My_Import" / "Samsung" / "Smartphones" / "Galaxy S24" / "image.jpg"
                     if (pathParts.length < 5) {
-                        // Check for Brand Assets (Root/Brand/logo.png)
                         if (pathParts.length === 3) {
                              const bName = pathParts[1];
                              if (!brandsMap[bName]) {
@@ -304,7 +287,6 @@ const BulkImporter = ({ onImport, onStatus, targetBrandName }: { onImport: (data
                         }
                         continue;
                     }
-
                     brandName = pathParts[1];
                     categoryName = pathParts[2];
                     productName = pathParts[3];
@@ -315,13 +297,10 @@ const BulkImporter = ({ onImport, onStatus, targetBrandName }: { onImport: (data
                 fileGroups[key].push(file);
             }
 
-            // 2. Process Products
             for (const [key, productFiles] of Object.entries(fileGroups)) {
                 const [brandName, categoryName, productName] = key.split('|');
-
                 onStatus(`Processing Product: ${productName} (${brandName})...`);
 
-                // Ensure hierarchy exists
                 if (!brandsMap[brandName]) {
                     brandsMap[brandName] = { id: generateId('b'), name: brandName, categories: [], logoUrl: '' };
                 }
@@ -332,7 +311,6 @@ const BulkImporter = ({ onImport, onStatus, targetBrandName }: { onImport: (data
                     brandsMap[brandName].categories.push(category);
                 }
 
-                // Initialize Product
                 const newProduct: Product = {
                     id: generateId('p'),
                     name: productName,
@@ -340,6 +318,7 @@ const BulkImporter = ({ onImport, onStatus, targetBrandName }: { onImport: (data
                     description: '',
                     specs: {},
                     features: [],
+                    boxContents: [],
                     dimensions: { width: '', height: '', depth: '', weight: '' },
                     imageUrl: '',
                     galleryUrls: [],
@@ -348,7 +327,6 @@ const BulkImporter = ({ onImport, onStatus, targetBrandName }: { onImport: (data
                     manualImages: []
                 };
 
-                // Find info.txt first
                 const infoFile = productFiles.find(f => f.name.toLowerCase() === 'info.txt');
                 if (infoFile) {
                     const text = await readFileAsText(infoFile);
@@ -370,16 +348,19 @@ const BulkImporter = ({ onImport, onStatus, targetBrandName }: { onImport: (data
                              }
                         }
                         else if (key.startsWith('spec-')) {
-                             const specName = k.trim().substring(5); // Remove 'Spec-'
+                             const specName = k.trim().substring(5);
                              newProduct.specs[specName] = val;
                         }
                         else if (key === 'feature') {
                              newProduct.features.push(val);
                         }
+                        else if (key === 'box') {
+                             if(!newProduct.boxContents) newProduct.boxContents = [];
+                             newProduct.boxContents.push(val);
+                        }
                     });
                 }
 
-                // Process Media
                 for (const file of productFiles) {
                     const name = file.name.toLowerCase();
                     if (name === 'info.txt') continue;
@@ -395,20 +376,15 @@ const BulkImporter = ({ onImport, onStatus, targetBrandName }: { onImport: (data
                          newProduct.videoUrl = await uploadAsset(file);
                     } else if (name.endsWith('.pdf')) {
                          newProduct.manualUrl = await uploadAsset(file);
-                         // Try convert pages
                          const images = await convertPdfToImages(newProduct.manualUrl);
                          newProduct.manualImages = images;
                     }
                 }
-
                 category.products.push(newProduct);
             }
-
-            // Convert map to array
             const newBrands = Object.values(brandsMap);
             onImport({ brands: newBrands });
             onStatus(`Completed! Imported ${newBrands.length} brands.`);
-
         } catch (err: any) {
             console.error(err);
             onStatus(`Error: ${err.message}`);
@@ -450,7 +426,6 @@ const BulkImporter = ({ onImport, onStatus, targetBrandName }: { onImport: (data
 
 const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, onSave: (k: KioskRegistry) => void, onClose: () => void }) => {
     const [data, setData] = useState(kiosk);
-
     return (
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
@@ -459,28 +434,10 @@ const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, on
                     <button onClick={onClose}><X size={20} /></button>
                 </div>
                 <div className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Device ID (Read Only)</label>
-                        <input value={data.id} disabled className="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 font-mono text-sm" />
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Shop / Display Name</label>
-                        <input value={data.name} onChange={e => setData({...data, name: e.target.value})} className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900" />
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Assigned Zone (Manual Entry)</label>
-                        <input 
-                            type="text" 
-                            value={data.assignedZone || ''} 
-                            onChange={e => setData({...data, assignedZone: e.target.value})} 
-                            className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900"
-                            placeholder="e.g. Entrance, Aisle 4, Window" 
-                        />
-                    </div>
-                    <div>
-                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Location Details</label>
-                         <textarea value={data.locationDescription || ''} onChange={e => setData({...data, locationDescription: e.target.value})} className="w-full p-2 bg-white border border-slate-300 rounded-lg font-medium text-slate-900 h-20 resize-none" placeholder="e.g. Next to the Nike display..." />
-                    </div>
+                    <div><label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Device ID (Read Only)</label><input value={data.id} disabled className="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 font-mono text-sm" /></div>
+                    <div><label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Shop / Display Name</label><input value={data.name} onChange={e => setData({...data, name: e.target.value})} className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900" /></div>
+                    <div><label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Assigned Zone (Manual Entry)</label><input type="text" value={data.assignedZone || ''} onChange={e => setData({...data, assignedZone: e.target.value})} className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900" placeholder="e.g. Entrance, Aisle 4, Window" /></div>
+                    <div><label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Location Details</label><textarea value={data.locationDescription || ''} onChange={e => setData({...data, locationDescription: e.target.value})} className="w-full p-2 bg-white border border-slate-300 rounded-lg font-medium text-slate-900 h-20 resize-none" placeholder="e.g. Next to the Nike display..." /></div>
                 </div>
                 <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
                     <button onClick={onClose} className="px-4 py-2 rounded-lg font-bold text-slate-500 hover:bg-slate-200 text-xs uppercase">Cancel</button>
@@ -491,47 +448,18 @@ const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, on
     );
 };
 
-// ... (Rest of components remain same until AdminDashboard) ...
 const CameraViewerModal = ({ kiosk, onClose, onRequestSnapshot }: { kiosk: KioskRegistry, onClose: () => void, onRequestSnapshot: (k: KioskRegistry) => void }) => {
-    
-    useEffect(() => {
-        onRequestSnapshot(kiosk);
-    }, []);
-
+    useEffect(() => { onRequestSnapshot(kiosk); }, []);
     return (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
              <div className="w-full max-w-2xl bg-black rounded-2xl overflow-hidden border border-slate-800 shadow-2xl relative">
-                <div className="absolute top-4 right-4 z-10">
-                     <button onClick={onClose} className="bg-white/20 text-white p-2 rounded-full hover:bg-white/40 backdrop-blur"><X size={20} /></button>
-                </div>
+                <div className="absolute top-4 right-4 z-10"><button onClick={onClose} className="bg-white/20 text-white p-2 rounded-full hover:bg-white/40 backdrop-blur"><X size={20} /></button></div>
                 <div className="aspect-video bg-slate-900 relative flex items-center justify-center">
-                    {kiosk.snapshotUrl ? (
-                        <img src={kiosk.snapshotUrl} className="w-full h-full object-contain" alt="Live Feed" />
-                    ) : (
-                        <div className="text-center text-slate-500">
-                             <WifiOff size={48} className="mx-auto mb-2 opacity-50" />
-                             <p className="font-mono text-xs uppercase">Waiting for Image...</p>
-                        </div>
-                    )}
-                    <div className="absolute top-4 left-4 flex items-center gap-2">
-                        <span className="animate-pulse w-2 h-2 bg-red-500 rounded-full"></span>
-                        <span className="text-white text-xs font-mono font-bold uppercase bg-black/50 px-2 py-1 rounded">LIVE VIEW: {kiosk.name}</span>
-                    </div>
-                    <button 
-                        onClick={() => onRequestSnapshot(kiosk)}
-                        className="absolute bottom-4 right-4 bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold uppercase hover:bg-blue-500 shadow-lg"
-                    >
-                        <Camera size={14} className="inline mr-1" /> Refresh Snap
-                    </button>
+                    {kiosk.snapshotUrl ? (<img src={kiosk.snapshotUrl} className="w-full h-full object-contain" alt="Live Feed" />) : (<div className="text-center text-slate-500"><WifiOff size={48} className="mx-auto mb-2 opacity-50" /><p className="font-mono text-xs uppercase">Waiting for Image...</p></div>)}
+                    <div className="absolute top-4 left-4 flex items-center gap-2"><span className="animate-pulse w-2 h-2 bg-red-500 rounded-full"></span><span className="text-white text-xs font-mono font-bold uppercase bg-black/50 px-2 py-1 rounded">LIVE VIEW: {kiosk.name}</span></div>
+                    <button onClick={() => onRequestSnapshot(kiosk)} className="absolute bottom-4 right-4 bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold uppercase hover:bg-blue-500 shadow-lg"><Camera size={14} className="inline mr-1" /> Refresh Snap</button>
                 </div>
-                <div className="p-4 bg-slate-900 border-t border-slate-800 flex justify-between items-center">
-                    <div className="text-slate-400 text-xs font-mono">
-                        Signal: {kiosk.wifiStrength}% | IP: {kiosk.ipAddress}
-                    </div>
-                    <div className="text-slate-500 text-[10px] uppercase font-bold">
-                        Last Update: {new Date(kiosk.last_seen).toLocaleTimeString()}
-                    </div>
-                </div>
+                <div className="p-4 bg-slate-900 border-t border-slate-800 flex justify-between items-center"><div className="text-slate-400 text-xs font-mono">Signal: {kiosk.wifiStrength}% | IP: {kiosk.ipAddress}</div><div className="text-slate-500 text-[10px] uppercase font-bold">Last Update: {new Date(kiosk.last_seen).toLocaleTimeString()}</div></div>
              </div>
         </div>
     );
@@ -539,136 +467,31 @@ const CameraViewerModal = ({ kiosk, onClose, onRequestSnapshot }: { kiosk: Kiosk
 
 const DataManagerModal = ({ storeData, onImport, onClose }: { storeData: StoreData, onImport: (d: StoreData) => void, onClose: () => void }) => {
     const [statusMsg, setStatusMsg] = useState("");
-
-    const handleExport = () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(storeData, null, 2));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `kiosk_backup_${new Date().toISOString().split('T')[0]}.json`);
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
-    };
-
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if(!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const json = JSON.parse(event.target?.result as string);
-                if(json && json.brands) {
-                    if(confirm("This will OVERWRITE all current system data. Are you sure?")) {
-                        onImport(json);
-                        onClose();
-                    }
-                } else {
-                    alert("Invalid System File");
-                }
-            } catch(err) {
-                alert("Failed to parse JSON file");
-            }
-        };
-        reader.readAsText(file);
-    };
-
-    const handleBulkImport = (partialData: Partial<StoreData>) => {
-         // Merge logic: Add new brands or update existing ones
-         if (partialData.brands) {
-             const mergedBrands = [...storeData.brands];
-             partialData.brands.forEach(newB => {
-                 const idx = mergedBrands.findIndex(b => b.name === newB.name);
-                 if (idx !== -1) {
-                     // Merge categories
-                     const existingBrand = mergedBrands[idx];
-                     newB.categories.forEach(newC => {
-                         const cIdx = existingBrand.categories.findIndex(c => c.name === newC.name);
-                         if (cIdx !== -1) {
-                             // Merge products
-                             const existingCat = existingBrand.categories[cIdx];
-                             newC.products.forEach(newP => {
-                                 const pIdx = existingCat.products.findIndex(p => p.name === newP.name);
-                                 if (pIdx !== -1) {
-                                     existingCat.products[pIdx] = newP; // Overwrite product
-                                 } else {
-                                     existingCat.products.push(newP);
-                                 }
-                             });
-                         } else {
-                             existingBrand.categories.push(newC);
-                         }
-                     });
-                     // Update logo if provided
-                     if (newB.logoUrl) existingBrand.logoUrl = newB.logoUrl;
-                 } else {
-                     mergedBrands.push(newB);
-                 }
-             });
-             onImport({ ...storeData, brands: mergedBrands });
-             setTimeout(() => onClose(), 1500);
-         }
-    };
+    const handleExport = () => { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(storeData, null, 2)); const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", `kiosk_backup_${new Date().toISOString().split('T')[0]}.json`); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); };
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if(!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const json = JSON.parse(event.target?.result as string); if(json && json.brands) { if(confirm("This will OVERWRITE all current system data. Are you sure?")) { onImport(json); onClose(); } } else { alert("Invalid System File"); } } catch(err) { alert("Failed to parse JSON file"); } }; reader.readAsText(file); };
+    const handleBulkImport = (partialData: Partial<StoreData>) => { if (partialData.brands) { const mergedBrands = [...storeData.brands]; partialData.brands.forEach(newB => { const idx = mergedBrands.findIndex(b => b.name === newB.name); if (idx !== -1) { const existingBrand = mergedBrands[idx]; newB.categories.forEach(newC => { const cIdx = existingBrand.categories.findIndex(c => c.name === newC.name); if (cIdx !== -1) { const existingCat = existingBrand.categories[cIdx]; newC.products.forEach(newP => { const pIdx = existingCat.products.findIndex(p => p.name === newP.name); if (pIdx !== -1) { existingCat.products[pIdx] = newP; } else { existingCat.products.push(newP); } }); } else { existingBrand.categories.push(newC); } }); if (newB.logoUrl) existingBrand.logoUrl = newB.logoUrl; } else { mergedBrands.push(newB); } }); onImport({ ...storeData, brands: mergedBrands }); setTimeout(() => onClose(), 1500); } };
 
     return (
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
-                <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
-                    <h3 className="font-bold text-lg flex items-center gap-2"><Database size={20}/> System Data</h3>
-                    <button onClick={onClose}><X size={20} /></button>
-                </div>
+                <div className="bg-slate-900 p-4 flex justify-between items-center text-white"><h3 className="font-bold text-lg flex items-center gap-2"><Database size={20}/> System Data</h3><button onClick={onClose}><X size={20} /></button></div>
                 <div className="p-6 space-y-6">
-                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
-                        <h4 className="font-bold text-blue-900 text-sm uppercase mb-2">Export System</h4>
-                        <p className="text-xs text-blue-700 mb-4">Download a full backup of products, fleets, and settings.</p>
-                        <button onClick={handleExport} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 text-xs uppercase">
-                            <Download size={16} /> Download .JSON
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
-                            <h4 className="font-bold text-slate-900 text-sm uppercase mb-2">Import Backup</h4>
-                            <p className="text-[10px] text-slate-500 mb-4">Restore from a .json backup file.</p>
-                            <label className="w-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold py-3 rounded-lg flex items-center justify-center gap-2 text-[10px] uppercase cursor-pointer transition-colors">
-                                <Upload size={14} /> JSON File
-                                <input type="file" accept=".json" className="hidden" onChange={handleFileUpload} />
-                            </label>
-                        </div>
-                        
-                        <BulkImporter onImport={handleBulkImport} onStatus={setStatusMsg} />
-                    </div>
-
-                    {statusMsg && (
-                        <div className="p-3 bg-slate-900 text-white text-[10px] font-mono rounded-lg">
-                            <span className="text-green-400 font-bold">&gt;</span> {statusMsg}
-                        </div>
-                    )}
+                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl"><h4 className="font-bold text-blue-900 text-sm uppercase mb-2">Export System</h4><p className="text-xs text-blue-700 mb-4">Download a full backup of products, fleets, and settings.</p><button onClick={handleExport} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 text-xs uppercase"><Download size={16} /> Download .JSON</button></div>
+                    <div className="grid grid-cols-2 gap-4"><div className="bg-slate-50 border border-slate-200 p-4 rounded-xl"><h4 className="font-bold text-slate-900 text-sm uppercase mb-2">Import Backup</h4><p className="text-[10px] text-slate-500 mb-4">Restore from a .json backup file.</p><label className="w-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold py-3 rounded-lg flex items-center justify-center gap-2 text-[10px] uppercase cursor-pointer transition-colors"><Upload size={14} /> JSON File<input type="file" accept=".json" className="hidden" onChange={handleFileUpload} /></label></div><BulkImporter onImport={handleBulkImport} onStatus={setStatusMsg} /></div>
+                    {statusMsg && (<div className="p-3 bg-slate-900 text-white text-[10px] font-mono rounded-lg"><span className="text-green-400 font-bold">&gt;</span> {statusMsg}</div>)}
                 </div>
             </div>
         </div>
     );
 };
 
-// ... (BrandImportModal, HeroEditor, AdsManager, CatalogueManager, InputField, ProductEditor, ScreensaverEditor remain same) ...
 const BrandImportModal = ({ brand, onImport, onClose }: { brand: Brand, onImport: (d: Partial<StoreData>) => void, onClose: () => void }) => {
     const [status, setStatus] = useState("");
-
     return (
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
-                 <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
-                    <h3 className="font-bold text-lg flex items-center gap-2"><FolderInput size={20}/> Bulk Import: {brand.name}</h3>
-                    <button onClick={onClose}><X size={20} /></button>
-                 </div>
-                 <div className="p-6">
-                     <BulkImporter onImport={onImport} onStatus={setStatus} targetBrandName={brand.name} />
-                     {status && (
-                        <div className="mt-4 p-3 bg-slate-900 text-white text-[10px] font-mono rounded-lg max-h-32 overflow-y-auto">
-                            <span className="text-green-400 font-bold">&gt;</span> {status}
-                        </div>
-                    )}
-                 </div>
+                 <div className="bg-slate-900 p-4 flex justify-between items-center text-white"><h3 className="font-bold text-lg flex items-center gap-2"><FolderInput size={20}/> Bulk Import: {brand.name}</h3><button onClick={onClose}><X size={20} /></button></div>
+                 <div className="p-6"><BulkImporter onImport={onImport} onStatus={setStatus} targetBrandName={brand.name} />{status && (<div className="mt-4 p-3 bg-slate-900 text-white text-[10px] font-mono rounded-lg max-h-32 overflow-y-auto"><span className="text-green-400 font-bold">&gt;</span> {status}</div>)}</div>
              </div>
         </div>
     );
@@ -682,16 +505,18 @@ const InputField = ({ label, val, onChange, placeholder, isArea = false, half = 
 );
 
 const ProductEditor = ({ product, onSave, onCancel }: any) => {
-    const [formData, setFormData] = useState<Product>(product || { id: generateId('p'), name: '', sku: '', description: '', terms: '', imageUrl: '', galleryUrls: [], videoUrl: '', manualUrl: '', manualImages: [], specs: {}, features: [], dimensions: { width: '', height: '', depth: '', weight: '' } });
+    const [formData, setFormData] = useState<Product>(product || { id: generateId('p'), name: '', sku: '', description: '', terms: '', imageUrl: '', galleryUrls: [], videoUrl: '', manualUrl: '', manualImages: [], specs: {}, features: [], boxContents: [], dimensions: { width: '', height: '', depth: '', weight: '' } });
     const [activeTab, setActiveTab] = useState<'general' | 'specs' | 'media' | 'terms'>('general');
     const [specKey, setSpecKey] = useState('');
     const [specVal, setSpecVal] = useState('');
     const [featureInput, setFeatureInput] = useState('');
+    const [boxInput, setBoxInput] = useState('');
     const [isProcessingPdf, setIsProcessingPdf] = useState(false);
   
     const addSpec = () => { if(!specKey || !specVal) return; setFormData(prev => ({ ...prev, specs: { ...prev.specs, [specKey]: specVal } })); setSpecKey(''); setSpecVal(''); };
     const removeSpec = (key: string) => { const newSpecs = { ...formData.specs }; delete newSpecs[key]; setFormData(prev => ({ ...prev, specs: newSpecs })); };
     const addFeature = () => { if(!featureInput) return; setFormData(prev => ({ ...prev, features: [...prev.features, featureInput] })); setFeatureInput(''); };
+    const addBoxItem = () => { if(!boxInput) return; setFormData(prev => ({ ...prev, boxContents: [...(prev.boxContents || []), boxInput] })); setBoxInput(''); };
   
     const handleManualUpload = async (data: string | string[]) => { if (Array.isArray(data)) return; setFormData(prev => ({...prev, manualUrl: data})); setIsProcessingPdf(true); const images = await convertPdfToImages(data); setFormData(prev => ({...prev, manualImages: images})); setIsProcessingPdf(false); };
     const handleGalleryUpload = (data: string | string[]) => { if (Array.isArray(data)) { setFormData(prev => ({...prev, galleryUrls: [...(prev.galleryUrls || []), ...data]})); } else { setFormData(prev => ({...prev, galleryUrls: [...(prev.galleryUrls || []), data]})); } };
@@ -722,15 +547,32 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
                 )}
                 {activeTab === 'specs' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                     {/* Technical Specs */}
                      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
                         <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2"><Monitor size={16} className="text-blue-500" /> Technical Specs</h4>
-                        <div className="flex gap-2 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200"><input placeholder="Spec (e.g. CPU)" className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={specKey} onChange={e => setSpecKey(e.target.value)} /><input placeholder="Value" className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={specVal} onChange={e => setSpecVal(e.target.value)} /><button onClick={addSpec} className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 shadow-md"><Plus size={14} /></button></div>
+                        {/* Layout Fix: Flex-col on mobile to prevent squashing */}
+                        <div className="flex flex-col md:flex-row gap-2 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                           <input placeholder="Spec (e.g. CPU)" className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={specKey} onChange={e => setSpecKey(e.target.value)} />
+                           <input placeholder="Value" className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={specVal} onChange={e => setSpecVal(e.target.value)} />
+                           <button onClick={addSpec} className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 shadow-md w-full md:w-auto flex items-center justify-center"><Plus size={14} /></button>
+                        </div>
                         <div className="space-y-2 max-h-[300px] overflow-y-auto">{Object.entries(formData.specs).map(([k, v]) => (<div key={k} className="flex justify-between items-center text-xs p-3 bg-slate-50/50 rounded-lg border border-slate-100"><span className="font-bold text-slate-500 uppercase">{k}</span><div className="flex items-center gap-3"><span className="font-bold text-slate-900">{v}</span><button onClick={() => removeSpec(k)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button></div></div>))}</div>
                      </div>
-                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
-                        <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2"><BarChart3 size={16} className="text-blue-500" /> Key Features</h4>
-                        <div className="flex gap-2 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200"><input placeholder="Add a feature bullet..." className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={featureInput} onChange={e => setFeatureInput(e.target.value)} /><button onClick={addFeature} className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 shadow-md"><Plus size={14} /></button></div>
-                        <div className="space-y-2 max-h-[300px] overflow-y-auto">{formData.features.map((f: string, i: number) => (<div key={i} className="flex justify-between items-center text-xs p-3 bg-slate-50/50 rounded-lg border border-slate-100"><span className="text-slate-900 font-bold truncate max-w-[200px]">{f}</span><button onClick={() => setFormData({...formData, features: formData.features.filter((_, idx) => idx !== i)})} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button></div>))}</div>
+                     
+                     {/* Features & Box Contents */}
+                     <div className="space-y-6">
+                         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
+                            <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2"><BarChart3 size={16} className="text-blue-500" /> Key Features</h4>
+                            <div className="flex gap-2 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200"><input placeholder="Add a feature bullet..." className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={featureInput} onChange={e => setFeatureInput(e.target.value)} /><button onClick={addFeature} className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 shadow-md"><Plus size={14} /></button></div>
+                            <div className="space-y-2 max-h-[200px] overflow-y-auto">{formData.features.map((f: string, i: number) => (<div key={i} className="flex justify-between items-center text-xs p-3 bg-slate-50/50 rounded-lg border border-slate-100"><span className="text-slate-900 font-bold truncate max-w-[200px]">{f}</span><button onClick={() => setFormData({...formData, features: formData.features.filter((_, idx) => idx !== i)})} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button></div>))}</div>
+                         </div>
+
+                         {/* What's in the Box - NEW SECTION */}
+                         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
+                            <h4 className="font-black text-slate-900 mb-4 text-sm flex items-center gap-2"><Package size={16} className="text-orange-500" /> What's in the Box</h4>
+                            <div className="flex gap-2 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200"><input placeholder="Item (e.g. Power Cable)" className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-black" value={boxInput} onChange={e => setBoxInput(e.target.value)} /><button onClick={addBoxItem} className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 shadow-md"><Plus size={14} /></button></div>
+                            <div className="space-y-2 max-h-[200px] overflow-y-auto">{formData.boxContents?.map((item: string, i: number) => (<div key={i} className="flex justify-between items-center text-xs p-3 bg-slate-50/50 rounded-lg border border-slate-100"><span className="text-slate-900 font-bold truncate max-w-[200px]">{item}</span><button onClick={() => setFormData({...formData, boxContents: formData.boxContents?.filter((_, idx) => idx !== i)})} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button></div>))}</div>
+                         </div>
                      </div>
                   </div>
                 )}
@@ -750,491 +592,398 @@ const ProductEditor = ({ product, onSave, onCancel }: any) => {
     );
 };
 
-const HeroEditor = ({ data, onUpdate }: { data: HeroConfig, onUpdate: (h: HeroConfig) => void }) => {
-    const [localData, setLocalData] = useState<HeroConfig>(data);
-    const [hasChanges, setHasChanges] = useState(false);
-
-    useEffect(() => { setLocalData(data); }, [data]);
-
-    const handleChange = (key: keyof HeroConfig, value: string) => {
-        setLocalData({ ...localData, [key]: value });
-        setHasChanges(true);
-    };
-
-    const handleSave = () => {
-        onUpdate(localData);
-        setHasChanges(false);
-    };
-
-    return (
-        <div className="max-w-4xl mx-auto p-4 animate-fade-in pb-24">
-            <div className="flex items-center justify-between mb-8">
-                 <h2 className="text-3xl font-black text-slate-900 flex items-center gap-2">
-                    <Layout size={32} className="text-blue-600" /> Hero & Branding
-                </h2>
-                <button 
-                    onClick={handleSave} 
-                    disabled={!hasChanges}
-                    className={`px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg flex items-center gap-2 transition-all ${hasChanges ? 'bg-blue-600 text-white hover:bg-blue-700 transform hover:-translate-y-1' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
-                >
-                    <Save size={16} /> {hasChanges ? 'Save Changes' : 'Saved'}
-                </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <h3 className="font-black text-slate-900 mb-4 text-sm uppercase tracking-wide">Main Banner Content</h3>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Title</label>
-                            <input value={localData.title} onChange={e => handleChange('title', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-blue-500" />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Subtitle</label>
-                            <textarea value={localData.subtitle} onChange={e => handleChange('subtitle', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 h-24 resize-none focus:outline-none focus:border-blue-500" />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Website URL</label>
-                            <input value={localData.websiteUrl || ''} onChange={e => handleChange('websiteUrl', e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-blue-500" placeholder="https://..." />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <h3 className="font-black text-slate-900 mb-4 text-sm uppercase tracking-wide">Visual Assets</h3>
-                    <FileUpload 
-                        label="Background Image (Landscape)" 
-                        currentUrl={localData.backgroundImageUrl} 
-                        onUpload={(url) => handleChange('backgroundImageUrl', url as string)} 
-                    />
-                    <div className="mt-4 pt-4 border-t border-slate-100">
-                         <FileUpload 
-                            label="Company Logo (Transparent PNG)" 
-                            currentUrl={localData.logoUrl} 
-                            onUpload={(url) => handleChange('logoUrl', url as string)} 
-                        />
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const AdsManager = ({ ads, onUpdate }: { ads: AdConfig, onUpdate: (a: AdConfig) => void }) => {
-    const [localAds, setLocalAds] = useState<AdConfig>(ads);
-    const [hasChanges, setHasChanges] = useState(false);
-
-    useEffect(() => { setLocalAds(ads); }, [ads]);
-
-    const handleSave = () => {
-        onUpdate(localAds);
-        setHasChanges(false);
-    };
-
-    const updateZone = (zone: keyof AdConfig, items: AdItem[]) => {
-        setLocalAds({ ...localAds, [zone]: items });
-        setHasChanges(true);
-    };
-
-    const addAds = (zone: keyof AdConfig, urls: string[], type: 'image' | 'video') => {
-        const newItems: AdItem[] = urls.map(u => ({ id: generateId('ad'), type, url: u }));
-        const currentItems = localAds[zone] || [];
-        updateZone(zone, [...currentItems, ...newItems]);
-    };
-
-    const removeAd = (zone: keyof AdConfig, id: string) => {
-        const currentItems = localAds[zone] || [];
-        updateZone(zone, currentItems.filter(i => i.id !== id));
-    };
-
-    const ZoneEditor = ({ zoneName, zoneKey, items }: { zoneName: string, zoneKey: keyof AdConfig, items: AdItem[] }) => (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="font-black text-slate-900 text-sm uppercase tracking-wide">{zoneName}</h3>
-                <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded">{items?.length || 0} Items</span>
-            </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                {items?.map(item => (
-                    <div key={item.id} className="relative group aspect-video bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                        {item.type === 'video' ? <video src={item.url} className="w-full h-full object-cover" /> : <img src={item.url} className="w-full h-full object-cover" />}
-                        <button onClick={() => removeAd(zoneKey, item.id)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button>
-                        <span className="absolute bottom-1 left-1 bg-black/50 text-white text-[8px] font-bold px-1 rounded uppercase">{item.type}</span>
-                    </div>
-                ))}
-            </div>
-
-            <div className="flex gap-2">
-                <div className="flex-1">
-                    <FileUpload 
-                        label="Add Media (Multiple Supported)" 
-                        onUpload={(data, type) => {
-                            if (data && (type === 'image' || type === 'video')) {
-                                const urls = Array.isArray(data) ? data : [data];
-                                addAds(zoneKey, urls, type);
-                            }
-                        }}
-                        allowMultiple={true}
-                        icon={<Plus size={16} />}
-                        helperText="Image or Video"
-                        accept="image/*,video/*"
-                    />
-                </div>
-            </div>
-        </div>
-    );
-
-    return (
-        <div className="max-w-4xl mx-auto p-4 animate-fade-in pb-24">
-             <div className="flex items-center justify-between mb-8">
-                 <h2 className="text-3xl font-black text-slate-900 flex items-center gap-2">
-                    <MegaphoneIcon size={32} className="text-purple-600" /> Home Page Ads
-                 </h2>
-                 <button 
-                    onClick={handleSave} 
-                    disabled={!hasChanges}
-                    className={`px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg flex items-center gap-2 transition-all ${hasChanges ? 'bg-blue-600 text-white hover:bg-blue-700 transform hover:-translate-y-1' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
-                >
-                    <Save size={16} /> {hasChanges ? 'Save Ads' : 'Saved'}
-                </button>
-            </div>
-            <div className="grid grid-cols-1 gap-6">
-                <ZoneEditor zoneName="Bottom Left (Square/Landscape)" zoneKey="homeBottomLeft" items={localAds.homeBottomLeft} />
-                <ZoneEditor zoneName="Bottom Right (Square/Landscape)" zoneKey="homeBottomRight" items={localAds.homeBottomRight} />
-                <ZoneEditor zoneName="Side Vertical (Tall)" zoneKey="homeSideVertical" items={localAds.homeSideVertical} />
-            </div>
-        </div>
-    );
-};
-
-const CatalogueManager = ({ catalogues, onUpdate, mode = 'global', brandId }: { catalogues: Catalogue[], onUpdate: (c: Catalogue[]) => void, mode?: 'global' | 'brand', brandId?: string }) => {
-    const [localCatalogues, setLocalCatalogues] = useState<Catalogue[]>(catalogues);
-    const [hasChanges, setHasChanges] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
-
-    useEffect(() => { setLocalCatalogues(catalogues); }, [catalogues]);
-
-    const handleSave = () => { onUpdate(localCatalogues); setHasChanges(false); };
-    const updateCatalogue = (id: string, updates: Partial<Catalogue>) => { setLocalCatalogues(localCatalogues.map(c => c.id === id ? { ...c, ...updates } : c)); setHasChanges(true); };
-    
-    const handleUpload = async (file: File) => {
-        setIsUploading(true);
-        const pdfUrl = await uploadFileToStorage(file);
-        const reader = new FileReader();
-        reader.onload = async () => {
-            const rawPdf = reader.result as string;
-            const images = await convertPdfToImages(rawPdf);
-            const newCat: Catalogue = { id: generateId('cat'), title: file.name.replace('.pdf', ''), pages: images, year: new Date().getFullYear(), startDate: new Date().toISOString().split('T')[0], pdfUrl: pdfUrl || undefined, brandId };
-            setLocalCatalogues([...localCatalogues, newCat]);
-            setHasChanges(true);
-            setIsUploading(false);
-        };
-        reader.readAsDataURL(file);
-    };
-    
-    const removeCatalogue = (id: string) => { setLocalCatalogues(localCatalogues.filter(c => c.id !== id)); setHasChanges(true); };
-
-    return (
-        <div className="max-w-4xl mx-auto p-4 animate-fade-in pb-24">
-             <div className="flex justify-between items-center mb-8">
-                 <h2 className="text-3xl font-black text-slate-900 flex items-center gap-2">
-                    <BookOpen size={32} className="text-orange-600" /> {mode === 'brand' ? 'Brand Catalogues' : 'Pamphlets'}
-                </h2>
-                <div className="flex gap-2">
-                    <label className={`flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl font-bold uppercase text-xs cursor-pointer hover:bg-slate-800 transition-colors shadow-lg ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                        {isUploading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
-                        {isUploading ? 'Processing...' : 'Upload PDF'}
-                        <input type="file" className="hidden" accept="application/pdf" onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} disabled={isUploading} />
-                    </label>
-                    <button onClick={handleSave} disabled={!hasChanges} className={`px-4 py-2 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg flex items-center gap-2 transition-all ${hasChanges ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><Save size={16} /> Save</button>
-                </div>
-            </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
-                {localCatalogues.map(cat => (
-                    <div key={cat.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group flex flex-col">
-                        <div className="aspect-[2/3] bg-slate-100 relative">
-                             {cat.pages && cat.pages[0] ? <img src={cat.pages[0]} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><FileText size={32} /></div>}
-                             <button onClick={() => removeCatalogue(cat.id)} className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"><Trash2 size={12} /></button>
-                        </div>
-                        <div className="p-2 md:p-4 flex-1 flex flex-col">
-                            <label className="block text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Title</label>
-                            <input value={cat.title} onChange={(e) => updateCatalogue(cat.id, { title: e.target.value })} className="font-bold text-slate-900 text-xs md:text-sm w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 outline-none mb-2" />
-                            {mode === 'global' ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2 mt-auto">
-                                    <div><label className="block text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Start</label><input type="date" value={cat.startDate || ''} onChange={(e) => updateCatalogue(cat.id, { startDate: e.target.value })} className="text-[9px] md:text-[10px] bg-slate-50 border border-slate-200 rounded px-1 md:px-2 py-0.5 md:py-1 text-slate-500 font-mono w-full" /></div>
-                                    <div><label className="block text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">End</label><input type="date" value={cat.endDate || ''} onChange={(e) => updateCatalogue(cat.id, { endDate: e.target.value })} className="text-[9px] md:text-[10px] bg-slate-50 border border-slate-200 rounded px-1 md:px-2 py-0.5 md:py-1 text-slate-500 font-mono w-full" /></div>
-                                </div>
-                            ) : (
-                                <div className="mt-auto"><label className="block text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Year</label><input type="number" value={cat.year || ''} onChange={(e) => updateCatalogue(cat.id, { year: parseInt(e.target.value) })} className="text-[9px] md:text-[10px] bg-slate-50 border border-slate-200 rounded px-1 md:px-2 py-0.5 md:py-1 text-slate-500 font-mono w-full" placeholder="YYYY" /></div>
-                            )}
-                            <div className="mt-2 text-[8px] md:text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1 border-t border-slate-100 pt-2"><Book size={10} /> {cat.pages.length} Pages</div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-const ScreensaverEditor = ({ storeData, onUpdate }: { storeData: StoreData, onUpdate: (d: StoreData) => void }) => {
-    // ... same as before
-    const [localSettings, setLocalSettings] = useState<ScreensaverSettings>(storeData.screensaverSettings || { idleTimeout: 60, imageDuration: 8, muteVideos: false, showProductImages: true, showProductVideos: true, showPamphlets: true, showCustomAds: true });
-    const [localAds, setLocalAds] = useState<AdItem[]>(storeData.ads?.screensaver || []);
-    const [hasChanges, setHasChanges] = useState(false);
-  
-    useEffect(() => { setLocalSettings(storeData.screensaverSettings || localSettings); setLocalAds(storeData.ads?.screensaver || []); }, [storeData]);
-  
-    const handleSave = () => { onUpdate({ ...storeData, screensaverSettings: localSettings, ads: { ...storeData.ads!, screensaver: localAds } }); setHasChanges(false); };
-    const updateSettings = (updates: Partial<ScreensaverSettings>) => { setLocalSettings({ ...localSettings, ...updates }); setHasChanges(true); };
-    const addSlide = (url: string | string[], type: 'image' | 'video') => { const urls = Array.isArray(url) ? url : [url]; const newItems: AdItem[] = urls.map(u => ({ id: generateId('ss'), type, url: u })); setLocalAds([...localAds, ...newItems]); setHasChanges(true); };
-    const removeSlide = (id: string) => { setLocalAds(localAds.filter(a => a.id !== id)); setHasChanges(true); };
-
-    return (
-        <div className="max-w-6xl mx-auto p-4 animate-fade-in pb-20">
-            <div className="flex items-center justify-between mb-8">
-                <div><h2 className="text-3xl font-black text-slate-900">Screensaver Control</h2><p className="text-slate-500">Manage idle screen playback loop and configuration.</p></div>
-                <button onClick={handleSave} disabled={!hasChanges} className={`px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg flex items-center gap-2 transition-all ${hasChanges ? 'bg-blue-600 text-white hover:bg-blue-700 transform hover:-translate-y-1' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><Save size={16} /> {hasChanges ? 'Save Changes' : 'Saved'}</button>
-            </div>
-            {/* Configuration Panel */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
-                <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2"><Settings size={20} className="text-blue-600" /> Playback Settings</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    <div className="space-y-4">
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100"><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2"><Clock size={14} /> Idle Wait Time (Seconds)</label><input type="number" value={localSettings.idleTimeout} onChange={(e) => updateSettings({ idleTimeout: parseInt(e.target.value) || 30 })} className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:border-blue-500" /><p className="text-[10px] text-slate-400 mt-1">Time before screensaver starts.</p></div>
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100"><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2"><Clock size={14} /> Image Duration (Seconds)</label><input type="number" value={localSettings.imageDuration} onChange={(e) => updateSettings({ imageDuration: parseInt(e.target.value) || 5 })} className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:border-blue-500" /><p className="text-[10px] text-slate-400 mt-1">How long each image stays on screen.</p></div>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100"><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Content Sources</label><div className="space-y-3"><button onClick={() => updateSettings({ showProductImages: !localSettings.showProductImages })} className="flex items-center justify-between w-full"><span className="text-sm font-bold text-slate-700">Product Images</span>{localSettings.showProductImages ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}</button><button onClick={() => updateSettings({ showProductVideos: !localSettings.showProductVideos })} className="flex items-center justify-between w-full"><span className="text-sm font-bold text-slate-700">Product Videos</span>{localSettings.showProductVideos ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}</button><button onClick={() => updateSettings({ showPamphlets: !localSettings.showPamphlets })} className="flex items-center justify-between w-full"><span className="text-sm font-bold text-slate-700">Pamphlet Covers</span>{localSettings.showPamphlets ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}</button><button onClick={() => updateSettings({ showCustomAds: !localSettings.showCustomAds })} className="flex items-center justify-between w-full"><span className="text-sm font-bold text-slate-700">Custom Ads (Below)</span>{localSettings.showCustomAds ? <ToggleRight size={24} className="text-blue-600" /> : <ToggleLeft size={24} className="text-slate-300" />}</button></div></div>
-                    </div>
-                    <div className="space-y-4"><div className="bg-slate-50 p-4 rounded-xl border border-slate-100 h-full"><label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Audio Control</label><div className="flex flex-col gap-4"><button onClick={() => updateSettings({ muteVideos: !localSettings.muteVideos })} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${localSettings.muteVideos ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}>{localSettings.muteVideos ? <VolumeX size={20} /> : <Volume2 size={20} />}<div className="text-left"><div className="font-bold text-sm">{localSettings.muteVideos ? 'Videos Muted' : 'Sound Enabled'}</div><div className="text-[10px] opacity-70">{localSettings.muteVideos ? 'Silent Playback' : 'Play audio from videos'}</div></div></button></div></div></div>
-                </div>
-            </div>
-
-            <div className="flex items-center justify-between mb-4 mt-8"><h3 className="text-lg font-black text-slate-900 flex items-center gap-2"><Megaphone size={20} className="text-purple-600" /> Custom Ads & Slides</h3><span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold uppercase">{localAds.length} Items</span></div>
-
-            {/* Custom Slide Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                {localAds.map((ad, idx) => (
-                    <div key={ad.id} className="relative group bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden aspect-video">
-                        {ad.type === 'video' ? (<div className="w-full h-full bg-black flex items-center justify-center"><video src={ad.url} className="w-full h-full object-cover opacity-80" /><div className="absolute inset-0 flex items-center justify-center"><PlayCircle className="text-white/50" size={32} /></div></div>) : (<img src={ad.url} className="w-full h-full object-cover" />)}
-                        <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm uppercase">{idx + 1}. {ad.type}</div>
-                        <button onClick={() => removeSlide(ad.id)} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-lg"><Trash2 size={14} /></button>
-                    </div>
-                ))}
-                <div className="aspect-video bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-4 hover:bg-slate-100 transition-colors p-4">
-                     <div className="text-xs font-bold text-slate-400 uppercase">Add Slide</div>
-                     <div className="flex gap-2"><div className="flex-1"><FileUpload label="" currentUrl="" onUpload={(data, type) => { if (data) { const items = Array.isArray(data) ? data : [data]; const safeType = type === 'video' ? 'video' : 'image'; items.forEach(u => addSlide(u, safeType)); } }} allowMultiple={true} icon={<Plus size={16} />} helperText="Image/Video" accept="image/*,video/*" /></div></div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh?: () => void }) => {
+export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh: () => void }) => {
   const [session, setSession] = useState(false);
-  const [activeBrandId, setActiveBrandId] = useState<string | null>(null);
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'brands' | 'ads' | 'fleet' | 'settings'>('brands');
+  
+  // Selection State
+  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
-  const [showSetup, setShowSetup] = useState(false);
-  const [showDataManager, setShowDataManager] = useState(false);
+
+  // Modals
+  const [showDataMgr, setShowDataMgr] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [showBrandImport, setShowBrandImport] = useState(false);
+  
+  // Fleet Modals
   const [editingKiosk, setEditingKiosk] = useState<KioskRegistry | null>(null);
-  const [viewingCameraKiosk, setViewingCameraKiosk] = useState<KioskRegistry | null>(null);
-  const [activeView, setActiveView] = useState<'dashboard' | 'inventory' | 'marketing' | 'screensaver'>('dashboard');
-  const [marketingView, setMarketingView] = useState<'hero' | 'ads' | 'catalogues'>('hero');
+  const [viewingCamera, setViewingCamera] = useState<KioskRegistry | null>(null);
 
   if (!session) return <Auth setSession={setSession} />;
+  if (!storeData) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /> Loading Data...</div>;
 
-  const activeBrand = storeData?.brands.find(b => b.id === activeBrandId);
-  const activeCategory = activeBrand?.categories.find(c => c.id === activeCategoryId);
-
-  const handleSaveProduct = (product: Product) => {
-      if (!storeData || !activeBrand || !activeCategory) return;
-      const updatedBrands = storeData.brands.map(b => { if (b.id !== activeBrand.id) return b; return { ...b, categories: b.categories.map(c => { if (c.id !== activeCategory.id) return c; const exists = c.products.find(p => p.id === product.id); let newProducts; if (exists) { newProducts = c.products.map(p => p.id === product.id ? product : p); } else { newProducts = [...c.products, product]; } return { ...c, products: newProducts }; }) }; });
-      const newStoreData = { ...storeData, brands: updatedBrands };
-      onUpdateData(newStoreData);
-      setEditingProduct(null);
-      setIsCreatingProduct(false);
+  // CRUD Helpers
+  const updateBrand = (updated: Brand) => {
+      const newBrands = storeData.brands.map(b => b.id === updated.id ? updated : b);
+      onUpdateData({ ...storeData, brands: newBrands });
+      if (selectedBrand?.id === updated.id) setSelectedBrand(updated);
   };
 
-  const handleUpdateKiosk = (updatedKiosk: KioskRegistry) => { if(!storeData?.fleet) return; const newFleet = storeData.fleet.map(k => k.id === updatedKiosk.id ? updatedKiosk : k); onUpdateData({ ...storeData, fleet: newFleet }); setEditingKiosk(null); };
-  const handleRequestSnapshot = (kiosk: KioskRegistry) => { if (!storeData?.fleet) return; const newFleet = storeData.fleet.map(k => k.id === kiosk.id ? { ...k, requestSnapshot: true } : k); onUpdateData({ ...storeData, fleet: newFleet }); };
-  const handleRequestReboot = (kiosk: KioskRegistry) => { if (!storeData?.fleet) return; if (confirm(`Are you sure you want to REBOOT kiosk ${kiosk.name}?`)) { const newFleet = storeData.fleet.map(k => k.id === kiosk.id ? { ...k, restartRequested: true } : k); onUpdateData({ ...storeData, fleet: newFleet }); } };
-
-  const handleBrandImportMerge = (partialData: Partial<StoreData>) => {
-      if (!activeBrand || !partialData.brands || partialData.brands.length === 0) return;
-      
-      const importedBrand = partialData.brands[0]; 
-      
-      const updatedBrands = storeData?.brands.map(existingBrand => {
-          if (existingBrand.id !== activeBrand.id) return existingBrand;
-          const mergedCategories = [...existingBrand.categories];
-          importedBrand.categories.forEach(importedCat => {
-              const catIndex = mergedCategories.findIndex(c => c.name === importedCat.name);
-              if (catIndex === -1) {
-                  mergedCategories.push(importedCat);
-              } else {
-                  const existingCat = mergedCategories[catIndex];
-                  const mergedProducts = [...existingCat.products];
-                  importedCat.products.forEach(importedProd => {
-                      const prodIndex = mergedProducts.findIndex(p => p.name === importedProd.name);
-                      if (prodIndex === -1) {
-                          mergedProducts.push(importedProd);
-                      } else {
-                          mergedProducts[prodIndex] = importedProd;
-                      }
-                  });
-                  mergedCategories[catIndex] = { ...existingCat, products: mergedProducts };
-              }
-          });
-          return { ...existingBrand, categories: mergedCategories };
-      });
-
-      if (updatedBrands) {
-          onUpdateData({ ...storeData!, brands: updatedBrands });
-          setShowBrandImport(false);
-      }
+  const deleteBrand = (id: string) => {
+      if(!confirm("Delete this brand and all its products?")) return;
+      const newBrands = storeData.brands.filter(b => b.id !== id);
+      onUpdateData({ ...storeData, brands: newBrands });
+      setSelectedBrand(null);
   };
 
-  if (editingProduct || isCreatingProduct) return <ProductEditor product={editingProduct} onSave={handleSaveProduct} onCancel={() => { setEditingProduct(null); setIsCreatingProduct(false); }} />;
-  if (showSetup) return <SetupGuide onClose={() => setShowSetup(false)} />;
+  const addBrand = () => {
+      const name = prompt("Enter Brand Name:");
+      if (!name) return;
+      const newBrand: Brand = { id: generateId('b'), name, categories: [], logoUrl: '' };
+      onUpdateData({ ...storeData, brands: [...storeData.brands, newBrand] });
+  };
+  
+  // ... more CRUD for categories/products ...
 
   return (
-    <div className="flex flex-col h-screen bg-slate-100 overflow-hidden font-sans">
-       <div className="bg-slate-900 text-white shrink-0 shadow-xl z-30">
-          <div className="flex items-center justify-between p-3 md:p-4 border-b border-slate-800">
-             <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-black">A</div>
-                <span className="font-bold text-lg tracking-tight hidden md:inline">Admin Hub</span>
-                <span className="font-bold text-lg tracking-tight md:hidden">Hub</span>
-                 <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-800 rounded-full border border-slate-700">
-                    {supabase ? <Cloud size={12} className="text-blue-400" /> : <HardDrive size={12} className="text-orange-400" />}
-                    <span className="text-[10px] font-bold uppercase text-slate-400">
-                        {supabase ? 'Supabase' : 'Local'}
-                    </span>
+    <div className="flex h-screen bg-slate-100 overflow-hidden">
+        {/* Sidebar Navigation */}
+        <div className="w-64 bg-slate-900 text-white flex flex-col shrink-0">
+            <div className="p-6 border-b border-slate-800">
+                <h1 className="text-xl font-black uppercase tracking-widest flex items-center gap-2">
+                   <Settings size={20} className="text-blue-500"/> Admin Hub
+                </h1>
+                <p className="text-[10px] text-slate-500 mt-1 uppercase font-bold">Store Configuration</p>
+            </div>
+            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+                <button onClick={() => { setActiveTab('brands'); setSelectedBrand(null); }} className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'brands' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                    <Box size={18} /> <span className="text-xs font-bold uppercase tracking-wider">Inventory</span>
+                </button>
+                <button onClick={() => setActiveTab('ads')} className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'ads' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                    <MegaphoneIcon size={18} /> <span className="text-xs font-bold uppercase tracking-wider">Ad Manager</span>
+                </button>
+                <button onClick={() => setActiveTab('fleet')} className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'fleet' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                    <Monitor size={18} /> <span className="text-xs font-bold uppercase tracking-wider">Fleet</span>
+                </button>
+                 <button onClick={() => setActiveTab('settings')} className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'settings' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                    <Layout size={18} /> <span className="text-xs font-bold uppercase tracking-wider">Settings</span>
+                </button>
+            </nav>
+            <div className="p-4 border-t border-slate-800 space-y-2">
+                 <button onClick={() => setShowDataMgr(true)} className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 p-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-xs font-bold uppercase"><Database size={14} /> Data</button>
+                 <button onClick={() => setShowGuide(true)} className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 p-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-xs font-bold uppercase"><HelpCircle size={14} /> Guide</button>
+                 <button onClick={onExit} className="w-full bg-red-900/20 hover:bg-red-900/40 text-red-400 p-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-xs font-bold uppercase mt-4"><LogOut size={14} /> Exit Kiosk</button>
+            </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+            {/* Header */}
+            <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
+                <div className="flex items-center gap-4">
+                    {/* Breadcrumbs */}
+                    <div className="flex items-center text-sm font-bold text-slate-500">
+                       <span className="uppercase">{activeTab}</span>
+                       {selectedBrand && <><ChevronRight size={14} className="mx-2"/> <span className="text-slate-900 uppercase">{selectedBrand.name}</span></>}
+                       {selectedCategory && <><ChevronRight size={14} className="mx-2"/> <span className="text-slate-900 uppercase">{selectedCategory.name}</span></>}
+                    </div>
                 </div>
-             </div>
-             <div className="flex items-center gap-3"><button onClick={() => setShowDataManager(true)} className="p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-colors flex items-center gap-2 border border-blue-500/30"><Database size={18} /><span className="hidden md:inline text-xs font-bold uppercase">System Data</span></button><button onClick={() => onRefresh ? onRefresh() : onUpdateData({...storeData!})} className="p-2 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500 hover:text-white transition-colors flex items-center gap-2 border border-green-500/30 shadow-lg shadow-green-900/20 animate-pulse"><RefreshCw size={18} /><span className="hidden md:inline text-xs font-bold uppercase">Sync Changes</span></button><button onClick={() => setShowSetup(true)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors" title="Setup Guide"><HelpCircle size={18} /></button><button onClick={onExit} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2"><LogOut size={18} /><span className="hidden md:inline text-xs font-bold uppercase">Exit</span></button></div>
-          </div>
-          <div className="flex overflow-x-auto">
-             <button onClick={() => { setActiveView('dashboard'); setActiveBrandId(null); setActiveCategoryId(null); }} className={`flex-1 min-w-[100px] p-4 text-xs font-black uppercase tracking-widest text-center transition-colors border-b-4 ${activeView === 'dashboard' ? 'border-blue-500 bg-slate-800 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Dashboard</button>
-             <button onClick={() => { setActiveView('inventory'); if(!activeBrandId && storeData?.brands.length > 0) setActiveBrandId(storeData.brands[0].id); }} className={`flex-1 min-w-[100px] p-4 text-xs font-black uppercase tracking-widest text-center transition-colors border-b-4 ${activeView === 'inventory' ? 'border-blue-500 bg-slate-800 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Inventory</button>
-             <button onClick={() => { setActiveView('marketing'); }} className={`flex-1 min-w-[100px] p-4 text-xs font-black uppercase tracking-widest text-center transition-colors border-b-4 ${activeView === 'marketing' ? 'border-blue-500 bg-slate-800 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Marketing</button>
-             <button onClick={() => { setActiveView('screensaver'); setActiveBrandId(null); }} className={`flex-1 min-w-[100px] p-4 text-xs font-black uppercase tracking-widest text-center transition-colors border-b-4 ${activeView === 'screensaver' ? 'border-blue-500 bg-slate-800 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Screensaver</button>
-          </div>
-       </div>
+                <button onClick={onRefresh} className="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Reload Data"><RefreshCw size={18} /></button>
+            </header>
+            
+            <main className="flex-1 overflow-y-auto p-6 bg-slate-100">
+               {activeTab === 'brands' && (
+                   !selectedBrand ? (
+                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
+                           <button onClick={addBrand} className="bg-white border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-8 text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all group min-h-[200px]">
+                               <div className="w-12 h-12 rounded-full bg-slate-100 group-hover:bg-blue-50 flex items-center justify-center mb-4 transition-colors"><Plus size={24} /></div>
+                               <span className="font-bold uppercase text-xs tracking-wider">Add Brand</span>
+                           </button>
+                           {storeData.brands.map(brand => (
+                               <div key={brand.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition-all group relative">
+                                   <div className="h-32 bg-slate-50 flex items-center justify-center p-4 relative">
+                                       {brand.logoUrl ? <img src={brand.logoUrl} className="max-h-full max-w-full object-contain" alt={brand.name} /> : <span className="text-4xl font-black text-slate-200">{brand.name.charAt(0)}</span>}
+                                       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                           <button onClick={(e) => { e.stopPropagation(); deleteBrand(brand.id); }} className="p-2 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50"><Trash2 size={14} /></button>
+                                       </div>
+                                   </div>
+                                   <div className="p-4">
+                                       <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight mb-1">{brand.name}</h3>
+                                       <p className="text-xs text-slate-500 font-bold mb-4">{brand.categories.length} Categories</p>
+                                       <div className="flex gap-2">
+                                           <button onClick={() => setSelectedBrand(brand)} className="flex-1 bg-slate-900 text-white py-2 rounded-lg font-bold text-xs uppercase hover:bg-blue-600 transition-colors">Manage</button>
+                                            <button onClick={() => { setSelectedBrand(brand); setShowBrandImport(true); }} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200" title="Bulk Import"><FolderInput size={16}/></button>
+                                       </div>
+                                   </div>
+                               </div>
+                           ))}
+                       </div>
+                   ) : !selectedCategory ? (
+                       <div className="animate-fade-in">
+                           <div className="flex items-center gap-4 mb-6">
+                               <button onClick={() => setSelectedBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900"><ArrowLeft size={20} /></button>
+                               <div className="flex-1">
+                                   <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900">{selectedBrand.name}</h2>
+                                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Manage Categories</p>
+                               </div>
+                               <div className="flex gap-2">
+                                   <FileUpload label="Brand Logo" currentUrl={selectedBrand.logoUrl} onUpload={(url) => updateBrand({...selectedBrand, logoUrl: url as string})} />
+                               </div>
+                           </div>
+                           
+                           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                               <button onClick={() => {
+                                   const name = prompt("Category Name:");
+                                   if(name) {
+                                       const newCat: Category = { id: generateId('c'), name, icon: 'Box', products: [] };
+                                       updateBrand({ ...selectedBrand, categories: [...selectedBrand.categories, newCat] });
+                                   }
+                               }} className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-6 text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all min-h-[150px]">
+                                   <Plus size={24} className="mb-2" />
+                                   <span className="font-bold text-xs uppercase">New Category</span>
+                               </button>
+                               {selectedBrand.categories.map(cat => (
+                                   <button key={cat.id} onClick={() => setSelectedCategory(cat)} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all text-left group relative">
+                                       <div className="mb-4 text-slate-400 group-hover:text-blue-500 transition-colors"><Box size={24} /></div>
+                                       <h3 className="font-black text-slate-900 uppercase text-sm mb-1">{cat.name}</h3>
+                                       <p className="text-xs text-slate-500 font-bold">{cat.products.length} Products</p>
+                                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div onClick={(e) => {
+                                                e.stopPropagation();
+                                                if(confirm("Delete category?")) {
+                                                    updateBrand({ ...selectedBrand, categories: selectedBrand.categories.filter(c => c.id !== cat.id) });
+                                                }
+                                            }} className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded"><Trash2 size={14} /></div>
+                                       </div>
+                                   </button>
+                               ))}
+                           </div>
+                       </div>
+                   ) : (
+                       <div className="animate-fade-in h-full flex flex-col">
+                           <div className="flex items-center gap-4 mb-6 shrink-0">
+                               <button onClick={() => setSelectedCategory(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900"><ArrowLeft size={20} /></button>
+                               <div className="flex-1">
+                                   <h2 className="text-2xl font-black uppercase tracking-tight text-slate-900">{selectedCategory.name}</h2>
+                                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">{selectedBrand.name}</p>
+                               </div>
+                               <button onClick={() => setEditingProduct({
+                                   id: generateId('p'),
+                                   name: '',
+                                   description: '',
+                                   specs: {},
+                                   features: [],
+                                   boxContents: [],
+                                   dimensions: { width: '', height: '', depth: '', weight: '' },
+                                   imageUrl: '',
+                                   galleryUrls: [],
+                                   videoUrl: '',
+                                   manualUrl: '',
+                                   manualImages: []
+                               } as Product)} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold uppercase text-xs shadow-lg hover:bg-blue-700 flex items-center gap-2"><Plus size={16} /> Add Product</button>
+                           </div>
 
-       {activeView === 'inventory' && (
-          <div className="bg-white border-b border-slate-200 p-2 overflow-x-auto flex items-center gap-2 shrink-0 z-20 shadow-sm">
-             <div className="px-2 text-[10px] font-black uppercase text-slate-400 shrink-0">Brands:</div>
-             {storeData?.brands
-                .slice()
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map(brand => (<button key={brand.id} onClick={() => { setActiveBrandId(brand.id); setActiveCategoryId(null); }} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${activeBrandId === brand.id ? 'bg-slate-900 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}><Box size={14} /> {brand.name}</button>))}
-             <button onClick={() => { const newBrand: Brand = { id: generateId('b'), name: 'New Brand', categories: [] }; onUpdateData({ ...storeData!, brands: [...(storeData?.brands || []), newBrand] }); }} className="px-3 py-2 rounded-lg border-2 border-dashed border-slate-300 text-slate-400 hover:border-blue-400 hover:text-blue-500 transition-colors whitespace-nowrap" title="Add Brand"><Plus size={16} /></button>
-          </div>
-       )}
+                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto pb-20">
+                               {selectedCategory.products.map(product => (
+                                   <div key={product.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col group hover:shadow-lg transition-all">
+                                       <div className="aspect-square bg-slate-50 relative">
+                                           {product.imageUrl ? <img src={product.imageUrl} className="w-full h-full object-contain p-4" alt="" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Box size={32} /></div>}
+                                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                               <button onClick={() => setEditingProduct(product)} className="p-2 bg-white text-blue-600 rounded-lg font-bold text-xs uppercase shadow-lg hover:bg-blue-50">Edit</button>
+                                               <button onClick={() => {
+                                                   if(confirm("Delete product?")) {
+                                                       const newProds = selectedCategory.products.filter(p => p.id !== product.id);
+                                                       const newCat = { ...selectedCategory, products: newProds };
+                                                       const newCats = selectedBrand.categories.map(c => c.id === newCat.id ? newCat : c);
+                                                       updateBrand({ ...selectedBrand, categories: newCats });
+                                                       setSelectedCategory(newCat);
+                                                   }
+                                               }} className="p-2 bg-white text-red-500 rounded-lg shadow-lg hover:bg-red-50"><Trash2 size={16} /></button>
+                                           </div>
+                                       </div>
+                                       <div className="p-4">
+                                           <h4 className="font-bold text-slate-900 text-sm truncate uppercase">{product.name}</h4>
+                                           <p className="text-xs text-slate-500 font-mono">{product.sku || 'No SKU'}</p>
+                                       </div>
+                                   </div>
+                               ))}
+                           </div>
+                       </div>
+                   )
+               )}
 
-       {activeView === 'marketing' && (
-           <div className="bg-white border-b border-slate-200 p-2 overflow-x-auto flex items-center gap-2 shrink-0 z-20 shadow-sm justify-center md:justify-start">
-              <button onClick={() => setMarketingView('hero')} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${marketingView === 'hero' ? 'bg-blue-100 text-blue-800' : 'bg-white text-slate-500 hover:bg-slate-50'}`}><Layout size={16} /> Hero & Branding</button>
-              <button onClick={() => setMarketingView('ads')} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${marketingView === 'ads' ? 'bg-purple-100 text-purple-800' : 'bg-white text-slate-500 hover:bg-slate-50'}`}><MegaphoneIcon size={16} /> Home Ads</button>
-              <button onClick={() => setMarketingView('catalogues')} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${marketingView === 'catalogues' ? 'bg-orange-100 text-orange-800' : 'bg-white text-slate-500 hover:bg-slate-50'}`}><BookOpen size={16} /> Pamphlets</button>
-           </div>
-       )}
+               {activeTab === 'settings' && (
+                   <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+                       <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                           <h3 className="text-lg font-black text-slate-900 uppercase mb-6 pb-4 border-b border-slate-100 flex items-center gap-2"><Layout size={20} className="text-blue-500" /> Hero Section</h3>
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                               <div className="space-y-4">
+                                   <InputField label="Hero Title" val={storeData.hero.title} onChange={(e:any) => onUpdateData({...storeData, hero: {...storeData.hero, title: e.target.value}})} />
+                                   <InputField label="Hero Subtitle" val={storeData.hero.subtitle} onChange={(e:any) => onUpdateData({...storeData, hero: {...storeData.hero, subtitle: e.target.value}})} />
+                                    <InputField label="Website URL" val={storeData.hero.websiteUrl} onChange={(e:any) => onUpdateData({...storeData, hero: {...storeData.hero, websiteUrl: e.target.value}})} />
+                               </div>
+                               <div className="space-y-4">
+                                   <FileUpload label="Background Image" currentUrl={storeData.hero.backgroundImageUrl} onUpload={(url) => onUpdateData({...storeData, hero: {...storeData.hero, backgroundImageUrl: url as string}})} />
+                                   <FileUpload label="Logo Image" currentUrl={storeData.hero.logoUrl} onUpload={(url) => onUpdateData({...storeData, hero: {...storeData.hero, logoUrl: url as string}})} />
+                               </div>
+                           </div>
+                       </div>
 
-       <div className="flex-1 overflow-y-auto bg-slate-100 relative p-4 md:p-8">
-          <div className="max-w-6xl mx-auto">
-             {activeView === 'screensaver' ? (<ScreensaverEditor storeData={storeData!} onUpdate={onUpdateData} />) : activeView === 'marketing' ? (<>
-                    {marketingView === 'hero' && <HeroEditor data={storeData!.hero} onUpdate={(hero) => onUpdateData({...storeData!, hero})} />}
-                    {marketingView === 'ads' && <AdsManager ads={storeData!.ads || { homeBottomLeft: [], homeBottomRight: [], homeSideVertical: [], screensaver: [] }} onUpdate={(ads) => onUpdateData({...storeData!, ads})} />}
-                    {marketingView === 'catalogues' && <CatalogueManager catalogues={storeData!.catalogues?.filter(c => !c.brandId) || []} onUpdate={(updatedCats) => { const brandCats = storeData!.catalogues?.filter(c => c.brandId) || []; onUpdateData({...storeData!, catalogues: [...brandCats, ...updatedCats]}); }} mode="global" />}
-                 </>) : activeView === 'dashboard' ? (
-                <div className="animate-fade-in">
-                   <h2 className="text-3xl font-black text-slate-900 mb-8">System Overview</h2>
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200"><div className="text-slate-400 font-bold text-xs uppercase mb-2">Total Brands</div><div className="text-4xl font-black text-slate-900">{storeData?.brands.length}</div></div>
-                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200"><div className="text-slate-400 font-bold text-xs uppercase mb-2">Active Kiosks</div><div className="text-4xl font-black text-slate-900">{storeData?.fleet?.length || 0}</div></div>
-                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200"><div className="text-slate-400 font-bold text-xs uppercase mb-2">Last Sync</div><div className="text-xl font-bold text-slate-900">Just now</div></div>
-                   </div>
-                   <h3 className="text-xl font-black text-slate-900 mb-4">Fleet Status</h3>
-                   <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden overflow-x-auto">
-                       <table className="w-full text-left min-w-[500px]">
-                          <thead className="bg-slate-50 border-b border-slate-100"><tr><th className="p-4 text-xs font-black uppercase text-slate-500">ID / Location</th><th className="p-4 text-xs font-black uppercase text-slate-500">Device</th><th className="p-4 text-xs font-black uppercase text-slate-500">Status</th><th className="p-4 text-xs font-black uppercase text-slate-500">Telemetry</th><th className="p-4 text-xs font-black uppercase text-slate-500 text-right">Actions</th></tr></thead>
-                          <tbody>
-                             {storeData?.fleet?.map(k => (<tr key={k.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                                   <td className="p-4"><div className="font-bold text-slate-900">{k.name}</div><div className="font-mono text-xs text-slate-400">{k.id}</div>{k.assignedZone && <div className="inline-block mt-1 bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold">{k.assignedZone}</div>}</td>
-                                   <td className="p-4">
-                                       {k.deviceType === 'mobile' ? (
-                                           <div className="flex items-center gap-1.5 text-purple-600 font-bold text-xs"><Smartphone size={14} /> Mobile</div>
-                                       ) : (
-                                           <div className="flex items-center gap-1.5 text-blue-600 font-bold text-xs"><Tablet size={14} /> Kiosk</div>
-                                       )}
-                                   </td>
-                                   <td className="p-4"><div className="flex items-center gap-2"><span className={`inline-block w-2 h-2 rounded-full ${k.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></span><span className="text-xs font-bold uppercase">{k.status}</span></div><div className="text-[10px] text-slate-400 mt-1">Last: {new Date(k.last_seen).toLocaleTimeString()}</div></td>
-                                   <td className="p-4"><div className="flex items-center gap-2 text-xs font-mono text-slate-600"><Wifi size={12} /> {k.wifiStrength}%</div><div className="text-[10px] text-slate-400 mt-0.5">IP: {k.ipAddress || '---'}</div></td>
-                                   <td className="p-4 text-right"><div className="flex justify-end gap-2">
-                                       <button onClick={() => handleRequestReboot(k)} className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors border border-red-200" title="Reboot Device"><Power size={16} /></button>
-                                       <button 
-                                            onClick={() => setViewingCameraKiosk(k)} 
-                                            className={`p-2 rounded-lg transition-colors ${k.deviceType === 'mobile' ? 'bg-slate-50 text-slate-300 cursor-not-allowed' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`} 
-                                            title={k.deviceType === 'mobile' ? 'Camera disabled on mobile' : 'Live Camera View'}
-                                            disabled={k.deviceType === 'mobile'}
-                                       >
-                                           <Camera size={16} />
-                                       </button>
-                                       <button onClick={() => setEditingKiosk(k)} className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors" title="Edit Details"><Edit2 size={16} /></button></div></td>
-                                </tr>
-                             ))}
-                             {(!storeData?.fleet || storeData.fleet.length === 0) && (<tr><td colSpan={5} className="p-8 text-center text-slate-400 font-bold italic">No devices registered.</td></tr>)}
-                          </tbody>
-                       </table>
-                   </div>
-                </div>
-             ) : !activeBrand ? (
-                // ... (Rest of Admin Dashboard logic remains unchanged)
-                <div className="animate-fade-in text-center py-20"><Box size={48} className="mx-auto text-slate-300 mb-4" /><h2 className="text-2xl font-black text-slate-400 mb-2">Select a Brand</h2><p className="text-slate-500 text-sm">Use the top bar to select or create a brand to manage.</p></div>
-             ) : !activeCategory ? (
-                <div className="animate-fade-in">
-                   <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
-                       <div className="flex items-center gap-4">{activeBrand.logoUrl && <img src={activeBrand.logoUrl} className="w-16 h-16 object-contain bg-white rounded-lg border border-slate-200 p-2" />}<h2 className="text-3xl font-black text-slate-900">{activeBrand.name}</h2></div>
-                       <div className="flex gap-2 w-full md:w-auto">
-                           <button onClick={() => setShowBrandImport(true)} className="flex-1 md:flex-none p-2 bg-white border border-slate-200 rounded-lg hover:bg-purple-50 hover:border-purple-200 hover:text-purple-600 flex items-center justify-center gap-2 text-xs font-bold uppercase text-slate-600 transition-colors"><FolderInput size={16} /> Bulk Import</button>
-                           <button onClick={() => { const newName = prompt("Rename Brand", activeBrand.name); if(newName) { const updated = storeData!.brands.map(b => b.id === activeBrand.id ? {...b, name: newName} : b); onUpdateData({...storeData!, brands: updated}); } }} className="flex-1 md:flex-none p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 text-xs font-bold uppercase text-slate-600"><Edit2 size={16} /> Rename</button>
-                           <button onClick={() => { if(confirm("Delete this brand?")) { const updated = storeData!.brands.filter(b => b.id !== activeBrand.id); onUpdateData({...storeData!, brands: updated}); setActiveBrandId(null); } }} className="flex-1 md:flex-none p-2 bg-white border border-slate-200 rounded-lg hover:bg-red-50 text-red-500 flex items-center justify-center gap-2 text-xs font-bold uppercase"><Trash2 size={16} /> Delete</button>
+                       <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                            <h3 className="text-lg font-black text-slate-900 uppercase mb-6 pb-4 border-b border-slate-100 flex items-center gap-2"><Monitor size={20} className="text-purple-500" /> Screensaver</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Idle Timeout (Seconds)</label>
+                                    <input type="number" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold" value={storeData.screensaverSettings?.idleTimeout || 60} onChange={e => onUpdateData({...storeData, screensaverSettings: {...storeData.screensaverSettings, idleTimeout: parseInt(e.target.value)}})} />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Image Duration (Seconds)</label>
+                                    <input type="number" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold" value={storeData.screensaverSettings?.imageDuration || 8} onChange={e => onUpdateData({...storeData, screensaverSettings: {...storeData.screensaverSettings, imageDuration: parseInt(e.target.value)}})} />
+                                </div>
+                                <div className="col-span-2 space-y-2">
+                                     {['showProductImages', 'showProductVideos', 'showPamphlets', 'showCustomAds', 'muteVideos'].map((key) => (
+                                         <label key={key} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 cursor-pointer hover:bg-slate-100">
+                                             <span className="text-xs font-bold uppercase text-slate-700">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                             <div className={`w-10 h-5 rounded-full relative transition-colors ${(storeData.screensaverSettings as any)?.[key] ? 'bg-blue-500' : 'bg-slate-300'}`}>
+                                                 <input type="checkbox" className="hidden" checked={(storeData.screensaverSettings as any)?.[key]} onChange={e => onUpdateData({...storeData, screensaverSettings: {...storeData.screensaverSettings, [key]: e.target.checked}})} />
+                                                 <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${(storeData.screensaverSettings as any)?.[key] ? 'left-6' : 'left-1'}`}></div>
+                                             </div>
+                                         </label>
+                                     ))}
+                                </div>
+                            </div>
                        </div>
                    </div>
-                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8"><h4 className="font-bold text-slate-900 text-xs uppercase tracking-wide mb-4 flex items-center gap-2"><ImageIcon size={14} className="text-blue-500" /> Brand Identity</h4><FileUpload label="Brand Logo (Transparent PNG)" currentUrl={activeBrand.logoUrl} onUpload={(url) => { const updated = storeData!.brands.map(b => b.id === activeBrand.id ? {...b, logoUrl: url as string} : b); onUpdateData({...storeData!, brands: updated}); }} /></div>
-                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-                       {activeBrand.categories
-                          .slice()
-                          .sort((a, b) => a.name.localeCompare(b.name))
-                          .map(cat => (<button key={cat.id} onClick={() => setActiveCategoryId(cat.id)} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all text-left group"><div className="flex items-center justify-between mb-4"><span className="bg-blue-50 text-blue-600 p-3 rounded-lg"><Box size={24} /></span><span className="text-2xl font-black text-slate-200 group-hover:text-blue-100 transition-colors">{cat.products.length}</span></div><h3 className="text-xl font-bold text-slate-900 mb-1">{cat.name}</h3><p className="text-xs text-slate-400 font-bold uppercase tracking-wider">View Products</p></button>))}
-                       <button onClick={() => { const name = prompt("Category Name (e.g. Smartphones)"); if(name) { const newCat: Category = { id: generateId('c'), name, icon: 'Box', products: [] }; const updated = storeData!.brands.map(b => b.id === activeBrand.id ? {...b, categories: [...b.categories, newCat]} : b); onUpdateData({...storeData!, brands: updated}); } }} className="bg-slate-50 border-2 border-dashed border-slate-200 p-6 rounded-2xl flex flex-col items-center justify-center hover:bg-white hover:border-blue-400 transition-all group cursor-pointer"><Plus size={32} className="text-slate-300 group-hover:text-blue-500 mb-2" /><span className="font-bold text-slate-400 group-hover:text-blue-600">Add Category</span></button>
-                   </div>
-                   <CatalogueManager catalogues={storeData!.catalogues?.filter(c => c.brandId === activeBrand.id) || []} onUpdate={(updatedBrandCats) => { const otherCats = storeData!.catalogues?.filter(c => c.brandId !== activeBrand.id) || []; onUpdateData({...storeData!, catalogues: [...otherCats, ...updatedBrandCats]}); }} mode="brand" brandId={activeBrand.id} />
-                </div>
-             ) : (
-                <div className="animate-fade-in">
-                   <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-8"><button onClick={() => setActiveCategoryId(null)} className="p-2 rounded-full hover:bg-slate-200 transition-colors flex items-center gap-1 text-slate-500 font-bold text-xs uppercase"><ArrowLeft size={16} /> Back</button><h2 className="text-3xl font-black text-slate-900">{activeCategory.name}</h2><button onClick={() => setIsCreatingProduct(true)} className="md:ml-auto w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-xl font-bold uppercase tracking-wider hover:bg-blue-700 shadow-lg flex items-center justify-center gap-2"><Plus size={18} /> New Product</button></div>
-                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                       {activeCategory.products
-                          .slice()
-                          .sort((a, b) => a.name.localeCompare(b.name))
-                          .map(product => (<div key={product.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group"><div className="aspect-square bg-slate-50 relative">{product.imageUrl ? <img src={product.imageUrl} className="w-full h-full object-contain p-4" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Box size={32} /></div>}</div><div className="p-4"><h4 className="font-bold text-slate-900 truncate mb-1">{product.name}</h4><p className="text-xs text-slate-500 font-mono mb-4">{product.sku}</p><div className="flex gap-2"><button onClick={() => setEditingProduct(product)} className="flex-1 py-2 bg-slate-100 rounded-lg text-xs font-bold uppercase hover:bg-blue-50 hover:text-blue-600 transition-colors">Edit</button><button onClick={() => { if(confirm("Delete product?")) { const updatedProds = activeCategory.products.filter(p => p.id !== product.id); const updatedBrands = storeData!.brands.map(b => { if(b.id !== activeBrand!.id) return b; return { ...b, categories: b.categories.map(c => c.id === activeCategory.id ? {...c, products: updatedProds} : c) }; }); onUpdateData({...storeData!, brands: updatedBrands}); } }} className="p-2 bg-slate-100 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"><Trash2 size={16} /></button></div></div></div>))}
-                       {activeCategory.products.length === 0 && (<div className="col-span-full py-12 text-center text-slate-400 italic">No products yet. Click "New Product" to add one.</div>)}
-                   </div>
-                </div>
-             )}
-          </div>
-       </div>
+               )}
 
-       {editingKiosk && (<KioskEditorModal kiosk={editingKiosk} onClose={() => setEditingKiosk(null)} onSave={handleUpdateKiosk} />)}
-       {viewingCameraKiosk && (<CameraViewerModal kiosk={viewingCameraKiosk} onClose={() => setViewingCameraKiosk(null)} onRequestSnapshot={handleRequestSnapshot} />)}
-       {showDataManager && (<DataManagerModal storeData={storeData!} onImport={onUpdateData} onClose={() => setShowDataManager(false)} />)}
-       {showBrandImport && activeBrand && (<BrandImportModal brand={activeBrand} onImport={handleBrandImportMerge} onClose={() => setShowBrandImport(false)} />)}
+               {activeTab === 'ads' && (
+                   <div className="max-w-5xl mx-auto animate-fade-in space-y-8">
+                       {['homeBottomLeft', 'homeBottomRight', 'homeSideVertical', 'screensaver'].map((zone) => (
+                           <div key={zone} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                               <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+                                   <h3 className="font-black text-slate-900 uppercase text-sm">{zone.replace(/([A-Z])/g, ' $1').trim()}</h3>
+                                   <span className="text-[10px] font-bold text-slate-400 uppercase">{(storeData.ads as any)?.[zone]?.length || 0} Slots</span>
+                               </div>
+                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                   {(storeData.ads as any)?.[zone]?.map((ad: AdItem, idx: number) => (
+                                       <div key={ad.id} className="aspect-video bg-slate-100 rounded-lg relative overflow-hidden group border border-slate-200">
+                                           {ad.type === 'video' ? <video src={ad.url} className="w-full h-full object-cover" muted /> : <img src={ad.url} className="w-full h-full object-cover" alt="" />}
+                                           <button onClick={() => {
+                                               const newAds = { ...storeData.ads };
+                                               (newAds as any)[zone] = (newAds as any)[zone].filter((_: any, i: number) => i !== idx);
+                                               onUpdateData({ ...storeData, ads: newAds });
+                                           }} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button>
+                                       </div>
+                                   ))}
+                                   <div className="aspect-video">
+                                       <FileUpload label="" currentUrl="" allowMultiple={true} accept="image/*,video/*" icon={<div className="flex flex-col items-center text-slate-400"><Plus size={20}/><span className="text-[9px] font-bold uppercase mt-1">Add</span></div>} onUpload={(url, type) => {
+                                           const newAd: AdItem = { id: generateId('ad'), type: type === 'video' ? 'video' : 'image', url: url as string };
+                                           // Handle multiple? FileUpload can return array if allowMultiple=true. 
+                                           // However, our FileUpload generic signature is complex.
+                                           // Let's assume single for now or handle array if needed.
+                                           const newAds = { ...storeData.ads };
+                                           if(Array.isArray(url)) {
+                                               const items = url.map(u => ({ id: generateId('ad'), type: type === 'video' ? 'video' : 'image', url: u } as AdItem));
+                                               (newAds as any)[zone] = [...((newAds as any)[zone] || []), ...items];
+                                           } else {
+                                               (newAds as any)[zone] = [...((newAds as any)[zone] || []), newAd];
+                                           }
+                                           onUpdateData({ ...storeData, ads: newAds });
+                                       }} />
+                                   </div>
+                               </div>
+                           </div>
+                       ))}
+                   </div>
+               )}
+               
+               {activeTab === 'fleet' && (
+                   <div className="animate-fade-in">
+                       <h2 className="text-2xl font-black text-slate-900 uppercase mb-6">Device Fleet</h2>
+                       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                           <table className="w-full text-left">
+                               <thead className="bg-slate-50 border-b border-slate-200">
+                                   <tr>
+                                       <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">Status</th>
+                                       <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">Name</th>
+                                       <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">Type</th>
+                                       <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">Last Seen</th>
+                                       <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">Zone</th>
+                                       <th className="p-4 text-[10px] font-black text-slate-500 uppercase tracking-wider">Actions</th>
+                                   </tr>
+                               </thead>
+                               <tbody>
+                                   {storeData.fleet?.map(kiosk => {
+                                       const isOnline = (new Date().getTime() - new Date(kiosk.last_seen).getTime()) < 120000; // 2 mins
+                                       return (
+                                           <tr key={kiosk.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                                               <td className="p-4">
+                                                   <div className={`flex items-center gap-2 px-2 py-1 rounded-full w-fit text-[10px] font-bold uppercase ${isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                       <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                                                       {isOnline ? 'Online' : 'Offline'}
+                                                   </div>
+                                               </td>
+                                               <td className="p-4 font-bold text-slate-700 text-sm">{kiosk.name} <span className="block text-[10px] font-mono text-slate-400 font-normal">{kiosk.id}</span></td>
+                                               <td className="p-4 text-xs font-bold uppercase text-slate-500">{kiosk.deviceType || 'kiosk'}</td>
+                                               <td className="p-4 text-xs font-mono text-slate-500">{new Date(kiosk.last_seen).toLocaleTimeString()}</td>
+                                               <td className="p-4 text-xs font-bold text-slate-600">{kiosk.assignedZone || '-'}</td>
+                                               <td className="p-4 flex gap-2">
+                                                   <button onClick={() => setEditingKiosk(kiosk)} className="p-2 bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 rounded-lg transition-colors"><Edit2 size={14} /></button>
+                                                   <button onClick={() => setViewingCamera(kiosk)} className="p-2 bg-slate-100 hover:bg-purple-100 text-slate-500 hover:text-purple-600 rounded-lg transition-colors" disabled={kiosk.deviceType === 'mobile'} title={kiosk.deviceType === 'mobile' ? 'No Camera' : 'View Camera'}><Camera size={14} /></button>
+                                                   <button onClick={() => {
+                                                        const fleet = storeData.fleet?.map(k => k.id === kiosk.id ? { ...k, restartRequested: true } : k);
+                                                        onUpdateData({ ...storeData, fleet });
+                                                        alert("Restart command queued.");
+                                                   }} className="p-2 bg-slate-100 hover:bg-orange-100 text-slate-500 hover:text-orange-600 rounded-lg transition-colors"><Power size={14} /></button>
+                                                   <button onClick={() => {
+                                                       if(confirm("Remove this device from fleet?")) {
+                                                           const fleet = storeData.fleet?.filter(k => k.id !== kiosk.id);
+                                                           onUpdateData({ ...storeData, fleet });
+                                                       }
+                                                   }} className="p-2 bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                                               </td>
+                                           </tr>
+                                       );
+                                   })}
+                                   {(!storeData.fleet || storeData.fleet.length === 0) && (
+                                       <tr><td colSpan={6} className="p-8 text-center text-slate-400 text-sm italic">No devices registered yet. Open the app on a tablet to register.</td></tr>
+                                   )}
+                               </tbody>
+                           </table>
+                       </div>
+                   </div>
+               )}
+            </main>
+        </div>
+
+        {/* Editing Modal Overlays */}
+        {editingProduct && (
+            <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="w-full max-w-5xl h-full max-h-[90vh]">
+                    <ProductEditor 
+                        product={editingProduct} 
+                        onSave={(updatedProduct: Product) => {
+                            if (!selectedCategory || !selectedBrand) return;
+                            const isNew = !selectedCategory.products.find(p => p.id === updatedProduct.id);
+                            let newProducts = isNew ? [...selectedCategory.products, updatedProduct] : selectedCategory.products.map(p => p.id === updatedProduct.id ? updatedProduct : p);
+                            
+                            const newCategory = { ...selectedCategory, products: newProducts };
+                            const newCategories = selectedBrand.categories.map(c => c.id === newCategory.id ? newCategory : c);
+                            
+                            updateBrand({ ...selectedBrand, categories: newCategories });
+                            setSelectedCategory(newCategory); // Update view
+                            setEditingProduct(null);
+                        }}
+                        onCancel={() => setEditingProduct(null)}
+                    />
+                </div>
+            </div>
+        )}
+
+        {showDataMgr && <DataManagerModal storeData={storeData} onImport={(d) => { onUpdateData(d); setShowDataMgr(false); }} onClose={() => setShowDataMgr(false)} />}
+        {showGuide && <SetupGuide onClose={() => setShowGuide(false)} />}
+        {showBrandImport && selectedBrand && <BrandImportModal brand={selectedBrand} onImport={(d) => { if(d.brands) onUpdateData({ ...storeData, brands: d.brands }); setShowBrandImport(false); }} onClose={() => setShowBrandImport(false)} />}
+        {editingKiosk && <KioskEditorModal kiosk={editingKiosk} onSave={(k) => { 
+            const fleet = storeData.fleet?.map(item => item.id === k.id ? k : item);
+            onUpdateData({ ...storeData, fleet });
+            setEditingKiosk(null);
+        }} onClose={() => setEditingKiosk(null)} />}
+        {viewingCamera && <CameraViewerModal kiosk={viewingCamera} onClose={() => setViewingCamera(null)} onRequestSnapshot={(k) => {
+            const fleet = storeData.fleet?.map(item => item.id === k.id ? { ...item, requestSnapshot: true } : item);
+            onUpdateData({ ...storeData, fleet });
+        }} />}
+
     </div>
   );
 };

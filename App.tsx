@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { KioskApp } from './components/KioskApp';
 import { AdminDashboard } from './components/AdminDashboard';
