@@ -331,7 +331,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key`}
                             </div>
                             <p className="text-sm text-slate-600 mb-4">
                                 This script fixes <strong>Error 42710</strong> (Policies), <strong>Registration Failures</strong> (Missing Columns), and <strong>Storage Errors</strong>. <br/>
-                                <span className="text-blue-600 font-bold">INSTRUCTIONS:</span> Copy this code -> Go to Supabase <strong>SQL Editor</strong> -> Paste -> Click <strong>Run</strong>.
+                                <span className="text-blue-600 font-bold">INSTRUCTIONS:</span> Copy this code &rarr; Go to Supabase <strong>SQL Editor</strong> &rarr; Paste &rarr; Click <strong>Run</strong>.
                             </p>
                             <CodeBlock 
                                 id="supabase-sql"
