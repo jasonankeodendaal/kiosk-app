@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -443,6 +444,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   const [historyFolder, setHistoryFolder] = useState<'brands' | 'products' | 'catalogues' | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [viewingSnapshot, setViewingSnapshot] = useState<string | null>(null);
   
   // GLOBAL LOCAL STATE (BUFFER)
   const [localData, setLocalData] = useState<StoreData | null>(storeData);
@@ -759,7 +761,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                        <td className="p-4 font-bold text-xs uppercase text-slate-600">{kiosk.deviceType || 'Kiosk'}</td>
                                        <td className="p-4">
                                             {kiosk.snapshotUrl ? (
-                                                <div className="w-16 h-12 bg-slate-200 rounded overflow-hidden relative group cursor-pointer" onClick={() => window.open(kiosk.snapshotUrl, '_blank')}>
+                                                <div className="w-16 h-12 bg-slate-200 rounded overflow-hidden relative group cursor-pointer" onClick={() => setViewingSnapshot(kiosk.snapshotUrl!)}>
                                                     <img src={kiosk.snapshotUrl} className="w-full h-full object-cover" />
                                                     <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100"><Eye size={12} className="text-white"/></div>
                                                 </div>
@@ -816,6 +818,23 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
         </main>
 
         {/* MODALS */}
+        {viewingSnapshot && (
+            <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-md animate-fade-in" onClick={() => setViewingSnapshot(null)}>
+                <div className="relative w-full h-full max-w-5xl max-h-screen flex flex-col items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                     <button onClick={() => setViewingSnapshot(null)} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-colors z-50"><X size={24}/></button>
+                     <img src={viewingSnapshot} className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl border border-white/10 bg-black" />
+                     <div className="mt-6 flex gap-4">
+                         <a href={viewingSnapshot} download="snapshot.jpg" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs transition-colors shadow-lg">
+                             <Download size={16} /> Download
+                         </a>
+                         <button onClick={() => setViewingSnapshot(null)} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs transition-colors border border-white/10">
+                             Close
+                         </button>
+                     </div>
+                </div>
+            </div>
+        )}
+
         {editingProduct && <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-5xl h-full max-h-[90vh]"><ProductEditor product={editingProduct} onSave={(p) => { if (!selectedCategory || !selectedBrand) return; const isNew = !selectedCategory.products.find(x => x.id === p.id); const newCats = selectedBrand.categories.map(c => c.id === selectedCategory.id ? { ...c, products: isNew ? [...c.products, p] : c.products.map(px => px.id === p.id ? p : px) } : c); const newBrands = brands.map(b => b.id === selectedBrand.id ? { ...b, categories: newCats } : b); handleLocalUpdate({ ...localData, brands: newBrands }); setSelectedCategory(newCats.find(c => c.id === selectedCategory.id) || null); setEditingProduct(null); }} onCancel={() => setEditingProduct(null)} /></div></div>}
         {editingKiosk && <KioskEditorModal kiosk={editingKiosk} onSave={(k) => { updateFleetMember(k); setEditingKiosk(null); }} onClose={() => setEditingKiosk(null)} />}
         {showGuide && <SetupGuide onClose={() => setShowGuide(false)} />}
