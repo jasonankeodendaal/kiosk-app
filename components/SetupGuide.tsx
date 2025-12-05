@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { X, Server, Copy, Check, ArrowRight, ExternalLink, ShieldCheck, Database, Key, Settings, Layers, Smartphone, Globe, Cpu, Cloud, ToggleRight, CloudLightning, Book, AlertTriangle } from 'lucide-react';
 
@@ -336,7 +334,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key`}
                             <CodeBlock 
                                 id="supabase-sql"
                                 label="SQL Editor - COMPLETE SETUP SCRIPT"
-                                code={`-- 0. REFRESH SCHEMA CACHE (Fixes 'Cloud not find column' errors immediately)
+                                code={`-- 0. REFRESH SCHEMA CACHE
 NOTIFY pgrst, 'reload schema';
 
 -- 1. KIOSKS TABLE SETUP
@@ -351,7 +349,7 @@ create table if not exists public.kiosks (
   version text
 );
 
--- Force add columns (Safe to run multiple times)
+-- Force add columns
 alter table public.kiosks add column if not exists assigned_zone text default 'Unassigned';
 alter table public.kiosks add column if not exists location_description text default 'Newly Registered';
 alter table public.kiosks add column if not exists request_snapshot boolean default false;
@@ -365,17 +363,17 @@ create table if not exists public.store_config (
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- Seed Data (Only if empty)
+-- Seed Data
 insert into public.store_config (id, data) 
 select 1, '{}'::jsonb
 where not exists (select 1 from public.store_config where id = 1);
 
--- 3. STORAGE SETUP (Robust Fix for 42710)
+-- 3. STORAGE SETUP
 insert into storage.buckets (id, name, public)
 values ('kiosk-media', 'kiosk-media', true)
 on conflict (id) do nothing;
 
--- DROP ALL POTENTIAL CONFLICTING POLICIES (Fixes 'Policy already exists' error)
+-- DROP OLD POLICIES (Fix 42710)
 drop policy if exists "Public Access" on storage.objects;
 drop policy if exists "Public Upload" on storage.objects;
 drop policy if exists "Kiosk Public Read" on storage.objects;
@@ -398,9 +396,16 @@ create policy "Kiosk Public Update"
 on storage.objects for update
 using ( bucket_id = 'kiosk-media' );
 
--- 4. ENABLE REALTIME
-alter publication supabase_realtime add table public.store_config;
-alter publication supabase_realtime add table public.kiosks;`}
+-- 4. ENABLE REALTIME (Safe Mode)
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'store_config') then
+    alter publication supabase_realtime add table public.store_config;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'kiosks') then
+    alter publication supabase_realtime add table public.kiosks;
+  end if;
+end $$;`}
                             />
                         </div>
 
