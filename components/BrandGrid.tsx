@@ -104,13 +104,22 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
 
 const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, ads, onSelectBrand, onViewGlobalCatalog, onExport, screensaverEnabled, onToggleScreensaver }) => {
   const [showAllBrands, setShowAllBrands] = useState(false);
-  const [displayLimit, setDisplayLimit] = useState(5);
+  const [displayLimit, setDisplayLimit] = useState(11);
   
-  // Dynamic Responsive Limit: Show 3 on mobile, 5 on desktop
+  // Dynamic Responsive Limit: Show 2 rows based on grid columns
   useEffect(() => {
     const handleResize = () => {
-        // Tailwind 'md' is 768px
-        setDisplayLimit(window.innerWidth < 768 ? 3 : 5);
+        const width = window.innerWidth;
+        if (width < 640) {
+            // Mobile (4 cols): 2 rows = 8 slots -> 7 brands + view all
+            setDisplayLimit(7);
+        } else if (width < 768) {
+            // Tablet SM (5 cols): 2 rows = 10 slots -> 9 brands + view all
+            setDisplayLimit(9);
+        } else {
+            // Desktop (6 cols): 2 rows = 12 slots -> 11 brands + view all
+            setDisplayLimit(11);
+        }
     };
 
     handleResize(); // Initial check
@@ -274,7 +283,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
         {/* Left Column (Brands + Bottom Ads) */}
         <div className="flex-1 flex flex-col gap-8">
             
-            {/* Grid - 4 Columns on Mobile (3 Brands + View All) */}
+            {/* Grid - 4 Columns on Mobile (3 Brands + View All) -> Now showing 2 rows */}
             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-6 gap-2 md:gap-8 w-full">
               {visibleBrands.map((brand) => (
                 <button
