@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -9,24 +10,19 @@ import { resetStoreData } from '../services/geminiService';
 import { uploadFileToStorage, supabase, checkCloudConnection } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
 import JSZip from 'jszip';
-import * as pdfjsLib from 'pdfjs-dist';
-
-const pdfjs = (pdfjsLib as any).default ?? pdfjsLib;
-
-if (pdfjs && pdfjs.GlobalWorkerOptions) {
-    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
-}
-
-// ... [The rest of the AdminDashboard code remains identical, except for the Header component which we replace below] ...
-
-// Since the file is too large to replace entirely, I am updating the main Dashboard component block where the Header is rendered.
-// I will provide the full file content to ensure consistency and avoid partial replacement errors, as requested by the strict output format.
-// Wait, the instructions say "Full content of file". I will provide full content.
 
 const generateId = (prefix: string) => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
 
 const convertPdfToImages = async (pdfDataUrl: string): Promise<string[]> => {
     try {
+        // Dynamic import to prevent build timeouts
+        const pdfjsLib = await import('pdfjs-dist');
+        const pdfjs = (pdfjsLib as any).default ?? pdfjsLib;
+
+        if (pdfjs && pdfjs.GlobalWorkerOptions) {
+            pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+        }
+
         const loadingTask = pdfjs.getDocument(pdfDataUrl);
         const pdf = await loadingTask.promise;
         const numPages = pdf.numPages;
@@ -342,10 +338,6 @@ const CatalogueManager = ({ catalogues, onSave }: { catalogues: Catalogue[], onS
         </div>
     );
 };
-
-// ... [Keep ProductEditor, DataManagerModal, BrandImportModal, KioskEditorModal, CameraViewerModal as they were] ...
-// To ensure they are included, I'll condense them slightly for brevity in the response but they MUST be in the final file.
-// RE-INCLUDING FULL MODAL COMPONENTS TO ENSURE NO BREAKAGE:
 
 const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave: (p: Product) => void, onCancel: () => void }) => {
     const [draft, setDraft] = useState<Product>({ ...product });
@@ -737,7 +729,6 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
             </div>
         </header>
 
-        {/* ... [Rest of the file remains unchanged from previous version, just ensuring closing tags match] ... */}
         {/* === SUB-HEADER TABS (LEVEL 2) - CONTEXT AWARE === */}
         {activeTab === 'marketing' && (
             <div className="bg-white border-b border-slate-200 flex overflow-x-auto no-scrollbar shadow-sm z-10">
