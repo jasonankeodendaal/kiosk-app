@@ -57,6 +57,17 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
     setCurrentMediaIndex((prev) => (prev - 1 + allMedia.length) % allMedia.length);
   };
   
+  // Navigation for Enlarged View
+  const handleNextEnlarged = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEnlargedMediaIndex((prev) => (prev + 1) % allMedia.length);
+  };
+
+  const handlePrevEnlarged = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEnlargedMediaIndex((prev) => (prev - 1 + allMedia.length) % allMedia.length);
+  };
+
   const handleEnlargeMedia = (index: number) => {
     setEnlargedMediaIndex(index);
     setShowEnlargedMedia(true);
@@ -382,8 +393,26 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
       {showEnlargedMedia && enlargedMedia && (
         <div className="fixed inset-0 z-[110] bg-black/98 flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowEnlargedMedia(false)}>
           <button onClick={() => setShowEnlargedMedia(false)} className="absolute top-6 right-6 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors z-50 backdrop-blur-md"><X size={32} /></button>
+          
+          {/* Navigation Arrows for Enlarged View */}
+          {allMedia.length > 1 && (
+            <>
+               <button onClick={handlePrevEnlarged} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white p-4 hover:bg-white/10 rounded-full transition-all z-50">
+                   <LeftArrow size={48} />
+               </button>
+               <button onClick={handleNextEnlarged} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white p-4 hover:bg-white/10 rounded-full transition-all z-50">
+                   <RightArrow size={48} />
+               </button>
+            </>
+          )}
+
           <div className="relative w-full h-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
             {enlargedMedia.type === 'image' ? <img src={enlargedMedia.url} className="max-w-full max-h-full object-contain" /> : <video src={enlargedMedia.url} controls autoPlay className="max-w-full max-h-full object-contain" />}
+            
+            {/* Counter */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-md text-xs font-bold uppercase tracking-widest border border-white/10">
+               {enlargedMediaIndex + 1} / {allMedia.length}
+            </div>
           </div>
         </div>
       )}
@@ -412,6 +441,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                           setCurrentMediaIndex(idx);
                           setEnlargedMediaIndex(idx); // Also set enlarged so if they click, it opens correct one
                           setShowGalleryModal(false);
+                          setShowEnlargedMedia(true); // Open enlarged view immediately from grid
                       }}
                       className={`group relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${currentMediaIndex === idx ? 'border-blue-500 ring-4 ring-blue-500/20' : 'border-slate-700 hover:border-slate-500'}`}
                     >

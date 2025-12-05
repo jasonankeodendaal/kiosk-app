@@ -224,11 +224,15 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
                                         <li>Look for "Success" in the results area.</li>
                                     </ol>
                                 </div>
+                                
+                                <div className="bg-red-50 border border-red-200 p-3 rounded-lg mb-4 text-xs font-bold text-red-700">
+                                    NOTE: This script is now "Idempotent". It handles "Policy Already Exists" errors by ignoring bucket creation if it exists and explicitly replacing policies.
+                                </div>
 
                                 <CodeBlock 
                                 id="supabase-sql"
-                                label="SQL SETUP SCRIPT (COPY ALL)"
-                                code={`-- 0. REFRESH SCHEMA CACHE (Fixes "Cloud not find column" errors)
+                                label="SQL SETUP SCRIPT (FIXES ERROR 42710)"
+                                code={`-- 0. REFRESH SCHEMA CACHE
 NOTIFY pgrst, 'reload schema';
 
 -- 1. KIOSKS TABLE SETUP
@@ -262,10 +266,18 @@ insert into public.store_config (id, data)
 select 1, '{}'::jsonb
 where not exists (select 1 from public.store_config where id = 1);
 
--- 3. STORAGE SETUP (Create 'kiosk-media' bucket)
-insert into storage.buckets (id, name, public)
-values ('kiosk-media', 'kiosk-media', true)
-on conflict (id) do nothing;
+-- 3. STORAGE SETUP (Safe Mode - Fixes 42710)
+do $$
+begin
+    -- Try to create the bucket. If it exists or triggers an error, we catch it.
+    insert into storage.buckets (id, name, public)
+    values ('kiosk-media', 'kiosk-media', true)
+    on conflict (id) do nothing;
+exception when others then
+    -- Ignore duplicate key or policy errors during bucket creation. 
+    -- We will manually fix policies in step 4.
+    null;
+end $$;
 
 -- 4. PERMISSIONS & POLICIES (Fixes "Registration Failed" & "Saving Error")
 -- We drop existing policies to prevent conflicts, then re-create them.
@@ -275,6 +287,7 @@ drop policy if exists "Public Access" on storage.objects;
 drop policy if exists "Kiosk Public Read" on storage.objects;
 drop policy if exists "Kiosk Public Insert" on storage.objects;
 drop policy if exists "Kiosk Public Update" on storage.objects;
+drop policy if exists "Give me access" on storage.objects;
 
 create policy "Kiosk Public Read" on storage.objects for select using ( bucket_id = 'kiosk-media' );
 create policy "Kiosk Public Insert" on storage.objects for insert with check ( bucket_id = 'kiosk-media' );
