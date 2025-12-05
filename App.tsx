@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { KioskApp } from './components/KioskApp';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -45,11 +46,11 @@ export default function App() {
     initSupabase();
     fetchData();
 
-    // Polling Fallback (Every 3 minutes as requested)
+    // Polling Fallback (Updated to 5 Minutes per request)
     const interval = setInterval(() => {
-        console.log("Auto-fetching latest data (3min cycle)...");
+        console.log("Auto-fetching latest data (5min cycle)...");
         fetchData();
-    }, 180000); // 3 minutes
+    }, 300000); // 5 minutes
 
     // Setup Realtime Subscription
     if (supabase) {
@@ -60,12 +61,11 @@ export default function App() {
             { event: 'UPDATE', schema: 'public', table: 'store_config', filter: 'id=eq.1' },
             (payload: any) => {
               console.log("Store Config Update received!", payload);
+              // We only auto-refresh if WE didn't trigger the save (basic loop protection handled by UI state in Admin)
+              // But generally, we want fresh data if someone else edits it.
+              // NOTE: In Admin Dashboard, we will handle "incoming changes vs local edits" conflict visually.
               if (payload.new && payload.new.data) {
-                 setIsSyncing(true);
-                 // We need to merge this with the latest fleet data, so best to re-fetch generator
-                 fetchData().then(() => {
-                    setTimeout(() => setIsSyncing(false), 2000);
-                 });
+                 fetchData();
               }
             }
           )
@@ -74,8 +74,7 @@ export default function App() {
              { event: '*', schema: 'public', table: 'kiosks' },
              (payload: any) => {
                  console.log("Fleet Update received!", payload);
-                 // When fleet changes (new kiosk or heartbeat), refresh data
-                 // Don't show full sync loader for heartbeats to avoid flicker
+                 // When fleet changes (new kiosk or heartbeat), refresh data silently
                  fetchData();
              }
           )
@@ -93,9 +92,9 @@ export default function App() {
   }, [fetchData]);
 
   const handleUpdateData = async (newData: StoreData) => {
-    // Optimistic UI Update - Instant feedback for the user
-    setStoreData(newData);
+    // UI Feedback
     setIsSyncing(true);
+    setStoreData(newData); // Optimistic update
     
     try {
         // Strict Cloud Save
@@ -103,10 +102,9 @@ export default function App() {
         setLastSyncTime(new Date().toLocaleTimeString());
     } catch (e: any) {
         console.error("Sync failed", e);
-        // Alert the user that although the UI updated, the persistence failed
         alert(`SYNC ERROR: ${e.message || "Failed to connect to server."}`);
     } finally {
-        setTimeout(() => setIsSyncing(false), 2000);
+        setTimeout(() => setIsSyncing(false), 1000);
     }
   };
 
@@ -137,7 +135,6 @@ export default function App() {
         storeData={storeData}
         onUpdateData={handleUpdateData}
         onRefresh={() => {
-            // Use Syncing UI instead of full screen Loading to prevent "Reboot" feel
             setIsSyncing(true);
             fetchData().then(() => {
                 setIsSyncing(false);

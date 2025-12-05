@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet } from '../types';
 import { resetStoreData } from '../services/geminiService';
@@ -135,12 +135,18 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
     const [localList, setLocalList] = useState(catalogues || []);
     useEffect(() => setLocalList(catalogues || []), [catalogues]);
 
+    // Local update wrapper
+    const handleUpdate = (newList: Catalogue[]) => {
+        setLocalList(newList);
+        onSave(newList); // Propagate up to AdminDashboard local state
+    };
+
     const addCatalogue = () => {
-        setLocalList([...localList, {
+        handleUpdate([...localList, {
             id: generateId('cat'),
             title: brandId ? 'New Brand Catalogue' : 'New Pamphlet',
             brandId: brandId,
-            type: brandId ? 'catalogue' : 'pamphlet', // Auto-set type
+            type: brandId ? 'catalogue' : 'pamphlet', 
             pages: [],
             year: new Date().getFullYear(),
             startDate: '',
@@ -149,7 +155,7 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
     };
 
     const updateCatalogue = (id: string, updates: Partial<Catalogue>) => {
-        setLocalList(localList.map(c => c.id === id ? { ...c, ...updates } : c));
+        handleUpdate(localList.map(c => c.id === id ? { ...c, ...updates } : c));
     };
 
     const handleUpload = async (id: string, data: any, type?: string) => {
@@ -202,13 +208,12 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
                             
                             <div className="flex justify-between items-center pt-2 border-t border-slate-100">
                                 <span className="text-[10px] text-slate-400 font-bold">{cat.pages.length} Pages</span>
-                                <button onClick={() => setLocalList(localList.filter(c => c.id !== cat.id))} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button>
+                                <button onClick={() => handleUpdate(localList.filter(c => c.id !== cat.id))} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button>
                             </div>
                         </div>
                     </div>
                 ))}
             </div>
-            <div className="flex justify-end pt-6"><button onClick={() => onSave(localList)} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs shadow-lg">Save Changes</button></div>
         </div>
     );
 };
@@ -387,7 +392,7 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
             </div>
             <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-4 shrink-0">
                 <button onClick={onCancel} className="px-6 py-3 font-bold text-slate-500 uppercase text-xs">Cancel</button>
-                <button onClick={() => onSave(draft)} className="px-6 py-3 bg-blue-600 text-white font-bold uppercase text-xs rounded-lg shadow-lg">Save Changes</button>
+                <button onClick={() => onSave(draft)} className="px-6 py-3 bg-blue-600 text-white font-bold uppercase text-xs rounded-lg shadow-lg">Confirm Changes</button>
             </div>
         </div>
     );
@@ -438,6 +443,10 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   const [historyFolder, setHistoryFolder] = useState<'brands' | 'products' | 'catalogues' | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  
+  // GLOBAL LOCAL STATE (BUFFER)
+  const [localData, setLocalData] = useState<StoreData | null>(storeData);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
       checkCloudConnection().then(setIsCloudConnected);
@@ -445,10 +454,52 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       return () => clearInterval(interval);
   }, []);
 
-  // Fleet Actions
+  // Sync prop changes to local state if we don't have dirty unsaved changes
+  useEffect(() => {
+      if (!hasUnsavedChanges && storeData) {
+          setLocalData(storeData);
+      }
+  }, [storeData]);
+
+  // Warn before leaving if unsaved
+  useEffect(() => {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+          if (hasUnsavedChanges) {
+              e.preventDefault();
+              e.returnValue = '';
+          }
+      };
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Main Local Update Handler
+  const handleLocalUpdate = (newData: StoreData) => {
+      setLocalData(newData);
+      setHasUnsavedChanges(true);
+      
+      // Update selected references to keep UI in sync
+      if (selectedBrand) {
+          const updatedBrand = newData.brands.find(b => b.id === selectedBrand.id);
+          if (updatedBrand) setSelectedBrand(updatedBrand);
+      }
+      if (selectedCategory && selectedBrand) {
+          const updatedBrand = newData.brands.find(b => b.id === selectedBrand.id);
+          const updatedCat = updatedBrand?.categories.find(c => c.id === selectedCategory.id);
+          if (updatedCat) setSelectedCategory(updatedCat);
+      }
+  };
+
+  const handleGlobalSave = () => {
+      if (localData) {
+          onUpdateData(localData);
+          setHasUnsavedChanges(false);
+      }
+  };
+
+  // Fleet Actions (These still interact directly with Supabase via Service, then refresh)
   const updateFleetMember = async (kiosk: KioskRegistry) => {
       if(supabase) {
-          // Map to SQL
           const payload = {
               id: kiosk.id,
               name: kiosk.name,
@@ -475,10 +526,9 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   };
 
   if (!session) return <Auth setSession={setSession} />;
-  if (!storeData) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /> Loading...</div>;
+  if (!localData) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /> Loading...</div>;
 
-  // SAFETY: Ensure brands is an array before rendering
-  const brands = Array.isArray(storeData.brands) ? storeData.brands : [];
+  const brands = Array.isArray(localData.brands) ? localData.brands : [];
 
   return (
     <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
@@ -488,12 +538,27 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                      <Settings className="text-blue-500" size={24} />
                      <div><h1 className="text-lg font-black uppercase tracking-widest leading-none">Admin Hub</h1></div>
                  </div>
+                 
+                 {/* GLOBAL SAVE BUTTON */}
+                 <button 
+                     onClick={handleGlobalSave}
+                     disabled={!hasUnsavedChanges}
+                     className={`flex items-center gap-2 px-6 py-2 rounded-lg font-black uppercase tracking-widest text-xs transition-all ${
+                         hasUnsavedChanges 
+                         ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] animate-pulse' 
+                         : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                     }`}
+                 >
+                     <SaveAll size={16} />
+                     {hasUnsavedChanges ? 'Save Changes' : 'Saved'}
+                 </button>
+
                  <div className="flex items-center gap-3">
                      <div className={`flex items-center gap-2 px-3 py-1 rounded-lg ${isCloudConnected ? 'bg-blue-900/50 text-blue-300' : 'bg-orange-900/50 text-orange-300'}`}>
                          {isCloudConnected ? <Cloud size={14} /> : <HardDrive size={14} />}
                          <span className="text-[10px] font-bold uppercase">{isCloudConnected ? 'Cloud Online' : 'Local Mode'}</span>
                      </div>
-                     <button onClick={onRefresh} className="p-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-white"><RefreshCw size={16} /></button>
+                     <button onClick={onRefresh} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-white"><RefreshCw size={16} /></button>
                      <button onClick={() => setSession(false)} className="p-2 bg-red-900/50 hover:bg-red-900 text-red-400 hover:text-white rounded-lg flex items-center gap-2">
                         <LogOut size={16} />
                         <span className="text-[10px] font-bold uppercase hidden md:inline">Logout</span>
@@ -519,14 +584,14 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             {activeTab === 'inventory' && (
                 !selectedBrand ? (
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
-                       <button onClick={() => { const name = prompt("Brand Name:"); if(name) onUpdateData({ ...storeData, brands: [...brands, { id: generateId('b'), name, categories: [] }] }) }} className="bg-white border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-8 text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all group min-h-[200px]">
+                       <button onClick={() => { const name = prompt("Brand Name:"); if(name) handleLocalUpdate({ ...localData, brands: [...brands, { id: generateId('b'), name, categories: [] }] }) }} className="bg-white border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-8 text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all group min-h-[200px]">
                            <Plus size={24} className="mb-2" /><span className="font-bold uppercase text-xs tracking-wider">Add Brand</span>
                        </button>
                        {brands.map(brand => (
                            <div key={brand.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition-all group relative">
                                <div className="h-32 bg-slate-50 flex items-center justify-center p-4 relative">
                                    {brand.logoUrl ? <img src={brand.logoUrl} className="max-h-full max-w-full object-contain" /> : <span className="text-4xl font-black text-slate-200">{brand.name.charAt(0)}</span>}
-                                   <button onClick={(e) => { e.stopPropagation(); if(confirm("Move to archive?")) { onUpdateData({...storeData, brands: brands.filter(b=>b.id!==brand.id), archive: {...storeData.archive, brands: [...(storeData.archive?.brands||[]), brand]}}); } }} className="absolute top-2 right-2 p-2 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14}/></button>
+                                   <button onClick={(e) => { e.stopPropagation(); if(confirm("Move to archive?")) { handleLocalUpdate({...localData, brands: brands.filter(b=>b.id!==brand.id), archive: {...localData.archive, brands: [...(localData.archive?.brands||[]), brand]}}); } }} className="absolute top-2 right-2 p-2 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14}/></button>
                                </div>
                                <div className="p-4">
                                    <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight mb-1">{brand.name}</h3>
@@ -538,12 +603,12 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                    </div>
                ) : !selectedCategory ? (
                    <div className="animate-fade-in">
-                       <div className="flex items-center gap-4 mb-6"><button onClick={() => setSelectedBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500"><ArrowLeft size={20} /></button><h2 className="text-2xl font-black uppercase text-slate-900 flex-1">{selectedBrand.name}</h2><FileUpload label="Brand Logo" currentUrl={selectedBrand.logoUrl} onUpload={(url: any) => { const updated = {...selectedBrand, logoUrl: url}; onUpdateData({...storeData, brands: brands.map(b=>b.id===updated.id?updated:b)}); setSelectedBrand(updated); }} /></div>
+                       <div className="flex items-center gap-4 mb-6"><button onClick={() => setSelectedBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500"><ArrowLeft size={20} /></button><h2 className="text-2xl font-black uppercase text-slate-900 flex-1">{selectedBrand.name}</h2><FileUpload label="Brand Logo" currentUrl={selectedBrand.logoUrl} onUpload={(url: any) => { const updated = {...selectedBrand, logoUrl: url}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }} /></div>
                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                           <button onClick={() => { const name = prompt("Category Name:"); if(name) { const updated = {...selectedBrand, categories: [...selectedBrand.categories, { id: generateId('c'), name, icon: 'Box', products: [] }]}; onUpdateData({...storeData, brands: brands.map(b=>b.id===updated.id?updated:b)}); setSelectedBrand(updated); } }} className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-6 text-slate-400 hover:border-blue-500 hover:text-blue-500"><Plus size={24} /><span className="font-bold text-xs uppercase mt-2">New Category</span></button>
-                           {selectedBrand.categories.map(cat => (<button key={cat.id} onClick={() => setSelectedCategory(cat)} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md text-left group relative"><Box size={24} className="mb-4 text-slate-400" /><h3 className="font-black text-slate-900 uppercase text-sm">{cat.name}</h3><p className="text-xs text-slate-500 font-bold">{cat.products.length} Products</p><div onClick={(e)=>{e.stopPropagation(); if(confirm("Delete?")){ const updated={...selectedBrand, categories: selectedBrand.categories.filter(c=>c.id!==cat.id)}; onUpdateData({...storeData, brands: brands.map(b=>b.id===updated.id?updated:b)}); setSelectedBrand(updated); }}} className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded"><Trash2 size={14}/></div></button>))}
+                           <button onClick={() => { const name = prompt("Category Name:"); if(name) { const updated = {...selectedBrand, categories: [...selectedBrand.categories, { id: generateId('c'), name, icon: 'Box', products: [] }]}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); } }} className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-6 text-slate-400 hover:border-blue-500 hover:text-blue-500"><Plus size={24} /><span className="font-bold text-xs uppercase mt-2">New Category</span></button>
+                           {selectedBrand.categories.map(cat => (<button key={cat.id} onClick={() => setSelectedCategory(cat)} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md text-left group relative"><Box size={24} className="mb-4 text-slate-400" /><h3 className="font-black text-slate-900 uppercase text-sm">{cat.name}</h3><p className="text-xs text-slate-500 font-bold">{cat.products.length} Products</p><div onClick={(e)=>{e.stopPropagation(); if(confirm("Delete?")){ const updated={...selectedBrand, categories: selectedBrand.categories.filter(c=>c.id!==cat.id)}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }}} className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded"><Trash2 size={14}/></div></button>))}
                        </div>
-                       <div className="mt-8 border-t border-slate-200 pt-8"><h3 className="font-bold text-slate-900 uppercase text-sm mb-4">Brand Catalogues</h3><CatalogueManager catalogues={storeData.catalogues?.filter(c => c.brandId === selectedBrand.id) || []} brandId={selectedBrand.id} onSave={(c) => onUpdateData({ ...storeData, catalogues: [...(storeData.catalogues?.filter(x => x.brandId !== selectedBrand.id) || []), ...c] })} /></div>
+                       <div className="mt-8 border-t border-slate-200 pt-8"><h3 className="font-bold text-slate-900 uppercase text-sm mb-4">Brand Catalogues</h3><CatalogueManager catalogues={localData.catalogues?.filter(c => c.brandId === selectedBrand.id) || []} brandId={selectedBrand.id} onSave={(c) => handleLocalUpdate({ ...localData, catalogues: [...(localData.catalogues?.filter(x => x.brandId !== selectedBrand.id) || []), ...c] })} /></div>
                    </div>
                ) : (
                    <div className="animate-fade-in h-full flex flex-col">
@@ -557,18 +622,18 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
 
             {activeTab === 'marketing' && (
                 <div className="max-w-5xl mx-auto">
-                    {activeSubTab === 'catalogues' && <CatalogueManager catalogues={storeData.catalogues || []} onSave={(c) => onUpdateData({ ...storeData, catalogues: c })} />}
+                    {activeSubTab === 'catalogues' && <CatalogueManager catalogues={localData.catalogues || []} onSave={(c) => handleLocalUpdate({ ...localData, catalogues: c })} />}
                     {activeSubTab === 'hero' && (
                         <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-4">
-                                    <InputField label="Title" val={storeData.hero.title} onChange={(e:any) => onUpdateData({...storeData, hero: {...storeData.hero, title: e.target.value}})} />
-                                    <InputField label="Subtitle" val={storeData.hero.subtitle} onChange={(e:any) => onUpdateData({...storeData, hero: {...storeData.hero, subtitle: e.target.value}})} />
-                                    <InputField label="Website URL" val={storeData.hero.websiteUrl || ''} onChange={(e:any) => onUpdateData({...storeData, hero: {...storeData.hero, websiteUrl: e.target.value}})} placeholder="https://example.com" />
+                                    <InputField label="Title" val={localData.hero.title} onChange={(e:any) => handleLocalUpdate({...localData, hero: {...localData.hero, title: e.target.value}})} />
+                                    <InputField label="Subtitle" val={localData.hero.subtitle} onChange={(e:any) => handleLocalUpdate({...localData, hero: {...localData.hero, subtitle: e.target.value}})} />
+                                    <InputField label="Website URL" val={localData.hero.websiteUrl || ''} onChange={(e:any) => handleLocalUpdate({...localData, hero: {...localData.hero, websiteUrl: e.target.value}})} placeholder="https://example.com" />
                                 </div>
                                 <div className="space-y-4">
-                                    <FileUpload label="Background Image" currentUrl={storeData.hero.backgroundImageUrl} onUpload={(url:any) => onUpdateData({...storeData, hero: {...storeData.hero, backgroundImageUrl: url}})} />
-                                    <FileUpload label="Brand Logo" currentUrl={storeData.hero.logoUrl} onUpload={(url:any) => onUpdateData({...storeData, hero: {...storeData.hero, logoUrl: url}})} />
+                                    <FileUpload label="Background Image" currentUrl={localData.hero.backgroundImageUrl} onUpload={(url:any) => handleLocalUpdate({...localData, hero: {...localData.hero, backgroundImageUrl: url}})} />
+                                    <FileUpload label="Brand Logo" currentUrl={localData.hero.logoUrl} onUpload={(url:any) => handleLocalUpdate({...localData, hero: {...localData.hero, logoUrl: url}})} />
                                 </div>
                             </div>
                         </div>
@@ -577,7 +642,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                     <p className="text-[10px] text-slate-400 mb-4 uppercase font-bold tracking-wide">
                         {zone.includes('Side') ? 'Size: 1080x1920 (Portrait)' : 'Size: 1920x1080 (Landscape)'}
                     </p>
-                    <FileUpload label="Upload Media" accept="image/*,video/*" allowMultiple onUpload={(urls:any, type:any) => { const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ad'), type, url:u})); onUpdateData({...storeData, ads: {...storeData.ads, [zone]: [...(storeData.ads as any)[zone], ...newAds]} as any}); }} /></div>))}</div>}
+                    <FileUpload label="Upload Media" accept="image/*,video/*" allowMultiple onUpload={(urls:any, type:any) => { const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ad'), type, url:u})); handleLocalUpdate({...localData, ads: {...localData.ads, [zone]: [...(localData.ads as any)[zone], ...newAds]} as any}); }} /></div>))}</div>}
                 </div>
             )}
 
@@ -586,16 +651,16 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                      <h3 className="font-bold text-slate-900 uppercase tracking-wider mb-6 pb-4 border-b border-slate-100">Screensaver Config</h3>
                      <div className="grid grid-cols-2 gap-8">
                          <div className="space-y-4">
-                             <InputField label="Idle Timeout (sec)" val={storeData.screensaverSettings?.idleTimeout||60} onChange={(e:any)=>onUpdateData({...storeData, screensaverSettings: {...storeData.screensaverSettings!, idleTimeout: parseInt(e.target.value)}})} />
-                             <InputField label="Image Duration (sec)" val={storeData.screensaverSettings?.imageDuration||8} onChange={(e:any)=>onUpdateData({...storeData, screensaverSettings: {...storeData.screensaverSettings!, imageDuration: parseInt(e.target.value)}})} />
+                             <InputField label="Idle Timeout (sec)" val={localData.screensaverSettings?.idleTimeout||60} onChange={(e:any)=>handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, idleTimeout: parseInt(e.target.value)}})} />
+                             <InputField label="Image Duration (sec)" val={localData.screensaverSettings?.imageDuration||8} onChange={(e:any)=>handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, imageDuration: parseInt(e.target.value)}})} />
                          </div>
                          <div className="space-y-2">
-                             {Object.keys(storeData.screensaverSettings || {}).filter(k => typeof (storeData.screensaverSettings as any)[k] === 'boolean').map(k => (
-                                 <div key={k} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl"><span className="text-xs font-bold uppercase text-slate-700">{k.replace(/([A-Z])/g, ' $1').trim()}</span><button onClick={() => onUpdateData({...storeData, screensaverSettings: {...storeData.screensaverSettings!, [k]: !(storeData.screensaverSettings as any)[k]}})} className={`w-8 h-4 rounded-full transition-colors relative ${ (storeData.screensaverSettings as any)[k] ? 'bg-green-500' : 'bg-slate-300' }`}><div className={`w-2 h-2 bg-white rounded-full absolute top-1 transition-all ${ (storeData.screensaverSettings as any)[k] ? 'left-5' : 'left-1' }`}></div></button></div>
+                             {Object.keys(localData.screensaverSettings || {}).filter(k => typeof (localData.screensaverSettings as any)[k] === 'boolean').map(k => (
+                                 <div key={k} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl"><span className="text-xs font-bold uppercase text-slate-700">{k.replace(/([A-Z])/g, ' $1').trim()}</span><button onClick={() => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, [k]: !(localData.screensaverSettings as any)[k]}})} className={`w-8 h-4 rounded-full transition-colors relative ${ (localData.screensaverSettings as any)[k] ? 'bg-green-500' : 'bg-slate-300' }`}><div className={`w-2 h-2 bg-white rounded-full absolute top-1 transition-all ${ (localData.screensaverSettings as any)[k] ? 'left-5' : 'left-1' }`}></div></button></div>
                              ))}
                          </div>
                      </div>
-                     <div className="mt-8 pt-8 border-t border-slate-100"><h4 className="font-bold text-slate-900 uppercase text-xs mb-4">Custom Media</h4><FileUpload label="Upload" allowMultiple accept="image/*,video/*" currentUrl="" onUpload={(urls:any, type:any) => { const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ss'), type, url:u})); onUpdateData({...storeData, ads: {...storeData.ads!, screensaver: [...(storeData.ads?.screensaver||[]), ...newAds]}}); }} /></div>
+                     <div className="mt-8 pt-8 border-t border-slate-100"><h4 className="font-bold text-slate-900 uppercase text-xs mb-4">Custom Media</h4><FileUpload label="Upload" allowMultiple accept="image/*,video/*" currentUrl="" onUpload={(urls:any, type:any) => { const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ss'), type, url:u})); handleLocalUpdate({...localData, ads: {...localData.ads!, screensaver: [...(localData.ads?.screensaver||[]), ...newAds]}}); }} /></div>
                 </div>
             )}
 
@@ -605,8 +670,8 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                        <table className="w-full text-left">
                            <thead className="bg-slate-50 border-b border-slate-200"><tr><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Status</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Name</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Type</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Snapshot</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Actions</th></tr></thead>
-                           <tbody>{storeData.fleet?.map(kiosk => {
-                               const isOnline = (new Date().getTime() - new Date(kiosk.last_seen).getTime()) < 120000;
+                           <tbody>{localData.fleet?.map(kiosk => {
+                               const isOnline = (new Date().getTime() - new Date(kiosk.last_seen).getTime()) < 350000; // Increased offline tolerance slightly due to 5m poll
                                return (
                                    <tr key={kiosk.id} className="border-b border-slate-100 hover:bg-slate-50">
                                        <td className="p-4"><div className={`flex items-center gap-2 px-2 py-1 rounded-full w-fit text-[10px] font-bold uppercase ${isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}><div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>{isOnline ? 'Online' : 'Offline'}</div></td>
@@ -644,7 +709,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                            {['brands', 'products', 'catalogues'].map(f => (
                                <button key={f} onClick={() => setHistoryFolder(f as any)} className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-blue-500 hover:shadow-lg transition-all text-left flex items-start gap-4">
                                    <div className="bg-slate-100 p-3 rounded-xl text-slate-600"><Archive size={24} /></div>
-                                   <div><h3 className="font-black text-slate-900 uppercase">{f}</h3><p className="text-xs text-slate-500 font-bold">{(storeData.archive as any)?.[f]?.length || 0} Items</p></div>
+                                   <div><h3 className="font-black text-slate-900 uppercase">{f}</h3><p className="text-xs text-slate-500 font-bold">{(localData.archive as any)?.[f]?.length || 0} Items</p></div>
                                </button>
                            ))}
                        </div>
@@ -652,7 +717,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                        <div className="bg-white rounded-2xl border border-slate-200 p-6 min-h-[400px]">
                            <button onClick={() => setHistoryFolder(null)} className="mb-4 flex items-center gap-2 text-slate-500 hover:text-slate-800 font-bold text-xs uppercase"><ArrowLeft size={16} /> Back</button>
                            <h3 className="text-xl font-black text-slate-900 uppercase mb-6 border-b border-slate-100 pb-4">{historyFolder} Archive</h3>
-                           {(!storeData.archive || (storeData.archive as any)[historyFolder]?.length === 0) ? <div className="text-center py-12 text-slate-400 italic text-sm">Empty</div> : (storeData.archive as any)[historyFolder].map((item: any, i: number) => (
+                           {(!localData.archive || (localData.archive as any)[historyFolder]?.length === 0) ? <div className="text-center py-12 text-slate-400 italic text-sm">Empty</div> : (localData.archive as any)[historyFolder].map((item: any, i: number) => (
                                <div key={i} className="p-3 bg-slate-50 mb-2 rounded border border-slate-100 text-sm font-bold text-slate-700">{item.name || item.title || item.product?.name}</div>
                            ))}
                        </div>
@@ -671,7 +736,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
         </main>
 
         {/* MODALS */}
-        {editingProduct && <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-5xl h-full max-h-[90vh]"><ProductEditor product={editingProduct} onSave={(p) => { if (!selectedCategory || !selectedBrand) return; const isNew = !selectedCategory.products.find(x => x.id === p.id); const newCats = selectedBrand.categories.map(c => c.id === selectedCategory.id ? { ...c, products: isNew ? [...c.products, p] : c.products.map(px => px.id === p.id ? p : px) } : c); const newBrands = brands.map(b => b.id === selectedBrand.id ? { ...b, categories: newCats } : b); onUpdateData({ ...storeData, brands: newBrands }); setSelectedCategory(newCats.find(c => c.id === selectedCategory.id) || null); setEditingProduct(null); }} onCancel={() => setEditingProduct(null)} /></div></div>}
+        {editingProduct && <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-5xl h-full max-h-[90vh]"><ProductEditor product={editingProduct} onSave={(p) => { if (!selectedCategory || !selectedBrand) return; const isNew = !selectedCategory.products.find(x => x.id === p.id); const newCats = selectedBrand.categories.map(c => c.id === selectedCategory.id ? { ...c, products: isNew ? [...c.products, p] : c.products.map(px => px.id === p.id ? p : px) } : c); const newBrands = brands.map(b => b.id === selectedBrand.id ? { ...b, categories: newCats } : b); handleLocalUpdate({ ...localData, brands: newBrands }); setSelectedCategory(newCats.find(c => c.id === selectedCategory.id) || null); setEditingProduct(null); }} onCancel={() => setEditingProduct(null)} /></div></div>}
         {editingKiosk && <KioskEditorModal kiosk={editingKiosk} onSave={(k) => { updateFleetMember(k); setEditingKiosk(null); }} onClose={() => setEditingKiosk(null)} />}
         {showGuide && <SetupGuide onClose={() => setShowGuide(false)} />}
     </div>
