@@ -1,7 +1,9 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { KioskApp } from './components/KioskApp';
 import { AdminDashboard } from './components/AdminDashboard';
+import AboutPage from './components/AboutPage';
 import { generateStoreData, saveStoreData } from './services/geminiService';
 import { initSupabase, supabase } from './services/kioskService';
 import { StoreData } from './types';
@@ -141,6 +143,19 @@ export default function App() {
             });
         }}
       />
+    );
+  }
+
+  // --- ROUTE: ABOUT PAGE ---
+  if (normalizedRoute === '/about') {
+    return (
+        <AboutPage 
+            storeData={storeData!} 
+            onBack={() => {
+                window.history.pushState({}, '', '/');
+                setCurrentRoute('/');
+            }}
+        />
     );
   }
 

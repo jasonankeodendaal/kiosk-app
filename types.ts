@@ -125,6 +125,10 @@ export interface ArchiveData {
     deletedAt: Record<string, string>; 
 }
 
+export interface AboutConfig {
+    audioUrl?: string;
+}
+
 export interface StoreData {
   companyLogoUrl?: string; 
   hero: HeroConfig;
@@ -134,6 +138,7 @@ export interface StoreData {
   screensaverSettings?: ScreensaverSettings; 
   fleet?: KioskRegistry[]; 
   archive?: ArchiveData; 
+  about?: AboutConfig;
 }
 
 export interface FlatProduct extends Product {

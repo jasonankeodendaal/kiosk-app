@@ -61,6 +61,20 @@ export const initSupabase = () => {
   return false;
 };
 
+// Helper to get Project ID for display
+export const getCloudProjectName = (): string => {
+    if (!SUPABASE_URL) return "Local";
+    try {
+        // format: https://[project-ref].supabase.co
+        const url = new URL(SUPABASE_URL);
+        const parts = url.hostname.split('.');
+        if (parts.length > 0) return parts[0].toUpperCase();
+    } catch (e) {
+        return "Unknown";
+    }
+    return "Local";
+};
+
 // NEW: Real Network Check (Not just config check)
 export const checkCloudConnection = async (): Promise<boolean> => {
     if (!supabase) {

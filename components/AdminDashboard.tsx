@@ -1,9 +1,10 @@
 
+
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual } from '../types';
 import { resetStoreData } from '../services/geminiService';
@@ -35,6 +36,11 @@ const convertPdfToImages = async (pdfDataUrl: string): Promise<string[]> => {
             canvas.width = viewport.width;
 
             if (context) {
+                // Fix for Transparent PDFs turning black
+                // We fill the canvas with white before rendering
+                context.fillStyle = 'white';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                
                 await page.render({ canvasContext: context, viewport: viewport }).promise;
                 images.push(canvas.toDataURL('image/jpeg', 0.8));
             }
@@ -76,7 +82,7 @@ const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <I
       setIsProcessing(true);
       setUploadProgress(10); 
       const files = Array.from(e.target.files) as File[];
-      let fileType = files[0].type.startsWith('video') ? 'video' : files[0].type === 'application/pdf' ? 'pdf' : 'image';
+      let fileType = files[0].type.startsWith('video') ? 'video' : files[0].type === 'application/pdf' ? 'pdf' : files[0].type.startsWith('audio') ? 'audio' : 'image';
 
       const uploadSingle = async (file: File) => {
            try {
@@ -114,7 +120,7 @@ const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <I
       <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
         {isProcessing && <div className="absolute bottom-0 left-0 h-1 bg-blue-500 transition-all" style={{ width: `${uploadProgress}%` }}></div>}
         <div className="w-16 h-16 bg-slate-50 border border-slate-200 border-dashed rounded-lg flex items-center justify-center overflow-hidden shrink-0">
-           {isProcessing ? <Loader2 className="animate-spin text-blue-500" /> : currentUrl && !allowMultiple ? (accept.includes('video') ? <Video /> : accept.includes('pdf') ? <FileText /> : <img src={currentUrl} className="w-full h-full object-cover" />) : icon}
+           {isProcessing ? <Loader2 className="animate-spin text-blue-500" /> : currentUrl && !allowMultiple ? (accept.includes('video') ? <Video /> : accept.includes('pdf') ? <FileText /> : accept.includes('audio') ? <Music /> : <img src={currentUrl} className="w-full h-full object-cover" />) : icon}
         </div>
         <label className={`cursor-pointer bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-[10px] uppercase ${isProcessing ? 'opacity-50' : ''}`}>
               <Upload size={12} className="inline mr-2" /> {isProcessing ? 'Uploading...' : 'Select File'}
@@ -680,6 +686,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                 <button onClick={() => setActiveSubTab('hero')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'hero' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Hero Banner</button>
                 <button onClick={() => setActiveSubTab('ads')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'ads' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Ad Zones</button>
                 <button onClick={() => setActiveSubTab('catalogues')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'catalogues' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Pamphlets & Catalogues</button>
+                <button onClick={() => setActiveSubTab('about')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'about' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>About Page</button>
             </div>
         )}
 
@@ -726,6 +733,28 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             {activeTab === 'marketing' && (
                 <div className="max-w-5xl mx-auto">
                     {activeSubTab === 'catalogues' && <CatalogueManager catalogues={localData.catalogues || []} onSave={(c) => handleLocalUpdate({ ...localData, catalogues: c })} />}
+                    {activeSubTab === 'about' && (
+                        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                            <h2 className="text-xl font-black uppercase text-slate-900">About Page Configuration</h2>
+                            <p className="text-sm text-slate-600">Configure the content for the <code>/about</code> page of your kiosk.</p>
+                            
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                <label className="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Audio Guide</label>
+                                <FileUpload 
+                                    label="Upload Audio Narration (MP3)" 
+                                    accept="audio/*" 
+                                    icon={<Music />}
+                                    currentUrl="" 
+                                    onUpload={(url: any) => handleLocalUpdate({ ...localData, about: { ...localData.about, audioUrl: url } })} 
+                                />
+                                {localData.about?.audioUrl && (
+                                    <div className="mt-2 p-2 bg-green-50 text-green-700 text-xs font-bold rounded flex items-center gap-2">
+                                        <Check size={12} /> Audio file uploaded successfully.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                     {activeSubTab === 'hero' && (
                         <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

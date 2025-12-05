@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -12,7 +13,8 @@ import {
   getDeviceType,
   supabase,
   checkCloudConnection,
-  initSupabase
+  initSupabase,
+  getCloudProjectName
 } from '../services/kioskService';
 import BrandGrid from './BrandGrid';
 import CategoryGrid from './CategoryGrid';
@@ -20,7 +22,7 @@ import ProductList from './ProductList';
 import ProductDetail from './ProductDetail';
 import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
-import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw } from 'lucide-react';
+import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
 
 const DEFAULT_IDLE_TIMEOUT = 60000;
 
@@ -179,6 +181,9 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
+  
+  // ZOOM CONTROL
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<number | null>(null);
@@ -438,8 +443,31 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
            <div className="flex items-center gap-4">
                 <div className={`flex items-center gap-2 px-2 py-0.5 rounded-full ${isCloudConnected ? 'bg-blue-900/50 text-blue-300 border border-blue-800' : 'bg-orange-900/50 text-orange-300 border border-orange-800'}`}>
                     {isCloudConnected ? <Cloud size={10} /> : <HardDrive size={10} />}
-                    <span className="text-[9px] font-black uppercase">{isCloudConnected ? 'Cloud' : 'Local'}</span>
+                    {/* CLOUD NAME DISPLAY */}
+                    <span className="text-[9px] font-black uppercase">{isCloudConnected ? `Cloud: ${getCloudProjectName()}` : 'Local'}</span>
                 </div>
+
+                <div className="flex items-center gap-2 border-l border-slate-700 pl-4">
+                    {/* SCREEN SAVER TOGGLE */}
+                    <button 
+                       onClick={() => setScreensaverEnabled(!screensaverEnabled)} 
+                       className={`p-1 rounded ${screensaverEnabled ? 'text-green-400 bg-green-900/30' : 'text-slate-500 bg-slate-800'}`}
+                       title={screensaverEnabled ? "Screensaver On" : "Screensaver Off"}
+                    >
+                       {screensaverEnabled ? <MonitorPlay size={14} /> : <MonitorStop size={14} />}
+                    </button>
+                    
+                    {/* ZOOM CONTROL BUTTON */}
+                    <button 
+                       onClick={() => setZoomLevel(zoomLevel === 1 ? 0.75 : 1)}
+                       className={`p-1 rounded flex items-center gap-1 text-[10px] font-bold uppercase w-12 justify-center transition-colors ${zoomLevel === 1 ? 'text-blue-400 bg-blue-900/30' : 'text-purple-400 bg-purple-900/30'}`}
+                       title="Toggle UI Zoom"
+                    >
+                       {zoomLevel === 1 ? <ZoomIn size={14} /> : <ZoomOut size={14} />}
+                       {Math.round(zoomLevel * 100)}%
+                    </button>
+                </div>
+
                 <div className="flex items-center gap-2">
                     <Clock size={12} className="text-slate-400" />
                     <span className="text-xs font-mono font-bold">
@@ -449,7 +477,11 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
            </div>
        </header>
 
-       <div className="flex-1 overflow-hidden relative flex flex-col">
+       {/* MAIN CONTENT WRAPPER WITH ZOOM */}
+       <div 
+         className="flex-1 overflow-hidden relative flex flex-col transition-transform duration-300 origin-top"
+         style={{ zoom: zoomLevel }}
+       >
           <div className="flex-1 overflow-hidden relative">
              {!activeBrand ? (
                <BrandGrid 

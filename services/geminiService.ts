@@ -32,7 +32,10 @@ const DEFAULT_DATA: StoreData = {
     screensaver: []
   },
   fleet: [],
-  brands: []
+  brands: [],
+  about: {
+      audioUrl: ""
+  }
 };
 
 // Helper to migrate legacy data structures and Hydrate empty DB responses
@@ -46,6 +49,7 @@ const migrateData = (data: any): StoreData => {
     if (!data.hero) data.hero = { ...DEFAULT_DATA.hero };
     if (!data.ads) data.ads = { ...DEFAULT_DATA.ads };
     if (!data.screensaverSettings) data.screensaverSettings = { ...DEFAULT_DATA.screensaverSettings };
+    if (!data.about) data.about = { ...DEFAULT_DATA.about };
 
     // 3. Migrate Deep Structures
     if (data.brands) {
