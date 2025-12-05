@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { KioskApp } from './components/KioskApp';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -56,21 +54,30 @@ export default function App() {
     // Setup Realtime Subscription
     if (supabase) {
         const channel = supabase
-          .channel('public:store_config')
+          .channel('public:store_data')
           .on(
             'postgres_changes',
             { event: 'UPDATE', schema: 'public', table: 'store_config', filter: 'id=eq.1' },
             (payload: any) => {
-              console.log("Remote update received!", payload);
+              console.log("Store Config Update received!", payload);
               if (payload.new && payload.new.data) {
                  setIsSyncing(true);
-                 setStoreData(payload.new.data);
-                 setLastSyncTime(new Date().toLocaleTimeString());
-                 // Update local cache
-                 localStorage.setItem('kiosk_pro_store_data', JSON.stringify(payload.new.data));
-                 setTimeout(() => setIsSyncing(false), 2000);
+                 // We need to merge this with the latest fleet data, so best to re-fetch generator
+                 fetchData().then(() => {
+                    setTimeout(() => setIsSyncing(false), 2000);
+                 });
               }
             }
+          )
+          .on(
+             'postgres_changes',
+             { event: '*', schema: 'public', table: 'kiosks' },
+             (payload: any) => {
+                 console.log("Fleet Update received!", payload);
+                 // When fleet changes (new kiosk or heartbeat), refresh data
+                 // Don't show full sync loader for heartbeats to avoid flicker
+                 fetchData();
+             }
           )
           .subscribe((status: string) => {
              console.log("Supabase Subscription Status:", status);

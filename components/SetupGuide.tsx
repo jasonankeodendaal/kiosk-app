@@ -234,32 +234,35 @@ insert into storage.buckets (id, name, public)
 values ('kiosk-media', 'kiosk-media', true)
 on conflict (id) do nothing;
 
--- DROP OLD POLICIES (Fixes Error 42710 "Policy already exists")
--- We drop all variants to be safe before recreating
+-- 4. PERMISSIONS & POLICIES (Fixes "Registration Failed" & "Saving Error")
+-- We drop existing policies to prevent conflicts, then re-create them.
+
+-- A. Storage Policies
 drop policy if exists "Public Access" on storage.objects;
-drop policy if exists "Public Upload" on storage.objects;
 drop policy if exists "Kiosk Public Read" on storage.objects;
 drop policy if exists "Kiosk Public Insert" on storage.objects;
 drop policy if exists "Kiosk Public Update" on storage.objects;
-drop policy if exists "Give me access" on storage.objects;
-drop policy if exists "Allow Public Read" on storage.objects;
-drop policy if exists "Anon Read" on storage.objects;
-drop policy if exists "Anyone can upload" on storage.objects;
 
--- CREATE FRESH POLICIES (Allow Everyone to Read/Write for simplicity in Kiosk mode)
-create policy "Kiosk Public Read"
-on storage.objects for select
-using ( bucket_id = 'kiosk-media' );
+create policy "Kiosk Public Read" on storage.objects for select using ( bucket_id = 'kiosk-media' );
+create policy "Kiosk Public Insert" on storage.objects for insert with check ( bucket_id = 'kiosk-media' );
+create policy "Kiosk Public Update" on storage.objects for update using ( bucket_id = 'kiosk-media' );
 
-create policy "Kiosk Public Insert"
-on storage.objects for insert
-with check ( bucket_id = 'kiosk-media' );
+-- B. Table Policies (CRITICAL FOR REGISTRATION)
+alter table public.kiosks enable row level security;
+alter table public.store_config enable row level security;
 
-create policy "Kiosk Public Update"
-on storage.objects for update
-using ( bucket_id = 'kiosk-media' );
+drop policy if exists "Enable access to all users" on public.kiosks;
+create policy "Enable access to all users" on public.kiosks for all using (true) with check (true);
 
--- 4. ENABLE REALTIME (Safe Mode)
+drop policy if exists "Enable access to all users" on public.store_config;
+create policy "Enable access to all users" on public.store_config for all using (true) with check (true);
+
+-- Grant permissions to anon role (just in case)
+grant all on table public.kiosks to anon;
+grant all on table public.store_config to anon;
+grant all on sequence public.store_config_id_seq to anon;
+
+-- 5. ENABLE REALTIME (Safe Mode)
 -- This allows the Kiosk to "listen" for new commands like Snapshot/Restart
 do $$
 begin

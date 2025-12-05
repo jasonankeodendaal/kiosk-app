@@ -1,5 +1,3 @@
-
-
 import { createClient } from '@supabase/supabase-js';
 import { KioskRegistry } from '../types';
 
@@ -164,6 +162,10 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
         
         if (telemetryError) {
              console.warn("Registration failed:", telemetryError.message);
+             // If error is 42501 (Permission Denied), it's specifically the RLS issue
+             if (telemetryError.code === '42501') {
+                 throw new Error("Permission Denied: Run the SQL script in Admin Setup to unlock table access.");
+             }
              throw telemetryError;
         }
 
@@ -174,7 +176,6 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
         
         // AUTO-RECOVERY FALLBACK
         // If the error is missing columns (Schema drift), try to register with minimal data
-        // This prevents the user from being stuck at the setup screen
         if (e.message && (e.message.includes('assigned_zone') || e.message.includes('column'))) {
             console.warn("Detected Schema Mismatch. Attempting Legacy Registration...");
             try {
