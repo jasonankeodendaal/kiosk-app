@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { X, Server, Copy, Check, ArrowRight, ExternalLink, ShieldCheck, Database, Key, Settings, Layers, Smartphone, Globe, Cpu, Cloud, ToggleRight, CloudLightning, Book } from 'lucide-react';
 
@@ -319,7 +318,7 @@ vercel --prod`}
                                  <h3 className="text-lg font-black text-blue-900 uppercase">1. Fix Upload Errors (Storage Bucket)</h3>
                              </div>
                              <p className="text-sm text-slate-700 mb-4">
-                                 If you see "File too large" errors or Policy Errors, run the SQL in <strong>Step 4 (Bottom)</strong>. The updated script fixes the "Policy already exists" issue.
+                                 If you see "File too large" errors or Policy Errors (42710), run the SQL in <strong>Step 4 (Bottom)</strong>. The updated script automatically fixes conflicting policies.
                              </p>
                         </div>
 
@@ -327,7 +326,7 @@ vercel --prod`}
                             <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2">2. Setup Tables (Robust Version)</h3>
                             <p className="text-sm text-slate-600 mb-4">
                                 Go to the <strong>SQL Editor</strong> in Supabase, paste this code, and click <strong>RUN</strong>. <br/>
-                                <span className="text-green-600 font-bold">UPDATED:</span> This script now auto-adds missing columns (like <code>assigned_zone</code>) to fix Kiosk Registration errors.
+                                <span className="text-green-600 font-bold">UPDATED:</span> This script now auto-adds missing columns (like <code>assigned_zone</code>) to fix Cloud Registration errors.
                             </p>
                             <CodeBlock 
                                 id="supabase-sql"

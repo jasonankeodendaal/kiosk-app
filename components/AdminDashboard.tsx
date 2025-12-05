@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -257,6 +258,7 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
                         <InputField label="Product Name" val={draft.name} onChange={(e: any) => setDraft({ ...draft, name: e.target.value })} />
                         <InputField label="SKU" val={draft.sku || ''} onChange={(e: any) => setDraft({ ...draft, sku: e.target.value })} />
                         <InputField label="Description" isArea val={draft.description} onChange={(e: any) => setDraft({ ...draft, description: e.target.value })} />
+                        <InputField label="Warranty & Terms" isArea val={draft.terms || ''} onChange={(e: any) => setDraft({ ...draft, terms: e.target.value })} placeholder="Enter warranty info or legal terms..." />
                         
                         {/* MULTI DIMENSIONS EDITOR */}
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -488,7 +490,21 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
             {activeTab === 'marketing' && (
                 <div className="max-w-5xl mx-auto">
                     {activeSubTab === 'catalogues' && <CatalogueManager catalogues={storeData.catalogues || []} onSave={(c) => onUpdateData({ ...storeData, catalogues: c })} />}
-                    {activeSubTab === 'hero' && <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-4"><InputField label="Title" val={storeData.hero.title} onChange={(e:any) => onUpdateData({...storeData, hero: {...storeData.hero, title: e.target.value}})} /><InputField label="Subtitle" val={storeData.hero.subtitle} onChange={(e:any) => onUpdateData({...storeData, hero: {...storeData.hero, subtitle: e.target.value}})} /></div><div className="space-y-4"><FileUpload label="Background" currentUrl={storeData.hero.backgroundImageUrl} onUpload={(url:any) => onUpdateData({...storeData, hero: {...storeData.hero, backgroundImageUrl: url}})} /></div></div></div>}
+                    {activeSubTab === 'hero' && (
+                        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <InputField label="Title" val={storeData.hero.title} onChange={(e:any) => onUpdateData({...storeData, hero: {...storeData.hero, title: e.target.value}})} />
+                                    <InputField label="Subtitle" val={storeData.hero.subtitle} onChange={(e:any) => onUpdateData({...storeData, hero: {...storeData.hero, subtitle: e.target.value}})} />
+                                    <InputField label="Website URL" val={storeData.hero.websiteUrl || ''} onChange={(e:any) => onUpdateData({...storeData, hero: {...storeData.hero, websiteUrl: e.target.value}})} placeholder="https://example.com" />
+                                </div>
+                                <div className="space-y-4">
+                                    <FileUpload label="Background Image" currentUrl={storeData.hero.backgroundImageUrl} onUpload={(url:any) => onUpdateData({...storeData, hero: {...storeData.hero, backgroundImageUrl: url}})} />
+                                    <FileUpload label="Brand Logo" currentUrl={storeData.hero.logoUrl} onUpload={(url:any) => onUpdateData({...storeData, hero: {...storeData.hero, logoUrl: url}})} />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {activeSubTab === 'ads' && <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">{['homeBottomLeft', 'homeBottomRight', 'homeSideVertical'].map(zone => (<div key={zone} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h4 className="font-bold uppercase text-xs mb-1">{zone.replace('home', '')}</h4>
                     <p className="text-[10px] text-slate-400 mb-4 uppercase font-bold tracking-wide">
                         {zone.includes('Side') ? 'Size: 1080x1920 (Portrait)' : 'Size: 1920x1080 (Landscape)'}
