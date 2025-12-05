@@ -638,11 +638,54 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                             </div>
                         </div>
                     )}
-                    {activeSubTab === 'ads' && <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">{['homeBottomLeft', 'homeBottomRight', 'homeSideVertical'].map(zone => (<div key={zone} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h4 className="font-bold uppercase text-xs mb-1">{zone.replace('home', '')}</h4>
-                    <p className="text-[10px] text-slate-400 mb-4 uppercase font-bold tracking-wide">
-                        {zone.includes('Side') ? 'Size: 1080x1920 (Portrait)' : 'Size: 1920x1080 (Landscape)'}
-                    </p>
-                    <FileUpload label="Upload Media" accept="image/*,video/*" allowMultiple onUpload={(urls:any, type:any) => { const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ad'), type, url:u})); handleLocalUpdate({...localData, ads: {...localData.ads, [zone]: [...(localData.ads as any)[zone], ...newAds]} as any}); }} /></div>))}</div>}
+                    {activeSubTab === 'ads' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {['homeBottomLeft', 'homeBottomRight', 'homeSideVertical'].map(zone => (
+                                <div key={zone} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                    <h4 className="font-bold uppercase text-xs mb-1">{zone.replace('home', '')}</h4>
+                                    <p className="text-[10px] text-slate-400 mb-4 uppercase font-bold tracking-wide">
+                                        {zone.includes('Side') ? 'Size: 1080x1920 (Portrait)' : 'Size: 1920x1080 (Landscape)'}
+                                    </p>
+                                    <FileUpload 
+                                        label="Upload Media" 
+                                        accept="image/*,video/*" 
+                                        allowMultiple 
+                                        onUpload={(urls:any, type:any) => { 
+                                            const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ad'), type, url:u})); 
+                                            handleLocalUpdate({...localData, ads: {...localData.ads, [zone]: [...(localData.ads as any)[zone], ...newAds]} as any}); 
+                                        }} 
+                                    />
+                                    
+                                    {/* --- ADDED: Display existing ads in a grid to allow deleting --- */}
+                                    <div className="grid grid-cols-3 gap-2 mt-4">
+                                        {((localData.ads as any)[zone] || []).map((ad: any, idx: number) => (
+                                            <div key={ad.id} className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                                                {ad.type === 'video' ? (
+                                                    <video src={ad.url} className="w-full h-full object-cover opacity-60" />
+                                                ) : (
+                                                    <img src={ad.url} alt="Ad" className="w-full h-full object-cover" />
+                                                )}
+                                                <button 
+                                                    onClick={() => {
+                                                        const currentAds = (localData.ads as any)[zone];
+                                                        const newAdsList = currentAds.filter((_: any, i: number) => i !== idx);
+                                                        handleLocalUpdate({ ...localData, ads: { ...localData.ads, [zone]: newAdsList } as any });
+                                                    }}
+                                                    className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                    title="Remove Ad"
+                                                >
+                                                    <Trash2 size={10} />
+                                                </button>
+                                                {ad.type === 'video' && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Video size={12} className="text-white drop-shadow-md"/></div>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {/* ----------------------------------------------------------------- */}
+
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -660,7 +703,44 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                              ))}
                          </div>
                      </div>
-                     <div className="mt-8 pt-8 border-t border-slate-100"><h4 className="font-bold text-slate-900 uppercase text-xs mb-4">Custom Media</h4><FileUpload label="Upload" allowMultiple accept="image/*,video/*" currentUrl="" onUpload={(urls:any, type:any) => { const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ss'), type, url:u})); handleLocalUpdate({...localData, ads: {...localData.ads!, screensaver: [...(localData.ads?.screensaver||[]), ...newAds]}}); }} /></div>
+                     <div className="mt-8 pt-8 border-t border-slate-100">
+                        <h4 className="font-bold text-slate-900 uppercase text-xs mb-4">Custom Media</h4>
+                        <FileUpload 
+                            label="Upload" 
+                            allowMultiple 
+                            accept="image/*,video/*" 
+                            currentUrl="" 
+                            onUpload={(urls:any, type:any) => { 
+                                const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ss'), type, url:u})); 
+                                handleLocalUpdate({...localData, ads: {...localData.ads!, screensaver: [...(localData.ads?.screensaver||[]), ...newAds]}}); 
+                            }} 
+                        />
+                        
+                        {/* --- ADDED: Display Screensaver Media Grid --- */}
+                        <div className="grid grid-cols-4 md:grid-cols-6 gap-3 mt-4">
+                            {(localData.ads?.screensaver || []).map((ad, idx) => (
+                                <div key={ad.id} className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                                    {ad.type === 'video' ? (
+                                        <video src={ad.url} className="w-full h-full object-cover opacity-60" />
+                                    ) : (
+                                        <img src={ad.url} alt="Screensaver" className="w-full h-full object-cover" />
+                                    )}
+                                    <button 
+                                        onClick={() => {
+                                            const newAds = (localData.ads?.screensaver || []).filter((_, i) => i !== idx);
+                                            handleLocalUpdate({...localData, ads: {...localData.ads!, screensaver: newAds}});
+                                        }}
+                                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
+                                        title="Delete"
+                                    >
+                                        <Trash2 size={10} />
+                                    </button>
+                                    {ad.type === 'video' && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Video size={16} className="text-white drop-shadow-md"/></div>}
+                                </div>
+                            ))}
+                        </div>
+                        {/* --------------------------------------------- */}
+                     </div>
                 </div>
             )}
 

@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 import Flipbook from './Flipbook';
-import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon, Package, LayoutGrid } from 'lucide-react';
+import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon, Package, LayoutGrid, Settings } from 'lucide-react';
 
 interface ProductDetailProps {
   product: Product;
@@ -349,10 +349,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                     <h1 className="text-2xl font-black text-slate-900 leading-tight uppercase tracking-tight mb-2">{product.name}</h1>
                 </div>
                 <div className="mb-8">
-                    <p className="text-sm text-slate-600 leading-relaxed font-medium">{product.description}</p>
+                    <p className="text-sm text-slate-600 leading-relaxed font-medium">{product.description || "No specific description available."}</p>
                 </div>
 
                 <div className="space-y-6">
+                    {/* FEATURES */}
                     {product.features.length > 0 && (
                         <div>
                             <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2"><Check size={14} className="text-green-500" /> Key Features</h3>
@@ -366,7 +367,38 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                             </ul>
                         </div>
                     )}
+
+                    {/* BOX CONTENTS */}
+                    {product.boxContents && product.boxContents.length > 0 && (
+                         <div className="bg-orange-50/50 rounded-xl p-4 border border-orange-100">
+                             <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2"><Package size={14} className="text-orange-500" /> What's in the Box</h3>
+                             <div className="grid grid-cols-1 gap-2">
+                                 {product.boxContents.map((item, idx) => (
+                                     <div key={idx} className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                                         <div className="w-1.5 h-1.5 rounded-full bg-orange-400"></div>
+                                         {item}
+                                     </div>
+                                 ))}
+                             </div>
+                         </div>
+                    )}
+
+                    {/* SPECS */}
+                    {product.specs && Object.keys(product.specs).length > 0 && (
+                        <div>
+                             <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2"><Settings size={14} /> Specifications</h3>
+                             <div className="grid grid-cols-2 gap-3">
+                                {Object.entries(product.specs).map(([key, value], idx) => (
+                                    <div key={idx} className="bg-slate-50 border border-slate-100 rounded-lg p-3">
+                                        <span className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">{key}</span>
+                                        <span className="block text-xs font-bold text-slate-900">{value}</span>
+                                    </div>
+                                ))}
+                             </div>
+                        </div>
+                    )}
                     
+                    {/* DIMENSIONS */}
                     {dimensionSets.length > 0 && (
                         <div>
                             <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2"><Ruler size={14} className="text-orange-500" /> Dimensions</h3>
@@ -385,6 +417,21 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                             </div>
                         </div>
                     )}
+
+                    {/* MANUAL BUTTON */}
+                    {(product.manualUrl || (product.manualImages && product.manualImages.length > 0)) && (
+                        <button onClick={openManual} className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors border border-slate-200">
+                            <FileIcon size={14} className="text-blue-500" /> View User Manual
+                        </button>
+                    )}
+
+                    {/* TERMS */}
+                    {product.terms && (
+                         <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 mt-4">
+                             <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-2 flex items-center gap-2"><Info size={14} /> Warranty & Terms</h3>
+                             <p className="text-[10px] text-slate-500 font-mono leading-relaxed whitespace-pre-wrap">{product.terms}</p>
+                         </div>
+                     )}
                 </div>
             </div>
         </div>
