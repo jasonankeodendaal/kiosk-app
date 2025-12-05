@@ -366,7 +366,6 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   }, [storeData?.catalogues]);
 
   // MEMOIZED TO PREVENT SCREENSAVER RE-RENDERS
-  // SAFETY: Added aggressive null checks to prevent "flatMap of undefined" error on fresh DB load
   const allProducts = useMemo(() => {
       if (!storeData || !Array.isArray(storeData.brands)) return [];
       return storeData.brands.flatMap(b => 
@@ -419,54 +418,58 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
          />
        )}
 
-       {/* --- NEW SYSTEM HEADER BAR --- */}
-       <header className="shrink-0 h-10 bg-slate-900 text-white flex items-center justify-between px-4 z-50 border-b border-slate-800 shadow-md">
-           <div className="flex items-center gap-4">
+       {/* --- HEADER BAR (Optimized for Mobile) --- */}
+       <header className="shrink-0 h-10 bg-slate-900 text-white flex items-center justify-between px-2 md:px-4 z-50 border-b border-slate-800 shadow-md">
+           <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
                {storeData.companyLogoUrl ? (
-                   <img src={storeData.companyLogoUrl} className="h-6 object-contain opacity-80" alt="Logo" />
+                   <img src={storeData.companyLogoUrl} className="h-5 md:h-6 object-contain opacity-80" alt="Logo" />
                ) : (
                    <Store size={16} className="text-blue-500" />
                )}
-               <div className="h-4 w-[1px] bg-slate-700"></div>
-               <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300">
-                  {deviceType === 'mobile' ? <Smartphone size={12} className="text-purple-500" /> : <ShieldCheck size={12} className="text-blue-500" />}
-                  <span>ID: <span className="font-mono text-white tracking-wider">{kioskId}</span></span>
+               <div className="h-4 w-[1px] bg-slate-700 hidden md:block"></div>
+               
+               {/* Device Info - Compact on Mobile */}
+               <div className="flex items-center gap-1 md:gap-2 text-[8px] md:text-[10px] font-bold text-slate-300">
+                  {deviceType === 'mobile' ? <Smartphone size={10} className="text-purple-500 md:w-3 md:h-3" /> : <ShieldCheck size={10} className="text-blue-500 md:w-3 md:h-3" />}
+                  <span className="font-mono text-white tracking-wider">{kioskId}</span>
                </div>
-               <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
+               
+               {/* Hide Shop Name on Small Screens */}
+               <div className="hidden md:flex items-center gap-2 text-[10px] font-bold text-slate-400">
                   <MapPin size={12} />
                   <span className="truncate max-w-[150px]">{getShopName()}</span>
                </div>
            </div>
            
-           <div className="flex items-center gap-4">
-                <div className={`flex items-center gap-2 px-2 py-0.5 rounded-full ${isCloudConnected ? 'bg-blue-900/50 text-blue-300 border border-blue-800' : 'bg-orange-900/50 text-orange-300 border border-orange-800'}`}>
-                    {isCloudConnected ? <Cloud size={10} /> : <HardDrive size={10} />}
-                    {/* CLOUD NAME DISPLAY */}
-                    <span className="text-[9px] font-black uppercase">{isCloudConnected ? `Cloud: ${getCloudProjectName()}` : 'Local'}</span>
+           <div className="flex items-center gap-2 md:gap-4">
+                {/* Connection Status - Compact */}
+                <div className={`flex items-center gap-1 md:gap-2 px-1.5 md:px-2 py-0.5 rounded-full ${isCloudConnected ? 'bg-blue-900/50 text-blue-300 border border-blue-800' : 'bg-orange-900/50 text-orange-300 border border-orange-800'}`}>
+                    {isCloudConnected ? <Cloud size={8} className="md:w-[10px] md:h-[10px]" /> : <HardDrive size={8} className="md:w-[10px] md:h-[10px]" />}
+                    <span className="text-[7px] md:text-[9px] font-black uppercase">{isCloudConnected ? (window.innerWidth > 768 ? `Cloud: ${getCloudProjectName()}` : 'Cloud') : 'Local'}</span>
                 </div>
 
-                <div className="flex items-center gap-2 border-l border-slate-700 pl-4">
+                <div className="flex items-center gap-2 border-l border-slate-700 pl-2 md:pl-4">
                     {/* SCREEN SAVER TOGGLE */}
                     <button 
                        onClick={() => setScreensaverEnabled(!screensaverEnabled)} 
                        className={`p-1 rounded ${screensaverEnabled ? 'text-green-400 bg-green-900/30' : 'text-slate-500 bg-slate-800'}`}
                        title={screensaverEnabled ? "Screensaver On" : "Screensaver Off"}
                     >
-                       {screensaverEnabled ? <MonitorPlay size={14} /> : <MonitorStop size={14} />}
+                       {screensaverEnabled ? <MonitorPlay size={12} className="md:w-3.5 md:h-3.5" /> : <MonitorStop size={12} className="md:w-3.5 md:h-3.5" />}
                     </button>
                     
-                    {/* ZOOM CONTROL BUTTON */}
+                    {/* ZOOM CONTROL - Hidden on very small screens to save space, or just icon */}
                     <button 
                        onClick={() => setZoomLevel(zoomLevel === 1 ? 0.75 : 1)}
-                       className={`p-1 rounded flex items-center gap-1 text-[10px] font-bold uppercase w-12 justify-center transition-colors ${zoomLevel === 1 ? 'text-blue-400 bg-blue-900/30' : 'text-purple-400 bg-purple-900/30'}`}
+                       className={`p-1 rounded flex items-center gap-1 text-[8px] md:text-[10px] font-bold uppercase w-8 md:w-12 justify-center transition-colors ${zoomLevel === 1 ? 'text-blue-400 bg-blue-900/30' : 'text-purple-400 bg-purple-900/30'}`}
                        title="Toggle UI Zoom"
                     >
-                       {zoomLevel === 1 ? <ZoomIn size={14} /> : <ZoomOut size={14} />}
-                       {Math.round(zoomLevel * 100)}%
+                       {zoomLevel === 1 ? <ZoomIn size={12} className="md:w-3.5 md:h-3.5" /> : <ZoomOut size={12} className="md:w-3.5 md:h-3.5" />}
+                       <span className="hidden md:inline">{Math.round(zoomLevel * 100)}%</span>
                     </button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="hidden md:flex items-center gap-2">
                     <Clock size={12} className="text-slate-400" />
                     <span className="text-xs font-mono font-bold">
                         {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -525,30 +528,31 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
           </div>
        </div>
 
-       <footer className="shrink-0 bg-white border-t border-slate-200 text-slate-500 h-8 flex items-center justify-between px-6 z-50 text-[10px]">
-          <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5">
-                 <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
+       <footer className="shrink-0 bg-white border-t border-slate-200 text-slate-500 h-8 flex items-center justify-between px-2 md:px-6 z-50 text-[8px] md:text-[10px]">
+          <div className="flex items-center gap-2 md:gap-4">
+              <div className="flex items-center gap-1 md:gap-1.5">
+                 <div className={`w-1 md:w-1.5 h-1 md:h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
                  <span className="font-bold uppercase tracking-wider">
-                    {isOnline ? 'Network Online' : 'Network Offline'}
+                    {isOnline ? 'Online' : 'Offline'}
                  </span>
               </div>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 md:gap-6">
               {lastSyncTime && (
-                  <div className="flex items-center gap-1.5 font-bold">
-                      <RefreshCw size={10} />
-                      <span>Last Sync: {lastSyncTime}</span>
+                  <div className="flex items-center gap-1 md:gap-1.5 font-bold">
+                      <RefreshCw size={8} className="md:w-[10px] md:h-[10px]" />
+                      <span>Sync: {lastSyncTime}</span>
                   </div>
               )}
               <button 
                 onClick={() => setShowCreator(true)}
-                className="flex items-center gap-2 font-black uppercase tracking-widest hover:text-blue-600 transition-colors"
+                className="flex items-center gap-1 md:gap-2 font-black uppercase tracking-widest hover:text-blue-600 transition-colors"
                 aria-label="Powered by JSTYP"
               >
-                 <span>Powered by JSTYP</span>
-                 <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" className="w-3 h-3 object-contain opacity-50" alt="" />
+                 <span className="hidden md:inline">Powered by</span>
+                 <span>JSTYP</span>
+                 <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" className="w-2 md:w-3 h-2 md:h-3 object-contain opacity-50" alt="" />
               </button>
           </div>
        </footer>

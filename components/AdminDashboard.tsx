@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
-  Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2
+  Monitor, Grid, Image as ImageIcon, ChevronRight, ChevronLeft, Wifi, WifiOff, 
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual } from '../types';
 import { resetStoreData } from '../services/geminiService';
@@ -12,44 +12,7 @@ import JSZip from 'jszip';
 
 const generateId = (prefix: string) => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
 
-const convertPdfToImages = async (pdfDataUrl: string): Promise<string[]> => {
-    try {
-        const pdfjsLib = await import('pdfjs-dist');
-        const pdfjs = (pdfjsLib as any).default ?? pdfjsLib;
-        if (pdfjs && pdfjs.GlobalWorkerOptions) {
-            pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
-        }
-        const loadingTask = pdfjs.getDocument(pdfDataUrl);
-        const pdf = await loadingTask.promise;
-        const numPages = pdf.numPages;
-        const images: string[] = [];
-
-        // Loop through ALL pages
-        for (let i = 1; i <= numPages; i++) {
-            const page = await pdf.getPage(i);
-            const viewport = page.getViewport({ scale: 1.5 });
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-
-            if (context) {
-                // Fix for Transparent PDFs turning black
-                // We fill the canvas with white before rendering
-                context.fillStyle = 'white';
-                context.fillRect(0, 0, canvas.width, canvas.height);
-                
-                await page.render({ canvasContext: context, viewport: viewport }).promise;
-                images.push(canvas.toDataURL('image/jpeg', 0.8));
-            }
-        }
-        return images;
-    } catch (e) {
-        console.error("PDF Conversion Error", e);
-        return [];
-    }
-};
-
+// PDF Conversion removed/minimized in favor of direct image upload per user request
 const Auth = ({ setSession }: { setSession: (s: boolean) => void }) => {
   const [password, setPassword] = useState('');
   const handleAuth = (e: React.FormEvent) => {
@@ -176,36 +139,41 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
         handleUpdate(localList.map(c => c.id === id ? { ...c, ...updates } : c));
     };
 
-    // Modified to accept base64Data fallback
+    // Updated to handle multiple image uploads strictly
     const handleUpload = async (id: string, data: any, type?: string, base64Data?: any) => {
         const cat = localList.find(c => c.id === id);
         if(!cat) return;
         let newPages = [...cat.pages];
         
-        // Use base64Data if available for PDF conversion (Local conversion avoids CORS/Fetch issues)
-        if (type === 'pdf') {
-             // If multiple files (allowMultiple=true for pdfs?), base64Data is array
-             // But allowMultiple on PDF input is usually unlikely for this component logic
-             // Assuming single PDF for now based on typical use
-             const sourceData = base64Data || data; 
-             if (typeof sourceData === 'string') {
-                 newPages = [...newPages, ...(await convertPdfToImages(sourceData))];
-             } else if (Array.isArray(sourceData)) {
-                 // If somehow multiple PDFs uploaded
-                 for(const d of sourceData) {
-                     newPages = [...newPages, ...(await convertPdfToImages(d))];
-                 }
-             }
-        }
-        else {
-            // FOR IMAGES: Use base64Data if available to prevent broken links due to RLS/Storage issues
-            const imageSource = base64Data || data;
-
-            if (Array.isArray(imageSource)) newPages = [...newPages, ...imageSource];
-            else if (typeof imageSource === 'string') newPages.push(imageSource);
+        // Treat everything as images array since we removed complex PDF parsing
+        // If data is array (multiple files), spread it. If string, push it.
+        if (Array.isArray(data)) {
+            newPages = [...newPages, ...data];
+        } else if (typeof data === 'string') {
+            newPages.push(data);
         }
         
         updateCatalogue(id, { pages: newPages });
+    };
+
+    // Reordering helper
+    const movePage = (catId: string, pageIndex: number, direction: 'left' | 'right') => {
+        const cat = localList.find(c => c.id === catId);
+        if(!cat) return;
+        const newPages = [...cat.pages];
+        const swapIndex = direction === 'left' ? pageIndex - 1 : pageIndex + 1;
+        
+        if (swapIndex >= 0 && swapIndex < newPages.length) {
+            [newPages[pageIndex], newPages[swapIndex]] = [newPages[swapIndex], newPages[pageIndex]];
+            updateCatalogue(catId, { pages: newPages });
+        }
+    };
+
+    const removePage = (catId: string, pageIndex: number) => {
+        const cat = localList.find(c => c.id === catId);
+        if(!cat) return;
+        const newPages = cat.pages.filter((_, i) => i !== pageIndex);
+        updateCatalogue(catId, { pages: newPages });
     };
 
     return (
@@ -217,10 +185,10 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {localList.map((cat) => (
                     <div key={cat.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                        <div className="h-40 bg-slate-100 relative group flex items-center justify-center">
+                        <div className="h-40 bg-slate-100 relative group flex items-center justify-center overflow-hidden">
                             {cat.pages[0] ? <img src={cat.pages[0]} className="w-full h-full object-cover" /> : <BookOpen size={32} className="text-slate-300" />}
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button onClick={() => updateCatalogue(cat.id, { pages: [] })} className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold uppercase">Clear Pages</button>
+                                <button onClick={() => updateCatalogue(cat.id, { pages: [] })} className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold uppercase">Clear All Pages</button>
                             </div>
                         </div>
                         <div className="p-4 space-y-3">
@@ -238,17 +206,41 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
                                         <input type="date" value={cat.startDate || ''} onChange={(e) => updateCatalogue(cat.id, { startDate: e.target.value })} className="w-full text-xs border border-slate-200 rounded p-1" />
                                     </div>
                                     <div>
-                                        <label className="text-[8px] font-bold text-slate-400 uppercase">End Date (Auto-Expire)</label>
+                                        <label className="text-[8px] font-bold text-slate-400 uppercase">End Date</label>
                                         <input type="date" value={cat.endDate || ''} onChange={(e) => updateCatalogue(cat.id, { endDate: e.target.value })} className="w-full text-xs border border-slate-200 rounded p-1" />
                                     </div>
                                 </div>
                             )}
                             
-                            <FileUpload label="Pages (PDF/Images)" accept="image/*,application/pdf" currentUrl="" onUpload={(d: any, t: any, b64: any) => handleUpload(cat.id, d, t, b64)} allowMultiple={true} />
+                            <FileUpload 
+                                label="Upload Pages (Multiple Images)" 
+                                accept="image/*" 
+                                allowMultiple={true}
+                                currentUrl="" 
+                                onUpload={(d: any, t: any, b64: any) => handleUpload(cat.id, d, t, b64)} 
+                            />
                             
+                            {/* Page Manager */}
+                            {cat.pages.length > 0 && (
+                                <div className="mt-2 border-t border-slate-100 pt-2">
+                                    <label className="text-[8px] font-bold text-slate-400 uppercase mb-2 block">Manage Pages ({cat.pages.length})</label>
+                                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                                        {cat.pages.map((page, idx) => (
+                                            <div key={idx} className="w-12 h-16 shrink-0 relative group">
+                                                <img src={page} className="w-full h-full object-cover rounded border border-slate-200" />
+                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1">
+                                                    {idx > 0 && <button onClick={()=>movePage(cat.id, idx, 'left')} className="text-white hover:text-blue-300"><ChevronLeft size={8}/></button>}
+                                                    <button onClick={()=>removePage(cat.id, idx)} className="text-red-400 hover:text-red-600"><X size={8}/></button>
+                                                    {idx < cat.pages.length - 1 && <button onClick={()=>movePage(cat.id, idx, 'right')} className="text-white hover:text-blue-300"><ChevronRight size={8}/></button>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                                <span className="text-[10px] text-slate-400 font-bold">{cat.pages.length} Pages</span>
-                                <button onClick={() => handleUpdate(localList.filter(c => c.id !== cat.id))} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button>
+                                <button onClick={() => handleUpdate(localList.filter(c => c.id !== cat.id))} className="text-red-400 hover:text-red-600 flex items-center gap-1 text-[10px] font-bold uppercase"><Trash2 size={12} /> Delete Catalogue</button>
                             </div>
                         </div>
                     </div>
@@ -282,7 +274,6 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
     const addBoxItem = () => { if(newBoxItem.trim()) { setDraft({ ...draft, boxContents: [...(draft.boxContents || []), newBoxItem.trim()] }); setNewBoxItem(''); } };
     const addSpec = () => { if (newSpecKey.trim() && newSpecValue.trim()) { setDraft({ ...draft, specs: { ...draft.specs, [newSpecKey.trim()]: newSpecValue.trim() } }); setNewSpecKey(''); setNewSpecValue(''); } };
 
-    // Dimensions Logic
     const addDimensionSet = () => {
         setDraft({ 
             ...draft, 
@@ -299,7 +290,6 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
         setDraft({ ...draft, dimensions: newDims });
     };
 
-    // Manuals Logic
     const addManual = (images: string[], pdfUrl?: string) => {
         const newManual: Manual = {
             id: generateId('man'),
@@ -322,7 +312,7 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
     };
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-2xl overflow-hidden">
+        <div className="flex flex-col h-full bg-white rounded-2xl overflow-hidden shadow-2xl">
             <div className="bg-slate-900 text-white p-4 flex justify-between items-center shrink-0">
                 <h3 className="font-bold uppercase tracking-wide">Edit Product: {draft.name || 'New Product'}</h3>
                 <button onClick={onCancel} className="text-slate-400 hover:text-white"><X size={24} /></button>
@@ -335,7 +325,6 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
                         <InputField label="Description" isArea val={draft.description} onChange={(e: any) => setDraft({ ...draft, description: e.target.value })} />
                         <InputField label="Warranty & Terms" isArea val={draft.terms || ''} onChange={(e: any) => setDraft({ ...draft, terms: e.target.value })} placeholder="Enter warranty info or legal terms..." />
                         
-                        {/* MULTI DIMENSIONS EDITOR */}
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                              <div className="flex justify-between items-center mb-4">
                                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Dimensions Sets</label>
@@ -359,7 +348,6 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
                     <div className="space-y-4">
                         <FileUpload label="Main Image" currentUrl={draft.imageUrl} onUpload={(url: any) => setDraft({ ...draft, imageUrl: url as string })} />
                         
-                        {/* IMAGE LIBRARY UPLOAD */}
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Image Gallery (Multiple)</label>
                             <FileUpload 
@@ -388,7 +376,6 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
                             )}
                         </div>
 
-                        {/* VIDEO LIBRARY UPLOAD (MULTIPLE) */}
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Product Videos</label>
                             <FileUpload 
@@ -442,7 +429,6 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
                 <div className="mt-8 border-t border-slate-100 pt-8">
                      <h4 className="font-bold text-slate-900 uppercase text-sm mb-4">Manuals & Docs</h4>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* MANUALS LIST EDITOR */}
                         <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
                              <div className="flex justify-between items-center mb-4">
                                 <h5 className="text-xs font-black text-slate-500 uppercase tracking-wider">Product Manuals</h5>
@@ -450,18 +436,14 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
                              
                              <div className="mb-4 bg-white p-3 rounded-lg border border-slate-200">
                                 <FileUpload 
-                                    label="Upload New PDF Manual" 
-                                    accept="application/pdf" 
+                                    label="Upload Manual Pages (Images)" 
+                                    accept="image/*"
+                                    allowMultiple={true}
                                     icon={<FileText />} 
                                     currentUrl="" 
-                                    onUpload={async (url: any, type: any, base64Data: any) => { 
-                                        if(type === 'pdf') { 
-                                            // Convert ALL pages of the PDF to images using Base64 data (Local)
-                                            // This prevents CORS issues with remote URLs during conversion
-                                            const source = base64Data || url;
-                                            const pages = await convertPdfToImages(source); 
-                                            addManual(pages, url);
-                                        } 
+                                    onUpload={async (urls: any) => { 
+                                        const pages = Array.isArray(urls) ? urls : [urls];
+                                        addManual(pages);
                                     }} 
                                 />
                              </div>
@@ -494,7 +476,6 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
                              </div>
                         </div>
 
-                        {/* SPECS EDITOR */}
                         <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
                              <div className="flex gap-4 mb-4 items-end">
                                 <input value={newSpecKey} onChange={(e) => setNewSpecKey(e.target.value)} placeholder="Spec Name" className="flex-1 p-2 border border-slate-300 rounded-lg text-sm font-bold" />
@@ -573,14 +554,12 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       return () => clearInterval(interval);
   }, []);
 
-  // Sync prop changes to local state if we don't have dirty unsaved changes
   useEffect(() => {
       if (!hasUnsavedChanges && storeData) {
           setLocalData(storeData);
       }
   }, [storeData]);
 
-  // Warn before leaving if unsaved
   useEffect(() => {
       const handleBeforeUnload = (e: BeforeUnloadEvent) => {
           if (hasUnsavedChanges) {
@@ -592,12 +571,10 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  // Main Local Update Handler
   const handleLocalUpdate = (newData: StoreData) => {
       setLocalData(newData);
       setHasUnsavedChanges(true);
       
-      // Update selected references to keep UI in sync
       if (selectedBrand) {
           const updatedBrand = newData.brands.find(b => b.id === selectedBrand.id);
           if (updatedBrand) setSelectedBrand(updatedBrand);
@@ -616,7 +593,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       }
   };
 
-  // Fleet Actions (These still interact directly with Supabase via Service, then refresh)
   const updateFleetMember = async (kiosk: KioskRegistry) => {
       if(supabase) {
           const payload = {
@@ -626,7 +602,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
               assigned_zone: kiosk.assignedZone
           };
           await supabase.from('kiosks').upsert(payload);
-          onRefresh(); // Pull fresh data
+          onRefresh(); 
       }
   };
 
@@ -644,7 +620,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       }
   };
 
-  // --- HISTORY RESTORE FUNCTIONS ---
   const restoreBrand = (b: Brand) => {
      if(!localData) return;
      const newArchiveBrands = localData.archive?.brands.filter(x => x.id !== b.id) || [];
@@ -654,22 +629,22 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
          brands: newBrands,
          archive: { ...localData.archive!, brands: newArchiveBrands }
      });
-     setHistoryFolder(null); // Go back to list
   };
-
-  const deleteForeverBrand = (b: Brand) => {
-     if(!localData || !confirm("Permanently delete this brand and all its products?")) return;
-     const newArchiveBrands = localData.archive?.brands.filter(x => x.id !== b.id) || [];
+  
+  const restoreCatalogue = (c: Catalogue) => {
+     if(!localData) return;
+     const newArchiveCats = localData.archive?.catalogues.filter(x => x.id !== c.id) || [];
+     const newCats = [...(localData.catalogues || []), c];
      handleLocalUpdate({
          ...localData,
-         archive: { ...localData.archive!, brands: newArchiveBrands }
+         catalogues: newCats,
+         archive: { ...localData.archive!, catalogues: newArchiveCats }
      });
   };
 
   if (!session) return <Auth setSession={setSession} />;
   if (!localData) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /> Loading...</div>;
 
-  // Auto-sort brands alphabetically for consistent display
   const brands = Array.isArray(localData.brands) 
       ? [...localData.brands].sort((a, b) => a.name.localeCompare(b.name)) 
       : [];
@@ -683,7 +658,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                      <div><h1 className="text-lg font-black uppercase tracking-widest leading-none">Admin Hub</h1></div>
                  </div>
                  
-                 {/* GLOBAL SAVE BUTTON */}
                  <button 
                      onClick={handleGlobalSave}
                      disabled={!hasUnsavedChanges}
@@ -832,12 +806,9 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                 </div>
             )}
 
-            {/* UPGRADED FLEET TAB */}
             {activeTab === 'fleet' && (
                 <div className="animate-fade-in max-w-6xl mx-auto">
                    <h2 className="text-2xl font-black text-slate-900 uppercase mb-6">Device Fleet</h2>
-                   
-                   {/* Mobile Grid Fix: grid-cols-3 gap-2 */}
                    <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-1.5 md:gap-6">
                        {localData.fleet?.map(kiosk => {
                            const isOnline = (new Date().getTime() - new Date(kiosk.last_seen).getTime()) < 350000;
@@ -857,7 +828,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                        </div>
                                    </div>
 
-                                   {/* Snapshot Preview Area */}
                                    <div className="aspect-video bg-slate-900 relative flex items-center justify-center overflow-hidden">
                                        {kiosk.snapshotUrl ? (
                                            <>
@@ -890,10 +860,9 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                 </div>
             )}
 
-            {/* Screensaver, History, Settings remain same, just ensure padding in main container is handled */}
+            {/* SCREEN SAVER SETTINGS */}
             {activeTab === 'screensaver' && (
-                <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
-                     {/* Config Cards */}
+                <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                          {/* Timing & Scheduling */}
                          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -953,7 +922,105 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                      </div>
                 </div>
             )}
+            
+            {/* HISTORY & ARCHIVE TAB */}
+            {activeTab === 'history' && (
+                <div className="max-w-4xl mx-auto p-4 md:p-8 animate-fade-in">
+                    <h2 className="text-2xl font-black uppercase mb-6 text-slate-900">Archive & History</h2>
+                    <div className="space-y-8">
+                         {/* Archived Brands */}
+                         <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                             <h3 className="text-sm font-black uppercase text-slate-500 mb-4 flex items-center gap-2"><FolderArchive size={16} /> Archived Brands</h3>
+                             {(localData.archive?.brands || []).length === 0 ? (
+                                 <div className="text-center py-8 text-slate-400 text-xs italic">No archived brands</div>
+                             ) : (
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     {localData.archive!.brands.map(b => (
+                                         <div key={b.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                             <div className="flex items-center gap-3">
+                                                 {b.logoUrl ? <img src={b.logoUrl} className="w-8 h-8 object-contain" /> : <div className="w-8 h-8 bg-slate-200 rounded-full"></div>}
+                                                 <span className="font-bold text-sm">{b.name}</span>
+                                             </div>
+                                             <button onClick={() => restoreBrand(b)} className="px-3 py-1 bg-green-100 text-green-700 rounded text-[10px] font-bold uppercase hover:bg-green-200">Restore</button>
+                                         </div>
+                                     ))}
+                                 </div>
+                             )}
+                         </div>
+
+                         {/* Archived Catalogues */}
+                         <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                             <h3 className="text-sm font-black uppercase text-slate-500 mb-4 flex items-center gap-2"><FileArchive size={16} /> Archived Catalogues</h3>
+                             {(localData.archive?.catalogues || []).length === 0 ? (
+                                 <div className="text-center py-8 text-slate-400 text-xs italic">No archived catalogues</div>
+                             ) : (
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     {localData.archive!.catalogues.map(c => (
+                                         <div key={c.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                             <div>
+                                                 <span className="font-bold text-sm block">{c.title}</span>
+                                                 <span className="text-[10px] text-slate-400 block uppercase">{c.endDate ? `Expired: ${c.endDate}` : 'Manual Archive'}</span>
+                                             </div>
+                                             <button onClick={() => restoreCatalogue(c)} className="px-3 py-1 bg-green-100 text-green-700 rounded text-[10px] font-bold uppercase hover:bg-green-200">Restore</button>
+                                         </div>
+                                     ))}
+                                 </div>
+                             )}
+                         </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* SYSTEM SETTINGS TAB */}
+            {activeTab === 'settings' && (
+                <div className="max-w-4xl mx-auto p-4 md:p-8 animate-fade-in pb-20">
+                     <h2 className="text-2xl font-black uppercase mb-6 text-slate-900">System Configuration</h2>
+                     
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                         {/* About Page Config */}
+                         <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                             <h3 className="text-sm font-black uppercase text-slate-500 mb-4 flex items-center gap-2"><Info size={16} /> About Page</h3>
+                             <div className="space-y-4">
+                                 <InputField label="Page Title" val={localData.about?.title || ''} onChange={(e:any) => handleLocalUpdate({...localData, about: {...localData.about, title: e.target.value}})} />
+                                 <InputField label="Intro Text" isArea val={localData.about?.text || ''} onChange={(e:any) => handleLocalUpdate({...localData, about: {...localData.about, text: e.target.value}})} />
+                                 <FileUpload label="Audio Guide (MP3)" accept="audio/*" icon={<Volume2 />} currentUrl={localData.about?.audioUrl} onUpload={(url:any) => handleLocalUpdate({...localData, about: {...localData.about, audioUrl: url}})} />
+                             </div>
+                         </div>
+                         
+                         {/* System Actions */}
+                         <div className="bg-white p-6 rounded-2xl border border-slate-200 h-fit">
+                             <h3 className="text-sm font-black uppercase text-slate-500 mb-4 flex items-center gap-2"><Settings size={16} /> Maintenance</h3>
+                             <div className="space-y-3">
+                                 <button onClick={() => setShowGuide(true)} className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-xl flex items-center gap-3 border border-slate-200 transition-colors text-left">
+                                     <div className="bg-blue-100 p-2 rounded-lg text-blue-600"><BookOpen size={20} /></div>
+                                     <div>
+                                         <span className="block text-sm font-bold text-slate-900">Setup Guide</span>
+                                         <span className="block text-xs text-slate-500">View installation instructions</span>
+                                     </div>
+                                 </button>
+                                 
+                                 <button onClick={async () => { if(confirm("This will WIPE ALL DATA and restore factory defaults. Are you sure?")) { await resetStoreData(); window.location.reload(); }}} className="w-full p-4 bg-red-50 hover:bg-red-100 rounded-xl flex items-center gap-3 border border-red-200 transition-colors text-left group">
+                                     <div className="bg-white p-2 rounded-lg text-red-500 group-hover:text-red-600"><AlertCircle size={20} /></div>
+                                     <div>
+                                         <span className="block text-sm font-bold text-red-700">Factory Reset</span>
+                                         <span className="block text-xs text-red-400">Clear all data and start over</span>
+                                     </div>
+                                 </button>
+                             </div>
+                         </div>
+                     </div>
+                </div>
+            )}
         </main>
+        
+        {/* ADMIN FOOTER */}
+        <footer className="bg-white border-t border-slate-200 p-2 px-6 flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-widest shrink-0 z-10">
+            <div>JSTYP Admin Console v1.2</div>
+            <div className="flex gap-4">
+                <a href="#" onClick={(e) => {e.preventDefault(); setShowGuide(true);}} className="hover:text-blue-500 transition-colors">Help</a>
+                <span>&copy; {new Date().getFullYear()}</span>
+            </div>
+        </footer>
 
         {editingProduct && <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm p-4 md:p-12"><ProductEditor product={editingProduct} onSave={(p) => { if(selectedCategory) { const updated = {...selectedBrand!, categories: selectedBrand!.categories.map(c => c.id === selectedCategory.id ? {...c, products: editingProduct.id.startsWith('p-') ? [...c.products, p] : c.products.map(px => px.id === p.id ? p : px)} : c)}; handleLocalUpdate({...localData, brands: brands.map(b => b.id === updated.id ? updated : b)}); setEditingProduct(null); } }} onCancel={() => setEditingProduct(null)} /></div>}
 
