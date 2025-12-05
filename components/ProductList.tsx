@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { Category, Product, Brand, Catalogue } from '../types';
 import { ChevronLeft, ArrowRight, MonitorPlay, MonitorStop, Search, X, Tag, Package } from 'lucide-react';
@@ -87,17 +85,17 @@ const ProductList: React.FC<ProductListProps> = ({ category, onSelectProduct, on
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
-        {/* Responsive Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-6 pb-12">
+      <div className="flex-1 overflow-y-auto p-2 md:p-8 bg-slate-50">
+        {/* Responsive Grid - Mobile: grid-cols-3 */}
+        <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-6 pb-12">
           {filteredProducts.map((product) => (
             <button
               key={product.id}
               onClick={() => onSelectProduct(product)}
-              className="group bg-white rounded-xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden border border-slate-200 hover:border-blue-400 flex flex-col text-left h-full"
+              className="group bg-white rounded-lg md:rounded-xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden border border-slate-200 hover:border-blue-400 flex flex-col text-left h-full"
             >
               {/* Image Container */}
-              <div className="aspect-square bg-white border-b border-slate-50 p-4 flex items-center justify-center relative overflow-hidden">
+              <div className="aspect-square bg-white border-b border-slate-50 p-2 md:p-4 flex items-center justify-center relative overflow-hidden">
                 {product.imageUrl ? (
                     <img 
                       src={product.imageUrl} 
@@ -106,27 +104,27 @@ const ProductList: React.FC<ProductListProps> = ({ category, onSelectProduct, on
                     />
                 ) : (
                     <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-300 flex-col">
-                        <Package size={32} className="mb-2" />
-                        <span className="font-bold text-[10px] uppercase">No Image</span>
+                        <Package size={24} className="mb-2 md:w-8 md:h-8" />
+                        <span className="font-bold text-[8px] md:text-[10px] uppercase">No Image</span>
                     </div>
                 )}
               </div>
               
-              {/* Card Footer - Name & SKU Only (Description Removed per request) */}
-              <div className="p-3 md:p-4 flex flex-col flex-1 bg-white">
-                <h3 className="text-xs md:text-sm font-black text-slate-900 mb-2 group-hover:text-blue-700 transition-colors line-clamp-2 leading-tight uppercase">
+              {/* Card Footer - Name & SKU Only */}
+              <div className="p-2 md:p-4 flex flex-col flex-1 bg-white">
+                <h3 className="text-[10px] md:text-sm font-black text-slate-900 mb-1 md:mb-2 group-hover:text-blue-700 transition-colors line-clamp-2 leading-tight uppercase">
                   {product.name}
                 </h3>
                 
                 {product.sku ? (
-                    <div className="flex items-center gap-1.5 text-slate-500 mt-auto">
-                        <Tag size={12} />
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wide">
+                    <div className="flex items-center gap-1 md:gap-1.5 text-slate-500 mt-auto">
+                        <Tag size={10} className="md:w-3 md:h-3" />
+                        <span className="text-[8px] md:text-[10px] font-mono font-bold uppercase tracking-wide truncate">
                             {product.sku}
                         </span>
                     </div>
                 ) : (
-                    <div className="mt-auto text-[10px] font-mono font-bold text-slate-300 uppercase">NO SKU</div>
+                    <div className="mt-auto text-[8px] md:text-[10px] font-mono font-bold text-slate-300 uppercase">NO SKU</div>
                 )}
               </div>
             </button>

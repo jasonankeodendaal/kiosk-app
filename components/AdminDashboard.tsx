@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -199,8 +197,13 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
                  }
              }
         }
-        else if (Array.isArray(data)) newPages = [...newPages, ...data];
-        else if (typeof data === 'string') newPages.push(data);
+        else {
+            // FOR IMAGES: Use base64Data if available to prevent broken links due to RLS/Storage issues
+            const imageSource = base64Data || data;
+
+            if (Array.isArray(imageSource)) newPages = [...newPages, ...imageSource];
+            else if (typeof imageSource === 'string') newPages.push(imageSource);
+        }
         
         updateCatalogue(id, { pages: newPages });
     };
@@ -835,20 +838,20 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                    <h2 className="text-2xl font-black text-slate-900 uppercase mb-6">Device Fleet</h2>
                    
                    {/* Mobile Grid Fix: grid-cols-3 gap-2 */}
-                   <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-6">
+                   <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-1.5 md:gap-6">
                        {localData.fleet?.map(kiosk => {
                            const isOnline = (new Date().getTime() - new Date(kiosk.last_seen).getTime()) < 350000;
                            return (
-                               <div key={kiosk.id} className="bg-white rounded-xl md:rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:shadow-md transition-shadow">
-                                   <div className="p-2 md:p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start bg-slate-50/50 gap-1 md:gap-0">
+                               <div key={kiosk.id} className="bg-white rounded-lg md:rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:shadow-md transition-shadow">
+                                   <div className="p-1 md:p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start bg-slate-50/50 gap-0 md:gap-0">
                                        <div>
-                                           <div className="flex items-center gap-1 md:gap-2 mb-1">
-                                               {kiosk.deviceType === 'mobile' ? <Smartphone size={12} className="text-purple-500 md:w-4 md:h-4"/> : <Tablet size={12} className="text-blue-500 md:w-4 md:h-4"/>}
-                                               <span className="font-black text-slate-900 text-[10px] md:text-sm uppercase truncate max-w-[80px] md:max-w-none">{kiosk.name}</span>
+                                           <div className="flex items-center gap-0.5 md:gap-2 mb-0 md:mb-1">
+                                               {kiosk.deviceType === 'mobile' ? <Smartphone size={10} className="text-purple-500 md:w-4 md:h-4"/> : <Tablet size={10} className="text-blue-500 md:w-4 md:h-4"/>}
+                                               <span className="font-black text-slate-900 text-[8px] md:text-sm uppercase truncate max-w-[60px] md:max-w-none">{kiosk.name}</span>
                                            </div>
-                                           <span className="text-[8px] md:text-[10px] font-mono text-slate-400 bg-white border border-slate-200 px-1 py-0.5 rounded hidden md:inline-block">{kiosk.id}</span>
+                                           <span className="text-[6px] md:text-[10px] font-mono text-slate-400 bg-white border border-slate-200 px-0.5 py-0 rounded hidden md:inline-block">{kiosk.id}</span>
                                        </div>
-                                       <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] md:text-[10px] font-bold uppercase border ${isOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                       <div className={`flex items-center gap-0.5 md:gap-1 px-1 py-0.5 rounded-full text-[6px] md:text-[10px] font-bold uppercase border ${isOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
                                             <div className={`w-1 h-1 md:w-1.5 md:h-1.5 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
                                             {isOnline ? 'On' : 'Off'}
                                        </div>
@@ -867,17 +870,17 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                            </>
                                        ) : (
                                            <div className="flex flex-col items-center text-slate-600">
-                                               <Camera size={20} className="mb-1 opacity-50" />
-                                               <span className="text-[8px] md:text-[10px] font-bold uppercase tracking-wide">No Snap</span>
+                                               <Camera size={14} className="mb-0 md:mb-1 opacity-50 md:w-5 md:h-5" />
+                                               <span className="text-[6px] md:text-[10px] font-bold uppercase tracking-wide">No Snap</span>
                                            </div>
                                        )}
                                    </div>
 
-                                   <div className="p-2 md:p-4 flex gap-1 md:gap-2 mt-auto">
-                                       <button onClick={() => requestSnapshot(kiosk.id)} title="Request Camera Snapshot" className="flex-1 py-1.5 md:py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center justify-center gap-1 md:gap-2 text-[8px] md:text-[10px] font-bold uppercase border border-blue-100"><Camera size={12}/> Snap</button>
-                                       <button onClick={() => setEditingKiosk(kiosk)} className="p-1.5 md:p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 border border-slate-200"><Edit2 size={12}/></button>
-                                       {supabase && <button onClick={async () => { if(confirm("Restart Device?")) await supabase.from('kiosks').update({restart_requested: true}).eq('id', kiosk.id); }} className="p-1.5 md:p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 border border-orange-100" title="Remote Restart"><Power size={12}/></button>}
-                                       <button onClick={() => removeFleetMember(kiosk.id)} className="p-1.5 md:p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 border border-red-100"><Trash2 size={12}/></button>
+                                   <div className="p-1 md:p-4 flex gap-1 md:gap-2 mt-auto">
+                                       <button onClick={() => requestSnapshot(kiosk.id)} title="Request Camera Snapshot" className="flex-1 py-1 md:py-2 bg-blue-50 text-blue-600 rounded md:rounded-lg hover:bg-blue-100 flex items-center justify-center gap-1 md:gap-2 text-[8px] md:text-[10px] font-bold uppercase border border-blue-100"><Camera size={10} className="md:w-3 md:h-3"/> <span className="hidden md:inline">Snap</span></button>
+                                       <button onClick={() => setEditingKiosk(kiosk)} className="p-1 md:p-2 bg-slate-100 text-slate-600 rounded md:rounded-lg hover:bg-slate-200 border border-slate-200 flex items-center justify-center"><Edit2 size={10} className="md:w-3 md:h-3"/></button>
+                                       {supabase && <button onClick={async () => { if(confirm("Restart Device?")) await supabase.from('kiosks').update({restart_requested: true}).eq('id', kiosk.id); }} className="p-1 md:p-2 bg-orange-50 text-orange-600 rounded md:rounded-lg hover:bg-orange-100 border border-orange-100 flex items-center justify-center" title="Remote Restart"><Power size={10} className="md:w-3 md:h-3"/></button>}
+                                       <button onClick={() => removeFleetMember(kiosk.id)} className="p-1 md:p-2 bg-red-50 text-red-600 rounded md:rounded-lg hover:bg-red-100 border border-red-100 flex items-center justify-center"><Trash2 size={10} className="md:w-3 md:h-3"/></button>
                                    </div>
                                </div>
                            );

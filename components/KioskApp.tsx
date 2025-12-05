@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -408,8 +406,8 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
 
   return (
     <div className="h-[100dvh] w-full relative bg-slate-100 overflow-hidden flex flex-col">
-       {/* Hidden Camera Element */}
-       <video ref={videoRef} autoPlay playsInline muted className="fixed top-0 left-0 w-64 h-64 opacity-0 pointer-events-none z-0" />
+       {/* Hidden Camera Element - 1x1 Pixel to be completely unintrusive */}
+       <video ref={videoRef} autoPlay playsInline muted className="fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none z-0" />
 
        {isIdle && screensaverEnabled && deviceType === 'kiosk' && (
          <Screensaver 
