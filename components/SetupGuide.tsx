@@ -378,7 +378,7 @@ $$;`}
 
                         <div>
                             <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2">3. Connect App</h3>
-                            <p className="text-sm text-slate-600 mb-4">Copy these keys from Supabase Settings -> API, and put them in your Vercel Environment Variables.</p>
+                            <p className="text-sm text-slate-600 mb-4">Copy these keys from Supabase Settings &rarr; API, and put them in your Vercel Environment Variables.</p>
                             <CodeBlock 
                                 id="supabase-env"
                                 label=".env Example"
