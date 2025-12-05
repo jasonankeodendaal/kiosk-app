@@ -1,6 +1,4 @@
-
-
-import { StoreData, Product, Catalogue, ArchiveData } from "../types";
+import { StoreData, Product, Catalogue, ArchiveData, KioskRegistry } from "../types";
 import { supabase, getEnv, initSupabase } from "./kioskService";
 
 const STORAGE_KEY_DATA = 'kiosk_pro_store_data';
@@ -32,6 +30,9 @@ const migrateData = (data: any): StoreData => {
              }
         });
     }
+
+    // Initialize missing arrays
+    if (!data.fleet) data.fleet = [];
 
     return data as StoreData;
 };
@@ -109,7 +110,7 @@ const DEFAULT_DATA: StoreData = {
   brands: []
 };
 
-// 1. Fetch Data - STRATEGY: AGGRESSIVE CLOUD FETCH
+// 1. Fetch Data - STRATEGY: AGGRESSIVE CLOUD FETCH + FLEET MERGE
 const generateStoreData = async (): Promise<StoreData> => {
   if (!supabase) initSupabase();
 
@@ -117,30 +118,50 @@ const generateStoreData = async (): Promise<StoreData> => {
   if (supabase) {
       try {
           console.log("Fetching data from Cloud...");
-          const { data, error } = await supabase
-              .from('store_config')
-              .select('data')
-              .eq('id', 1)
-              .single();
           
-          if (data && data.data) {
-              console.log("Cloud Data Received.");
-              let processedData = migrateData(data.data);
-              
-              // Run expiration check
-              processedData = await handleExpiration(processedData);
-
-              // Update Local Cache
-              try {
-                  localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(processedData));
-              } catch (e) {
-                  console.warn("LocalStorage quota exceeded.");
-              }
-              
-              return processedData;
-          } else if (error) {
-              console.warn("Supabase returned error, falling back to local.", error.message);
+          // Parallel Fetch: Config JSON + Kiosks Table
+          const [configResponse, fleetResponse] = await Promise.all([
+              supabase.from('store_config').select('data').eq('id', 1).single(),
+              supabase.from('kiosks').select('*')
+          ]);
+          
+          const configData = configResponse.data?.data || DEFAULT_DATA;
+          
+          let processedData = migrateData(configData);
+          
+          // CRITICAL FIX: Override JSON fleet with SQL Table fleet
+          // This prevents devices from overwriting each other in the JSON blob
+          if (fleetResponse.data) {
+              const mappedFleet: KioskRegistry[] = fleetResponse.data.map((k: any) => ({
+                  id: k.id,
+                  name: k.name,
+                  deviceType: k.device_type,
+                  status: k.status,
+                  last_seen: k.last_seen,
+                  wifiStrength: k.wifi_strength,
+                  ipAddress: k.ip_address,
+                  version: k.version,
+                  locationDescription: k.location_description,
+                  assignedZone: k.assigned_zone,
+                  notes: k.notes,
+                  snapshotUrl: k.snapshot_url,
+                  requestSnapshot: k.request_snapshot,
+                  restartRequested: k.restart_requested
+              }));
+              processedData.fleet = mappedFleet;
           }
+              
+          // Run expiration check
+          processedData = await handleExpiration(processedData);
+
+          // Update Local Cache
+          try {
+              localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(processedData));
+          } catch (e) {
+              console.warn("LocalStorage quota exceeded.");
+          }
+          
+          return processedData;
       } catch (e) {
           console.warn("Supabase fetch failed", e);
       }
@@ -177,9 +198,14 @@ const saveStoreData = async (data: StoreData): Promise<void> => {
     // 2. Remote Save
     if (supabase) {
         try {
+            // We do NOT save fleet back to the JSON blob to avoid race conditions.
+            // Fleet is managed via the 'kiosks' table exclusively.
+            // We strip fleet before saving to store_config to save bandwidth and confusion.
+            const { fleet, ...dataToSave } = data;
+            
             const { error } = await supabase
                 .from('store_config')
-                .upsert({ id: 1, data: data });
+                .upsert({ id: 1, data: dataToSave });
             
             if (error) throw error;
             savedRemote = true;

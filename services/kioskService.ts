@@ -1,5 +1,3 @@
-
-
 import { createClient } from '@supabase/supabase-js';
 import { KioskRegistry } from '../types';
 
@@ -105,33 +103,11 @@ export const provisionKioskId = async (): Promise<string> => {
   let id = localStorage.getItem(STORAGE_KEY_ID);
   if (id) return id;
 
-  if (!supabase && !initSupabase()) {
-    const fallback = "LOC-" + Math.floor(Math.random() * 999).toString().padStart(3, '0');
-    localStorage.setItem(STORAGE_KEY_ID, fallback);
-    return fallback;
-  }
-
-  try {
-    const { data } = await supabase
-      .from('kiosks')
-      .select('id')
-      .order('id', { ascending: false })
-      .limit(1);
-
-    let nextNum = 1;
-    if (data && data.length > 0) {
-      const parsed = parseInt(data[0].id.replace('LOC-', ''), 10);
-      if (!isNaN(parsed)) nextNum = parsed + 1;
-    }
-
-    const nextId = "LOC-" + nextNum.toString().padStart(3, '0');
-    localStorage.setItem(STORAGE_KEY_ID, nextId);
-    return nextId;
-  } catch (e) {
-    const fallback = "ERR-" + Math.floor(Math.random() * 99).toString().padStart(3, '0');
-    localStorage.setItem(STORAGE_KEY_ID, fallback);
-    return fallback;
-  }
+  // Use a random component to prevent collision without needing a DB read lock
+  const randomSuffix = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+  const nextId = "LOC-" + randomSuffix;
+  localStorage.setItem(STORAGE_KEY_ID, nextId);
+  return nextId;
 };
 
 // 4. Get Shop Name & Type
@@ -164,63 +140,32 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
       try {
         console.log(`Registering Device: ${id} (${shopName}) Type: ${deviceType}...`);
         
-        const kioskData: KioskRegistry = {
+        // Map to SQL column names (snake_case)
+        const kioskData = {
           id,
           name: shopName,
-          deviceType: deviceType, // Explicitly set type
+          device_type: deviceType, // snake_case for DB
           status: 'online',
           last_seen: new Date().toISOString(),
-          wifiStrength: 100,
-          ipAddress: 'Unknown',
+          wifi_strength: 100,
+          ip_address: 'Unknown',
           version: '1.0.5',
-          locationDescription: 'Newly Registered',
-          assignedZone: 'Unassigned',
-          requestSnapshot: false,
-          restartRequested: false
+          location_description: 'Newly Registered',
+          assigned_zone: 'Unassigned',
+          request_snapshot: false,
+          restart_requested: false
         };
 
-        // 1. Write to Telemetry Table (Individual Record)
-        // This ensures the device is "seen" even if the fleet list update fails
+        // Write directly to Telemetry Table
+        // This acts as the Source of Truth. We do NOT update store_config.data.fleet anymore.
         const { error: telemetryError } = await supabase.from('kiosks').upsert(kioskData);
+        
         if (telemetryError) {
-             console.warn("Telemetry update failed:", telemetryError.message);
+             console.warn("Registration failed:", telemetryError.message);
+             throw telemetryError;
         }
 
-        // 2. Update the Global Store Config JSON
-        // CRITICAL: Fetch LATEST config first to avoid overwriting other fleet members
-        const { data: currentConfig, error: fetchError } = await supabase
-          .from('store_config')
-          .select('data')
-          .eq('id', 1)
-          .single();
-
-        let configData: any = { brands: [], fleet: [] };
-        
-        if (!fetchError && currentConfig && currentConfig.data) {
-             configData = currentConfig.data;
-        }
-
-        const currentFleet = Array.isArray(configData.fleet) ? configData.fleet : [];
-        
-        // Remove self if exists (update scenario), then append
-        // Use ID to filter out duplicates
-        const newFleet = currentFleet.filter((k: KioskRegistry) => k.id !== id);
-        newFleet.push(kioskData);
-        
-        // Write back to fleet
-        const { error: updateError } = await supabase
-          .from('store_config')
-          .upsert({ 
-              id: 1, 
-              data: { ...configData, fleet: newFleet } 
-          });
-          
-        if (updateError) {
-            console.error("Fleet registry update failed:", updateError.message);
-            // Don't alert the user, as the telemetry write usually succeeds and that's enough for basic connectivity
-        } else {
-            console.log("Fleet list updated successfully.");
-        }
+        console.log("Device registered in Cloud Fleet successfully.");
 
       } catch(e: any) {
         console.error("Failed to register kiosk in cloud", e);
@@ -233,7 +178,7 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
   return true;
 };
 
-// 7. Send Heartbeat (now supports snapshot)
+// 7. Send Heartbeat (Now supports snapshot and writes to SQL Table)
 export const sendHeartbeat = async (snapshotBase64?: string) => {
   const id = getKioskId();
   const name = getShopName();
@@ -251,13 +196,12 @@ export const sendHeartbeat = async (snapshotBase64?: string) => {
       let wifiStrength = 100;
       
       if(connection) {
-          // Rough estimate based on downlink
           if(connection.downlink < 1) wifiStrength = 20;
           else if(connection.downlink < 5) wifiStrength = 50;
           else if(connection.downlink < 10) wifiStrength = 80;
       }
 
-      // 1. Telemetry
+      // 1. Telemetry Payload
       const payload: any = {
           id,
           name, // Ensure name is always fresh
@@ -265,31 +209,23 @@ export const sendHeartbeat = async (snapshotBase64?: string) => {
           last_seen: new Date().toISOString(),
           status: 'online',
           wifi_strength: wifiStrength,
-          ip_address: connection ? `${connection.effectiveType} | ${connection.downlink}Mbps` : 'Unknown'
+          ip_address: connection ? `${connection.effectiveType} | ${connection.downlink}Mbps` : 'Unknown',
       };
 
-      await supabase.from('kiosks').upsert(payload, { onConflict: 'id' });
-      
-      // Update Fleet Registry in Main Config if snapshot is present (so Admin sees it)
+      // 2. Handle Snapshot Response
       if (snapshotBase64) {
-          const { data: currentConfig } = await supabase.from('store_config').select('data').eq('id', 1).single();
-          if (currentConfig && currentConfig.data && currentConfig.data.fleet) {
-              const fleet = currentConfig.data.fleet as KioskRegistry[];
-              const idx = fleet.findIndex(k => k.id === id);
-              if (idx !== -1) {
-                  fleet[idx] = { 
-                      ...fleet[idx], 
-                      last_seen: new Date().toISOString(), 
-                      status: 'online',
-                      snapshotUrl: snapshotBase64,
-                      requestSnapshot: false, // RESET FLAG
-                      wifiStrength: wifiStrength,
-                      ipAddress: connection ? `${connection.effectiveType} | ${connection.downlink}Mbps` : 'Unknown'
-                  };
-                  await supabase.from('store_config').update({ data: { ...currentConfig.data, fleet } }).eq('id', 1);
-              }
-          }
+          console.log("Uploading Snapshot...");
+          payload.snapshot_url = snapshotBase64;
+          payload.request_snapshot = false; // Reset the flag since we are fulfilling it
       }
+
+      // Upsert to SQL table (Partial update works with upsert in Supabase if all keys not present? 
+      // Upsert usually replaces. We should ideally use Update, but Upsert ensures existence.
+      // To be safe, we rely on the DB definition allowing nulls or we provide current vals if needed.
+      // But upsert is best for heartbeat.)
+      const { error } = await supabase.from('kiosks').upsert(payload, { onConflict: 'id' });
+      
+      if (error) console.warn("Heartbeat Error:", error.message);
 
   } catch (e) {
       console.warn("Heartbeat failed", e);

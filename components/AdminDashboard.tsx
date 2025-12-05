@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -355,14 +353,6 @@ const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, on
                              </button>
                         </div>
                     </div>
-                    
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Simulate Status (Debug)</label>
-                        <select className="w-full p-2 border border-slate-300 rounded-lg text-sm" value={draft.status} onChange={(e) => setDraft({...draft, status: e.target.value as any})}>
-                            <option value="online">Online</option>
-                            <option value="offline">Offline</option>
-                        </select>
-                    </div>
                 </div>
                 <div className="p-4 border-t border-slate-100 flex justify-end gap-3">
                     <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold uppercase text-xs">Cancel</button>
@@ -390,6 +380,35 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
       const interval = setInterval(() => checkCloudConnection().then(setIsCloudConnected), 30000);
       return () => clearInterval(interval);
   }, []);
+
+  // Fleet Actions
+  const updateFleetMember = async (kiosk: KioskRegistry) => {
+      if(supabase) {
+          // Map to SQL
+          const payload = {
+              id: kiosk.id,
+              name: kiosk.name,
+              device_type: kiosk.deviceType,
+              assigned_zone: kiosk.assignedZone
+          };
+          await supabase.from('kiosks').upsert(payload);
+          onRefresh(); // Pull fresh data
+      }
+  };
+
+  const removeFleetMember = async (id: string) => {
+      if(confirm("Remove device from fleet? This cannot be undone.") && supabase) {
+          await supabase.from('kiosks').delete().eq('id', id);
+          onRefresh();
+      }
+  };
+
+  const requestSnapshot = async (id: string) => {
+      if(supabase) {
+          const { error } = await supabase.from('kiosks').update({ request_snapshot: true }).eq('id', id);
+          if(!error) alert("Snapshot requested. It will appear here shortly.");
+      }
+  };
 
   if (!session) return <Auth setSession={setSession} />;
   if (!storeData) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /> Loading...</div>;
@@ -501,7 +520,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                    <h2 className="text-2xl font-black text-slate-900 uppercase mb-6">Device Fleet</h2>
                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                        <table className="w-full text-left">
-                           <thead className="bg-slate-50 border-b border-slate-200"><tr><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Status</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Name</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Type</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Zone</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Actions</th></tr></thead>
+                           <thead className="bg-slate-50 border-b border-slate-200"><tr><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Status</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Name</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Type</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Snapshot</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Actions</th></tr></thead>
                            <tbody>{storeData.fleet?.map(kiosk => {
                                const isOnline = (new Date().getTime() - new Date(kiosk.last_seen).getTime()) < 120000;
                                return (
@@ -509,10 +528,22 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                                        <td className="p-4"><div className={`flex items-center gap-2 px-2 py-1 rounded-full w-fit text-[10px] font-bold uppercase ${isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}><div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>{isOnline ? 'Online' : 'Offline'}</div></td>
                                        <td className="p-4 font-bold text-slate-700 text-sm">{kiosk.name} <span className="block text-[10px] text-slate-400 font-mono">{kiosk.id}</span></td>
                                        <td className="p-4 font-bold text-xs uppercase text-slate-600">{kiosk.deviceType || 'Kiosk'}</td>
-                                       <td className="p-4 font-bold text-xs text-slate-500">{kiosk.assignedZone || '-'}</td>
+                                       <td className="p-4">
+                                            {kiosk.snapshotUrl ? (
+                                                <div className="w-16 h-12 bg-slate-200 rounded overflow-hidden relative group cursor-pointer" onClick={() => window.open(kiosk.snapshotUrl, '_blank')}>
+                                                    <img src={kiosk.snapshotUrl} className="w-full h-full object-cover" />
+                                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100"><Eye size={12} className="text-white"/></div>
+                                                </div>
+                                            ) : (
+                                                <span className="text-[10px] text-slate-400 font-bold">No Snapshot</span>
+                                            )}
+                                       </td>
                                        <td className="p-4 flex gap-2">
+                                           {kiosk.deviceType === 'kiosk' && (
+                                                <button onClick={() => requestSnapshot(kiosk.id)} className="p-2 bg-slate-100 hover:bg-green-100 text-green-600 rounded-lg" title="Request Camera Snapshot"><Camera size={14} /></button>
+                                           )}
                                            <button onClick={() => setEditingKiosk(kiosk)} className="p-2 bg-slate-100 hover:bg-blue-100 text-blue-600 rounded-lg"><Edit2 size={14} /></button>
-                                           <button onClick={() => { if(confirm("Remove device?")) onUpdateData({...storeData, fleet: storeData.fleet?.filter(k=>k.id!==kiosk.id)}); }} className="p-2 bg-slate-100 hover:bg-red-100 text-red-600 rounded-lg"><Trash2 size={14} /></button>
+                                           <button onClick={() => removeFleetMember(kiosk.id)} className="p-2 bg-slate-100 hover:bg-red-100 text-red-600 rounded-lg"><Trash2 size={14} /></button>
                                        </td>
                                    </tr>
                                );
@@ -557,7 +588,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
 
         {/* MODALS */}
         {editingProduct && <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-5xl h-full max-h-[90vh]"><ProductEditor product={editingProduct} onSave={(p) => { if (!selectedCategory || !selectedBrand) return; const isNew = !selectedCategory.products.find(x => x.id === p.id); const newCats = selectedBrand.categories.map(c => c.id === selectedCategory.id ? { ...c, products: isNew ? [...c.products, p] : c.products.map(px => px.id === p.id ? p : px) } : c); const newBrands = storeData.brands.map(b => b.id === selectedBrand.id ? { ...b, categories: newCats } : b); onUpdateData({ ...storeData, brands: newBrands }); setSelectedCategory(newCats.find(c => c.id === selectedCategory.id) || null); setEditingProduct(null); }} onCancel={() => setEditingProduct(null)} /></div></div>}
-        {editingKiosk && <KioskEditorModal kiosk={editingKiosk} onSave={(k) => { onUpdateData({...storeData, fleet: storeData.fleet?.map(x => x.id === k.id ? k : x)}); setEditingKiosk(null); }} onClose={() => setEditingKiosk(null)} />}
+        {editingKiosk && <KioskEditorModal kiosk={editingKiosk} onSave={(k) => { updateFleetMember(k); setEditingKiosk(null); }} onClose={() => setEditingKiosk(null)} />}
         {showGuide && <SetupGuide onClose={() => setShowGuide(false)} />}
     </div>
   );
