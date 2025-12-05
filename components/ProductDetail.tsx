@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 import Flipbook from './Flipbook';
@@ -473,9 +474,17 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                 <video src={enlargedMedia.url} controls autoPlay className="max-w-full max-h-full object-contain" />
             )}
             
-            {/* Counter */}
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-md text-xs font-bold uppercase tracking-widest border border-white/10">
-               {enlargedMediaIndex + 1} / {allMedia.length}
+            {/* Counter & Exit Button */}
+            <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-4 z-50 pointer-events-none">
+               <div className="bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-md text-xs font-bold uppercase tracking-widest border border-white/10">
+                  {enlargedMediaIndex + 1} / {allMedia.length}
+               </div>
+               <button 
+                  onClick={() => setShowEnlargedMedia(false)}
+                  className="pointer-events-auto bg-white text-slate-900 hover:bg-slate-200 px-8 py-3 rounded-full font-black uppercase tracking-widest text-xs flex items-center gap-2 shadow-[0_0_20px_rgba(0,0,0,0.5)] transition-transform hover:scale-105 border-4 border-black/10"
+               >
+                  <X size={18} /> Exit View
+               </button>
             </div>
           </div>
         </div>
