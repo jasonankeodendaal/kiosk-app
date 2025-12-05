@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { X, Server, Copy, Check, ArrowRight, ExternalLink, ShieldCheck, Database, Key, Settings, Layers, Smartphone, Globe, Cpu, Cloud, ToggleRight, CloudLightning, Book, AlertTriangle } from 'lucide-react';
+import { X, Server, Copy, Check, ArrowRight, ExternalLink, ShieldCheck, Database, Key, Settings, Layers, Smartphone, Globe, Cpu, Cloud, ToggleRight, CloudLightning, Book, AlertTriangle, PlayCircle, FolderOpen, Lock } from 'lucide-react';
 
 interface SetupGuideProps {
   onClose: () => void;
 }
 
 const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
-  const [activeTab, setActiveTab] = useState<'local' | 'split' | 'vercel' | 'supabase'>('local');
+  const [activeTab, setActiveTab] = useState<'local' | 'split' | 'vercel' | 'supabase'>('supabase');
   const [copiedStep, setCopiedStep] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, stepId: string) => {
@@ -54,7 +54,7 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
         
         {/* Sidebar */}
         <div className="w-72 bg-white border-r border-slate-200 p-4 flex flex-col shrink-0 overflow-y-auto hidden md:flex">
-           <h3 className="font-black text-slate-900 text-xs uppercase tracking-widest mb-4 text-opacity-50 mt-4 px-2">Local Development</h3>
+           <h3 className="font-black text-slate-900 text-xs uppercase tracking-widest mb-4 text-opacity-50 mt-4 px-2">Setup Phases</h3>
            
            <button 
              onClick={() => setActiveTab('local')}
@@ -62,7 +62,7 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
            >
               <div className="flex items-center gap-3 relative z-10">
                  <Server size={18} className={activeTab === 'local' ? 'text-blue-600' : 'text-slate-400'} />
-                 <span className={`font-bold text-sm ${activeTab === 'local' ? 'text-blue-900' : 'text-slate-600'}`}>1. The PC Hub</span>
+                 <span className={`font-bold text-sm ${activeTab === 'local' ? 'text-blue-900' : 'text-slate-600'}`}>1. Local Hub (PC)</span>
               </div>
            </button>
 
@@ -72,11 +72,9 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
            >
               <div className="flex items-center gap-3 relative z-10">
                  <Layers size={18} className={activeTab === 'split' ? 'text-purple-600' : 'text-slate-400'} />
-                 <span className={`font-bold text-sm ${activeTab === 'split' ? 'text-purple-900' : 'text-slate-600'}`}>2. Split App</span>
+                 <span className={`font-bold text-sm ${activeTab === 'split' ? 'text-purple-900' : 'text-slate-600'}`}>2. Code Structure</span>
               </div>
            </button>
-
-           <h3 className="font-black text-slate-900 text-xs uppercase tracking-widest mb-4 text-opacity-50 mt-6 px-2">Cloud Infrastructure</h3>
 
            <button 
              onClick={() => setActiveTab('vercel')}
@@ -88,13 +86,18 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
               </div>
            </button>
 
+           <div className="my-4 border-t border-slate-100"></div>
+
            <button 
              onClick={() => setActiveTab('supabase')}
              className={`p-3 rounded-xl border text-left mb-3 transition-all group relative overflow-hidden ${activeTab === 'supabase' ? 'border-green-600 bg-green-50 shadow-md' : 'border-transparent hover:bg-slate-50'}`}
            >
               <div className="flex items-center gap-3 relative z-10">
                  <Database size={18} className={activeTab === 'supabase' ? 'text-green-600' : 'text-slate-400'} />
-                 <span className={`font-bold text-sm ${activeTab === 'supabase' ? 'text-green-900' : 'text-slate-600'}`}>4. Supabase Cloud</span>
+                 <div>
+                    <span className={`font-bold text-sm block ${activeTab === 'supabase' ? 'text-green-900' : 'text-slate-600'}`}>4. Supabase Setup</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Start Here</span>
+                 </div>
               </div>
            </button>
         </div>
@@ -105,11 +108,214 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
               
               {/* Tab Header Mobile */}
               <div className="md:hidden flex border-b border-slate-200 overflow-x-auto">
-                 <button onClick={() => setActiveTab('local')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'local' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500'}`}>1. Local Hub</button>
-                 <button onClick={() => setActiveTab('split')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'split' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-slate-500'}`}>2. Split App</button>
+                 <button onClick={() => setActiveTab('supabase')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'supabase' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500'}`}>1. Supabase (Start)</button>
+                 <button onClick={() => setActiveTab('local')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'local' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500'}`}>2. Local</button>
                  <button onClick={() => setActiveTab('vercel')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'vercel' ? 'text-black border-b-2 border-black' : 'text-slate-500'}`}>3. Vercel</button>
-                 <button onClick={() => setActiveTab('supabase')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'supabase' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500'}`}>4. Supabase</button>
               </div>
+
+              {/* === TAB 4: SUPABASE (Complete Rewrite) === */}
+              {activeTab === 'supabase' && (
+                <div className="p-8 animate-fade-in">
+                    <div className="mb-8 border-b border-slate-100 pb-8">
+                       <div className="inline-block px-3 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-black uppercase tracking-widest mb-4">Start Here</div>
+                       <h2 className="text-4xl font-black text-slate-900 mb-2">Supabase Cloud Setup</h2>
+                       <p className="text-slate-600 text-lg">
+                           The <strong>Backend</strong> of your Kiosk. It handles the Database (Products, Fleet) and Storage (Images, Videos).
+                       </p>
+                    </div>
+
+                    <div className="space-y-12">
+                        
+                        {/* Step 1 */}
+                        <div className="flex gap-6">
+                            <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-lg">1</div>
+                            <div className="flex-1">
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">Create Account & Project</h3>
+                                <p className="text-slate-600 mb-4 text-sm">
+                                    Supabase is free for small projects. We need to create a "container" for your kiosk data.
+                                </p>
+                                <ol className="list-decimal pl-5 space-y-2 text-sm text-slate-700 font-medium bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <li>Go to <a href="https://supabase.com" target="_blank" className="text-blue-600 hover:underline font-bold">supabase.com</a> and click <strong>"Start your project"</strong>.</li>
+                                    <li>Sign in with GitHub (easiest) or Email.</li>
+                                    <li>Click <strong>"New Project"</strong>.</li>
+                                    <li><strong>Name:</strong> <code className="bg-white px-1 border rounded">Kiosk Pro</code></li>
+                                    <li><strong>Database Password:</strong> Generate a strong one and <strong>SAVE IT</strong> somewhere safe.</li>
+                                    <li><strong>Region:</strong> Choose the one physically closest to you.</li>
+                                    <li>Click <strong>"Create new project"</strong> and wait ~2 minutes for it to build.</li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        {/* Step 2 */}
+                        <div className="flex gap-6">
+                            <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-lg">2</div>
+                            <div className="flex-1">
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">Get API Keys</h3>
+                                <p className="text-slate-600 mb-4 text-sm">
+                                    Your Kiosk app needs a "username" and "password" to talk to Supabase. These are called API Keys.
+                                </p>
+                                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-4">
+                                    <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase text-slate-500">
+                                        <Settings size={14} /> Navigation Path
+                                    </div>
+                                    <p className="font-mono text-sm font-bold text-slate-800">
+                                        Project Settings (Gear Icon) &rarr; API
+                                    </p>
+                                </div>
+                                <p className="text-sm text-slate-600">
+                                    You will see <code>Project URL</code> and <code>anon</code> (public) key. <br/>
+                                    <strong>Keep this tab open</strong>, you will need these for Vercel later.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Step 3 */}
+                        <div className="flex gap-6">
+                            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-lg animate-pulse">3</div>
+                            <div className="flex-1">
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">Run the "Magic" Setup Script</h3>
+                                <p className="text-slate-600 mb-4 text-sm">
+                                    Instead of creating tables manually, we will run a standard SQL script. This builds the <strong>Database Tables</strong>, enables <strong>Realtime</strong>, creates the <strong>Storage Bucket</strong>, and fixes <strong>Permissions</strong> automatically.
+                                </p>
+                                
+                                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-4">
+                                    <div className="flex items-center gap-2 text-blue-800 font-bold uppercase text-xs mb-2">
+                                        <PlayCircle size={16} /> Instructions
+                                    </div>
+                                    <ol className="list-decimal pl-5 space-y-1 text-sm text-blue-900">
+                                        <li>In Supabase Sidebar, click <strong>SQL Editor</strong> (Icon looks like a command prompt <code>&gt;_</code>).</li>
+                                        <li>Click <strong>"New Query"</strong>.</li>
+                                        <li><strong>Copy</strong> the code block below.</li>
+                                        <li><strong>Paste</strong> it into the SQL Editor.</li>
+                                        <li>Click the <strong>RUN</strong> button (Bottom right).</li>
+                                        <li>Look for "Success" in the results area.</li>
+                                    </ol>
+                                </div>
+
+                                <CodeBlock 
+                                id="supabase-sql"
+                                label="SQL SETUP SCRIPT (COPY ALL)"
+                                code={`-- 0. REFRESH SCHEMA CACHE (Fixes "Cloud not find column" errors)
+NOTIFY pgrst, 'reload schema';
+
+-- 1. KIOSKS TABLE SETUP
+create table if not exists public.kiosks (
+  id text primary key,
+  name text,
+  device_type text,
+  status text,
+  last_seen timestamp with time zone,
+  wifi_strength int,
+  ip_address text,
+  version text
+);
+
+-- Force add columns (Fixes Schema Drift)
+alter table public.kiosks add column if not exists assigned_zone text default 'Unassigned';
+alter table public.kiosks add column if not exists location_description text default 'Newly Registered';
+alter table public.kiosks add column if not exists request_snapshot boolean default false;
+alter table public.kiosks add column if not exists restart_requested boolean default false;
+alter table public.kiosks add column if not exists snapshot_url text;
+
+-- 2. STORE CONFIG TABLE
+create table if not exists public.store_config (
+  id bigint primary key,
+  data jsonb,
+  updated_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Seed Data (Only if empty)
+insert into public.store_config (id, data) 
+select 1, '{}'::jsonb
+where not exists (select 1 from public.store_config where id = 1);
+
+-- 3. STORAGE SETUP (Create 'kiosk-media' bucket)
+insert into storage.buckets (id, name, public)
+values ('kiosk-media', 'kiosk-media', true)
+on conflict (id) do nothing;
+
+-- DROP OLD POLICIES (Fixes Error 42710 "Policy already exists")
+-- We drop all variants to be safe before recreating
+drop policy if exists "Public Access" on storage.objects;
+drop policy if exists "Public Upload" on storage.objects;
+drop policy if exists "Kiosk Public Read" on storage.objects;
+drop policy if exists "Kiosk Public Insert" on storage.objects;
+drop policy if exists "Kiosk Public Update" on storage.objects;
+drop policy if exists "Give me access" on storage.objects;
+drop policy if exists "Allow Public Read" on storage.objects;
+drop policy if exists "Anon Read" on storage.objects;
+drop policy if exists "Anyone can upload" on storage.objects;
+
+-- CREATE FRESH POLICIES (Allow Everyone to Read/Write for simplicity in Kiosk mode)
+create policy "Kiosk Public Read"
+on storage.objects for select
+using ( bucket_id = 'kiosk-media' );
+
+create policy "Kiosk Public Insert"
+on storage.objects for insert
+with check ( bucket_id = 'kiosk-media' );
+
+create policy "Kiosk Public Update"
+on storage.objects for update
+using ( bucket_id = 'kiosk-media' );
+
+-- 4. ENABLE REALTIME (Safe Mode)
+-- This allows the Kiosk to "listen" for new commands like Snapshot/Restart
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'store_config') then
+    alter publication supabase_realtime add table public.store_config;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'kiosks') then
+    alter publication supabase_realtime add table public.kiosks;
+  end if;
+end $$;`}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Step 4 */}
+                        <div className="flex gap-6">
+                            <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-lg">4</div>
+                            <div className="flex-1">
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">Verify Storage Bucket (Manual Check)</h3>
+                                <p className="text-slate-600 mb-4 text-sm">
+                                    Sometimes the script runs, but the bucket isn't explicitly set to "Public". Let's double check.
+                                </p>
+                                <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
+                                    <div className="flex items-center gap-2 text-sm text-slate-800">
+                                        <FolderOpen size={16} /> 1. Go to <strong>Storage</strong> in the Supabase sidebar.
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-slate-800">
+                                        <Check size={16} /> 2. You should see a bucket named <code>kiosk-media</code>.
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-slate-800">
+                                        <Lock size={16} /> 3. Next to "Public" label, ensure it says <strong>Public</strong> (Not Private).
+                                    </div>
+                                    <div className="text-xs text-slate-500 italic pl-6 pt-2">
+                                        If it doesn't exist: Click "New Bucket", name it <code>kiosk-media</code>, and toggle "Public Bucket" to ON.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                         {/* Step 5 */}
+                         <div className="flex gap-6">
+                            <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-lg">5</div>
+                            <div className="flex-1">
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">Connect to Vercel (Next Step)</h3>
+                                <p className="text-slate-600 mb-4 text-sm">
+                                    Now that Supabase is ready, go to the <strong>Vercel Tab</strong> (Step 3 on the left) to link them together.
+                                </p>
+                                <button onClick={() => setActiveTab('vercel')} className="bg-slate-900 text-white px-6 py-3 rounded-lg font-bold uppercase text-xs flex items-center gap-2 hover:bg-slate-800 transition-colors">
+                                    Go to Vercel Guide <ArrowRight size={14} />
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+              )}
 
               {/* === TAB 1: LOCAL SERVER === */}
               {activeTab === 'local' && (
@@ -301,117 +507,6 @@ vercel --prod`}
                 </div>
               )}
 
-              {/* === TAB 4: SUPABASE === */}
-              {activeTab === 'supabase' && (
-                <div className="p-8 animate-fade-in">
-                    <div className="mb-8">
-                       <h2 className="text-3xl font-black text-slate-900 mb-2">Supabase Cloud Database</h2>
-                       <p className="text-slate-600">Supabase acts as your real-time cloud database. It syncs data between the Admin Hub (Home) and the Kiosk (Shop).</p>
-                    </div>
-
-                    <div className="space-y-8">
-                        
-                        <div>
-                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2">1. Connect App (Environment Variables)</h3>
-                            <p className="text-sm text-slate-600 mb-4">Copy these keys from Supabase Settings &rarr; API, and put them in your Vercel Environment Variables.</p>
-                            <CodeBlock 
-                                id="supabase-env"
-                                label=".env Example"
-                                code={`NEXT_PUBLIC_SUPABASE_URL=your_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key`}
-                            />
-                        </div>
-
-                        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
-                            <div className="flex items-center gap-2 text-orange-900 font-black uppercase text-sm mb-2">
-                                <Database size={16} />
-                                <h3>2. RUN THIS SQL SCRIPT (Fixes All Errors)</h3>
-                            </div>
-                            <p className="text-sm text-slate-600 mb-4">
-                                This script fixes <strong>Error 42710</strong> (Policies), <strong>Registration Failures</strong> (Missing Columns), and <strong>Storage Errors</strong>. <br/>
-                                <span className="text-blue-600 font-bold">INSTRUCTIONS:</span> Copy this code &rarr; Go to Supabase <strong>SQL Editor</strong> &rarr; Paste &rarr; Click <strong>Run</strong>.
-                            </p>
-                            <CodeBlock 
-                                id="supabase-sql"
-                                label="SQL Editor - COMPLETE SETUP SCRIPT"
-                                code={`-- 0. REFRESH SCHEMA CACHE
-NOTIFY pgrst, 'reload schema';
-
--- 1. KIOSKS TABLE SETUP
-create table if not exists public.kiosks (
-  id text primary key,
-  name text,
-  device_type text,
-  status text,
-  last_seen timestamp with time zone,
-  wifi_strength int,
-  ip_address text,
-  version text
-);
-
--- Force add columns
-alter table public.kiosks add column if not exists assigned_zone text default 'Unassigned';
-alter table public.kiosks add column if not exists location_description text default 'Newly Registered';
-alter table public.kiosks add column if not exists request_snapshot boolean default false;
-alter table public.kiosks add column if not exists restart_requested boolean default false;
-alter table public.kiosks add column if not exists snapshot_url text;
-
--- 2. STORE CONFIG TABLE
-create table if not exists public.store_config (
-  id bigint primary key,
-  data jsonb,
-  updated_at timestamp with time zone default timezone('utc'::text, now())
-);
-
--- Seed Data
-insert into public.store_config (id, data) 
-select 1, '{}'::jsonb
-where not exists (select 1 from public.store_config where id = 1);
-
--- 3. STORAGE SETUP
-insert into storage.buckets (id, name, public)
-values ('kiosk-media', 'kiosk-media', true)
-on conflict (id) do nothing;
-
--- DROP OLD POLICIES (Fix 42710)
-drop policy if exists "Public Access" on storage.objects;
-drop policy if exists "Public Upload" on storage.objects;
-drop policy if exists "Kiosk Public Read" on storage.objects;
-drop policy if exists "Kiosk Public Insert" on storage.objects;
-drop policy if exists "Kiosk Public Update" on storage.objects;
-drop policy if exists "Give me access" on storage.objects;
-drop policy if exists "Allow Public Read" on storage.objects;
-drop policy if exists "Anon Read" on storage.objects;
-
--- CREATE FRESH POLICIES
-create policy "Kiosk Public Read"
-on storage.objects for select
-using ( bucket_id = 'kiosk-media' );
-
-create policy "Kiosk Public Insert"
-on storage.objects for insert
-with check ( bucket_id = 'kiosk-media' );
-
-create policy "Kiosk Public Update"
-on storage.objects for update
-using ( bucket_id = 'kiosk-media' );
-
--- 4. ENABLE REALTIME (Safe Mode)
-do $$
-begin
-  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'store_config') then
-    alter publication supabase_realtime add table public.store_config;
-  end if;
-  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'kiosks') then
-    alter publication supabase_realtime add table public.kiosks;
-  end if;
-end $$;`}
-                            />
-                        </div>
-
-                    </div>
-                </div>
-              )}
            </div>
         </div>
       </div>
