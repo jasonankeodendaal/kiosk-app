@@ -8,6 +8,12 @@ export interface DimensionSet {
   weight: string;
 }
 
+export interface ProductManual {
+  id: string;
+  title: string;
+  images: string[]; // Converted JPG pages
+}
+
 export interface Product {
   id: string;
   sku?: string; 
@@ -23,8 +29,13 @@ export interface Product {
   galleryUrls?: string[]; 
   videoUrl?: string; // Legacy support
   videoUrls?: string[]; // Support for multiple videos
+  
+  // Legacy Manual Support (Deprecated but kept for migration)
   manualUrl?: string; 
   manualImages?: string[]; 
+  
+  // New Multi-Manual Support
+  manuals?: ProductManual[];
 }
 
 export interface Category {

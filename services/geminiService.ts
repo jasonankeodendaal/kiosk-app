@@ -1,4 +1,5 @@
 
+
 import { StoreData, Product, Catalogue, ArchiveData, KioskRegistry } from "../types";
 import { supabase, getEnv, initSupabase } from "./kioskService";
 
@@ -59,6 +60,20 @@ const migrateData = (data: any): StoreData => {
                             label: "Dimensions",
                             ...p.dimensions
                         }];
+                    }
+                    
+                    // Migrate Legacy Manuals (Single) to Multi Manuals (Array)
+                    if (!p.manuals) p.manuals = [];
+                    // Only migrate if there are images and no existing manuals
+                    if (p.manualImages && p.manualImages.length > 0 && p.manuals.length === 0) {
+                        p.manuals.push({
+                            id: 'legacy-manual-' + p.id,
+                            title: 'User Manual',
+                            images: p.manualImages
+                        });
+                        // Clear legacy to clean up data eventually
+                        // delete p.manualImages; 
+                        // delete p.manualUrl;
                     }
                 });
             });

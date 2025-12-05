@@ -1,9 +1,9 @@
 
 
 import React, { useState, useMemo } from 'react';
-import { Product } from '../types';
+import { Product, ProductManual } from '../types';
 import Flipbook from './Flipbook';
-import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon, Package, LayoutGrid, Settings } from 'lucide-react';
+import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon, Package, LayoutGrid, Settings, Book, Download } from 'lucide-react';
 
 interface ProductDetailProps {
   product: Product;
@@ -17,6 +17,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
   const [showEnlargedMedia, setShowEnlargedMedia] = useState(false);
   const [enlargedMediaIndex, setEnlargedMediaIndex] = useState(0);
   const [showManual, setShowManual] = useState(false);
+  const [activeManual, setActiveManual] = useState<ProductManual | null>(null);
   const [showGalleryModal, setShowGalleryModal] = useState(false);
 
   // Helper to ensure dimensions is always an array
@@ -74,12 +75,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
     setShowEnlargedMedia(true);
   };
 
-  const openManual = () => {
-      if (product.manualImages && product.manualImages.length > 0) {
-          setShowManual(true);
-      } else if(product.manualUrl) {
-          window.open(product.manualUrl, '_blank');
-      }
+  const openManual = (manual: ProductManual) => {
+      setActiveManual(manual);
+      setShowManual(true);
   };
 
   const currentMedia = allMedia[currentMediaIndex];
@@ -203,10 +201,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                                 </span>
                             )}
                         </div>
-                        {(product.manualUrl || (product.manualImages && product.manualImages.length > 0)) && (
-                            <button onClick={openManual} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors">
-                                <FileIcon size={14} className="text-blue-500" /> User Manual
-                            </button>
+                        {/* Manual Button (Legacy or Single) */}
+                        {product.manualUrl && (
+                             <button onClick={() => window.open(product.manualUrl, '_blank')} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors">
+                                <Download size={14} className="text-blue-500" /> Legacy Manual
+                             </button>
                         )}
                      </div>
                      <h1 className="text-4xl lg:text-5xl font-black text-slate-900 mb-6 uppercase tracking-tight leading-none">
@@ -270,6 +269,30 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                                     </div>
                                 ))}
                              </div>
+                        </div>
+                     )}
+
+                     {/* USER MANUALS SECTION */}
+                     {product.manuals && product.manuals.length > 0 && (
+                        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2"><Book size={16} /> User Manuals</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {product.manuals.map((manual) => (
+                                    <button 
+                                        key={manual.id} 
+                                        onClick={() => openManual(manual)}
+                                        className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all text-left group"
+                                    >
+                                        <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shrink-0">
+                                            <FileText size={20} />
+                                        </div>
+                                        <div>
+                                            <div className="text-xs font-bold text-slate-900 uppercase group-hover:text-blue-700 transition-colors">{manual.title}</div>
+                                            <div className="text-[10px] text-slate-400">{manual.images.length} Pages</div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                      )}
 
@@ -431,11 +454,20 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                         </div>
                     )}
 
-                    {/* MANUAL BUTTON */}
-                    {(product.manualUrl || (product.manualImages && product.manualImages.length > 0)) && (
-                        <button onClick={openManual} className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors border border-slate-200">
-                            <FileIcon size={14} className="text-blue-500" /> View User Manual
-                        </button>
+                    {/* MANUALS MOBILE */}
+                    {product.manuals && product.manuals.length > 0 && (
+                        <div className="space-y-2">
+                             <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-1 flex items-center gap-2"><Book size={14} /> User Manuals</h3>
+                             {product.manuals.map((manual) => (
+                                <button 
+                                    key={manual.id}
+                                    onClick={() => openManual(manual)} 
+                                    className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors border border-slate-200"
+                                >
+                                    <FileText size={14} className="text-blue-500" /> {manual.title}
+                                </button>
+                             ))}
+                        </div>
                     )}
 
                     {/* TERMS */}
@@ -544,8 +576,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
         </div>
       )}
 
-      {showManual && (
-          <Flipbook pages={product.manualImages || []} onClose={() => setShowManual(false)} catalogueTitle={`${product.name} - User Manual`}/>
+      {showManual && activeManual && (
+          <Flipbook 
+             pages={activeManual.images || []} 
+             onClose={() => setShowManual(false)} 
+             catalogueTitle={`${product.name} - ${activeManual.title}`}
+          />
       )}
     </div>
   );
