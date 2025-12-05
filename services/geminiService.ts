@@ -1,5 +1,6 @@
 
-import { StoreData, Product, Catalogue, ArchiveData, KioskRegistry } from "../types";
+
+import { StoreData, Product, Catalogue, ArchiveData, KioskRegistry, Manual } from "../types";
 import { supabase, getEnv, initSupabase } from "./kioskService";
 
 const STORAGE_KEY_DATA = 'kiosk_pro_store_data';
@@ -59,6 +60,20 @@ const migrateData = (data: any): StoreData => {
                             label: "Dimensions",
                             ...p.dimensions
                         }];
+                    }
+
+                    // Migrate Legacy Single Manual to Array
+                    if (!p.manuals) p.manuals = [];
+                    if ((p.manualUrl || (p.manualImages && p.manualImages.length > 0)) && p.manuals.length === 0) {
+                        p.manuals.push({
+                            id: `legacy-manual-${p.id}`,
+                            title: 'User Manual',
+                            images: p.manualImages || [],
+                            pdfUrl: p.manualUrl
+                        });
+                        // Clean legacy to avoid duplication logic later
+                        // p.manualUrl = undefined;
+                        // p.manualImages = undefined;
                     }
                 });
             });
@@ -143,7 +158,7 @@ const generateStoreData = async (): Promise<StoreData> => {
               const mappedFleet: KioskRegistry[] = fleetResponse.data.map((k: any) => ({
                   id: k.id,
                   name: k.name,
-                  deviceType: k.device_type,
+                  device_type: k.device_type,
                   status: k.status,
                   last_seen: k.last_seen,
                   wifiStrength: k.wifi_strength,

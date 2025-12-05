@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 import Flipbook from './Flipbook';
-import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon, Package, LayoutGrid, Settings } from 'lucide-react';
+import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon, Package, LayoutGrid, Settings, BookOpen } from 'lucide-react';
 
 interface ProductDetailProps {
   product: Product;
@@ -16,7 +16,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0); 
   const [showEnlargedMedia, setShowEnlargedMedia] = useState(false);
   const [enlargedMediaIndex, setEnlargedMediaIndex] = useState(0);
-  const [showManual, setShowManual] = useState(false);
+  const [flipbookData, setFlipbookData] = useState<{ isOpen: boolean, pages: string[], title: string }>({ isOpen: false, pages: [], title: '' });
   const [showGalleryModal, setShowGalleryModal] = useState(false);
 
   // Helper to ensure dimensions is always an array
@@ -48,6 +48,21 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
     return media;
   }, [product]);
 
+  // Aggregate manuals (New array + legacy fallback if migration failed)
+  const allManuals = useMemo(() => {
+      const mans = product.manuals || [];
+      // Fallback check if migration hasn't run yet in memory
+      if (mans.length === 0 && (product.manualUrl || (product.manualImages && product.manualImages.length > 0))) {
+          return [{
+              id: 'legacy',
+              title: 'User Manual',
+              images: product.manualImages || [],
+              pdfUrl: product.manualUrl
+          }];
+      }
+      return mans;
+  }, [product]);
+
   const handleNextMedia = (e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentMediaIndex((prev) => (prev + 1) % allMedia.length);
@@ -74,11 +89,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
     setShowEnlargedMedia(true);
   };
 
-  const openManual = () => {
-      if (product.manualImages && product.manualImages.length > 0) {
-          setShowManual(true);
-      } else if(product.manualUrl) {
-          window.open(product.manualUrl, '_blank');
+  const openManual = (images: string[], title: string, pdfUrl?: string) => {
+      if (images && images.length > 0) {
+          setFlipbookData({ isOpen: true, pages: images, title });
+      } else if(pdfUrl) {
+          window.open(pdfUrl, '_blank');
       }
   };
 
@@ -203,11 +218,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                                 </span>
                             )}
                         </div>
-                        {(product.manualUrl || (product.manualImages && product.manualImages.length > 0)) && (
-                            <button onClick={openManual} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors">
-                                <FileIcon size={14} className="text-blue-500" /> User Manual
-                            </button>
-                        )}
                      </div>
                      <h1 className="text-4xl lg:text-5xl font-black text-slate-900 mb-6 uppercase tracking-tight leading-none">
                         {product.name}
@@ -218,6 +228,34 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                  </div>
 
                  <div className="flex flex-col gap-8">
+                     
+                     {/* MANUALS SECTION (NEW) */}
+                     {allManuals.length > 0 && (
+                        <div className="bg-blue-50/50 rounded-2xl p-6 border border-blue-100">
+                             <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2"><BookOpen size={16} className="text-blue-500" /> Documentation</h3>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                 {allManuals.map((manual) => (
+                                     <button 
+                                        key={manual.id} 
+                                        onClick={() => openManual(manual.images, manual.title, manual.pdfUrl)}
+                                        className="flex items-center justify-between bg-white hover:bg-blue-50 border border-blue-100 hover:border-blue-200 p-3 rounded-xl transition-all group text-left"
+                                     >
+                                         <div className="flex items-center gap-3">
+                                             <div className="bg-blue-100 text-blue-600 p-2 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                                 <FileIcon size={18} />
+                                             </div>
+                                             <div>
+                                                 <span className="block text-xs font-black text-slate-800 uppercase">{manual.title}</span>
+                                                 <span className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider">{manual.images?.length || 0} Pages</span>
+                                             </div>
+                                         </div>
+                                         <ChevronLeft size={16} className="rotate-180 text-slate-300 group-hover:text-blue-400" />
+                                     </button>
+                                 ))}
+                             </div>
+                        </div>
+                     )}
+
                      <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
                         <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2"><Layers size={16} /> Key Features</h3>
                         <div className="grid grid-cols-1 gap-3">
@@ -431,11 +469,26 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                         </div>
                     )}
 
-                    {/* MANUAL BUTTON */}
-                    {(product.manualUrl || (product.manualImages && product.manualImages.length > 0)) && (
-                        <button onClick={openManual} className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors border border-slate-200">
-                            <FileIcon size={14} className="text-blue-500" /> View User Manual
-                        </button>
+                    {/* MANUAL BUTTONS (MOBILE) */}
+                    {allManuals.length > 0 && (
+                        <div>
+                            <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2"><BookOpen size={14} className="text-blue-500" /> Manuals</h3>
+                            <div className="space-y-2">
+                                {allManuals.map(manual => (
+                                    <button 
+                                        key={manual.id}
+                                        onClick={() => openManual(manual.images, manual.title, manual.pdfUrl)} 
+                                        className="w-full flex items-center justify-between bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors border border-slate-200"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <FileIcon size={14} className="text-blue-500" /> 
+                                            <span>{manual.title}</span>
+                                        </div>
+                                        <ChevronLeft size={14} className="rotate-180 text-slate-400" />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     )}
 
                     {/* TERMS */}
@@ -544,8 +597,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
         </div>
       )}
 
-      {showManual && (
-          <Flipbook pages={product.manualImages || []} onClose={() => setShowManual(false)} catalogueTitle={`${product.name} - User Manual`}/>
+      {flipbookData.isOpen && (
+          <Flipbook pages={flipbookData.pages || []} onClose={() => setFlipbookData({...flipbookData, isOpen: false})} catalogueTitle={flipbookData.title}/>
       )}
     </div>
   );

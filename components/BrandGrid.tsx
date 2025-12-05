@@ -283,7 +283,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                   key={brand.id}
                   onClick={() => onSelectBrand(brand)}
                   className="group flex flex-col items-center justify-start gap-2 p-2 hover:bg-slate-100 rounded-xl transition-all duration-300"
-                  title={brand.name}
+                  title={brand.name} // Keeps hover tooltip for accessibility/desktop
                 >
                   <div className="relative w-12 h-12 md:w-20 md:h-20 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
                     {brand.logoUrl ? (
@@ -298,7 +298,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                       </div>
                     )}
                   </div>
-                  {/* Name removed per user request - Logo only */}
+                  {/* Name STRICTLY removed per user request - Logo only */}
                 </button>
               ))}
 

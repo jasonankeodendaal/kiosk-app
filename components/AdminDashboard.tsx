@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil
 } from 'lucide-react';
-import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet } from '../types';
+import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual } from '../types';
 import { resetStoreData } from '../services/geminiService';
 import { uploadFileToStorage, supabase, checkCloudConnection } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
@@ -26,6 +26,7 @@ const convertPdfToImages = async (pdfDataUrl: string): Promise<string[]> => {
         const numPages = pdf.numPages;
         const images: string[] = [];
 
+        // Loop through ALL pages
         for (let i = 1; i <= numPages; i++) {
             const page = await pdf.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
@@ -220,13 +221,19 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
 };
 
 const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave: (p: Product) => void, onCancel: () => void }) => {
-    // Migrate legacy data on init (single video -> multiple array)
+    // Migrate legacy data on init (single video -> multiple array, single manual -> multiple manuals)
     const [draft, setDraft] = useState<Product>({ 
         ...product, 
         dimensions: Array.isArray(product.dimensions) 
             ? product.dimensions 
             : (product.dimensions ? [{label: "Device", ...(product.dimensions as any)}] : []),
-        videoUrls: product.videoUrls || (product.videoUrl ? [product.videoUrl] : [])
+        videoUrls: product.videoUrls || (product.videoUrl ? [product.videoUrl] : []),
+        manuals: product.manuals || (product.manualUrl || (product.manualImages && product.manualImages.length > 0) ? [{
+            id: generateId('man'),
+            title: "User Manual",
+            images: product.manualImages || [],
+            pdfUrl: product.manualUrl
+        }] : [])
     });
     const [newFeature, setNewFeature] = useState('');
     const [newBoxItem, setNewBoxItem] = useState('');
@@ -252,6 +259,28 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
     const removeDimension = (index: number) => {
         const newDims = draft.dimensions.filter((_, i) => i !== index);
         setDraft({ ...draft, dimensions: newDims });
+    };
+
+    // Manuals Logic
+    const addManual = (images: string[], pdfUrl?: string) => {
+        const newManual: Manual = {
+            id: generateId('man'),
+            title: "New Manual",
+            images,
+            pdfUrl
+        };
+        setDraft({ ...draft, manuals: [...(draft.manuals || []), newManual] });
+    };
+
+    const removeManual = (id: string) => {
+        setDraft({ ...draft, manuals: (draft.manuals || []).filter(m => m.id !== id) });
+    };
+
+    const updateManualTitle = (id: string, title: string) => {
+        setDraft({ 
+            ...draft, 
+            manuals: (draft.manuals || []).map(m => m.id === id ? { ...m, title } : m) 
+        });
     };
 
     return (
@@ -373,11 +402,59 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
                 </div>
                 
                 <div className="mt-8 border-t border-slate-100 pt-8">
-                     <h4 className="font-bold text-slate-900 uppercase text-sm mb-4">Manuals & Specs</h4>
+                     <h4 className="font-bold text-slate-900 uppercase text-sm mb-4">Manuals & Docs</h4>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                             <FileUpload label="Manual (PDF)" accept="application/pdf" icon={<FileText />} currentUrl={draft.manualUrl} onUpload={async (url: any, type: any) => { if(type === 'pdf' && typeof url === 'string') { const pages = await convertPdfToImages(url); setDraft({ ...draft, manualUrl: url, manualImages: pages }); } }} />
+                        {/* MANUALS LIST EDITOR */}
+                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                             <div className="flex justify-between items-center mb-4">
+                                <h5 className="text-xs font-black text-slate-500 uppercase tracking-wider">Product Manuals</h5>
+                             </div>
+                             
+                             <div className="mb-4 bg-white p-3 rounded-lg border border-slate-200">
+                                <FileUpload 
+                                    label="Upload New PDF Manual" 
+                                    accept="application/pdf" 
+                                    icon={<FileText />} 
+                                    currentUrl="" 
+                                    onUpload={async (url: any, type: any) => { 
+                                        if(type === 'pdf' && typeof url === 'string') { 
+                                            // Convert ALL pages of the PDF to images
+                                            const pages = await convertPdfToImages(url); 
+                                            addManual(pages, url);
+                                        } 
+                                    }} 
+                                />
+                             </div>
+
+                             <div className="space-y-3">
+                                {(draft.manuals || []).map((manual, idx) => (
+                                    <div key={manual.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-red-50 text-red-600 p-2 rounded">
+                                                    <FileText size={16} />
+                                                </div>
+                                                <div>
+                                                    <span className="text-[10px] text-slate-400 font-bold uppercase block">{manual.images.length} Pages</span>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => removeManual(manual.id)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={16}/></button>
+                                        </div>
+                                        <input 
+                                            value={manual.title} 
+                                            onChange={(e) => updateManualTitle(manual.id, e.target.value)} 
+                                            placeholder="Manual Title" 
+                                            className="w-full text-sm font-bold border-b border-slate-100 pb-1 focus:border-blue-500 outline-none" 
+                                        />
+                                    </div>
+                                ))}
+                                {(draft.manuals || []).length === 0 && (
+                                    <div className="text-center text-slate-400 text-xs italic py-4">No manuals uploaded.</div>
+                                )}
+                             </div>
                         </div>
+
+                        {/* SPECS EDITOR */}
                         <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
                              <div className="flex gap-4 mb-4 items-end">
                                 <input value={newSpecKey} onChange={(e) => setNewSpecKey(e.target.value)} placeholder="Spec Name" className="flex-1 p-2 border border-slate-300 rounded-lg text-sm font-bold" />
@@ -661,7 +738,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                         }} 
                                     />
                                     
-                                    {/* --- ADDED: Display existing ads in a grid to allow deleting --- */}
+                                    {/* Display existing ads in a grid to allow deleting */}
                                     <div className="grid grid-cols-3 gap-2 mt-4">
                                         {((localData.ads as any)[zone] || []).map((ad: any, idx: number) => (
                                             <div key={ad.id} className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
@@ -685,7 +762,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                             </div>
                                         ))}
                                     </div>
-                                    {/* ----------------------------------------------------------------- */}
 
                                 </div>
                             ))}
@@ -721,7 +797,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                             }} 
                         />
                         
-                        {/* --- ADDED: Display Screensaver Media Grid --- */}
                         <div className="grid grid-cols-4 md:grid-cols-6 gap-3 mt-4">
                             {(localData.ads?.screensaver || []).map((ad, idx) => (
                                 <div key={ad.id} className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
@@ -744,7 +819,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                 </div>
                             ))}
                         </div>
-                        {/* --------------------------------------------- */}
                      </div>
                 </div>
             )}
