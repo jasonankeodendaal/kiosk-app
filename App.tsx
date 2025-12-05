@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { KioskApp } from './components/KioskApp';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -11,6 +13,7 @@ export default function App() {
   const [storeData, setStoreData] = useState<StoreData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>('');
 
   // 1. Simple Router Logic
   useEffect(() => {
@@ -29,6 +32,7 @@ export default function App() {
         // Only update if we actually got data back to prevent wiping state on error
         if (data) {
            setStoreData(data);
+           setLastSyncTime(new Date().toLocaleTimeString());
         }
       } catch (e) {
         console.error("Failed to load data", e);
@@ -43,11 +47,11 @@ export default function App() {
     initSupabase();
     fetchData();
 
-    // Polling Fallback (Every 60s)
+    // Polling Fallback (Every 3 minutes as requested)
     const interval = setInterval(() => {
-        console.log("Auto-fetching latest data...");
+        console.log("Auto-fetching latest data (3min cycle)...");
         fetchData();
-    }, 60000);
+    }, 180000); // 3 minutes
 
     // Setup Realtime Subscription
     if (supabase) {
@@ -61,13 +65,16 @@ export default function App() {
               if (payload.new && payload.new.data) {
                  setIsSyncing(true);
                  setStoreData(payload.new.data);
+                 setLastSyncTime(new Date().toLocaleTimeString());
                  // Update local cache
                  localStorage.setItem('kiosk_pro_store_data', JSON.stringify(payload.new.data));
                  setTimeout(() => setIsSyncing(false), 2000);
               }
             }
           )
-          .subscribe();
+          .subscribe((status: string) => {
+             console.log("Supabase Subscription Status:", status);
+          });
 
         return () => {
             supabase.removeChannel(channel);
@@ -86,6 +93,7 @@ export default function App() {
     try {
         // Strict Cloud Save
         await saveStoreData(newData);
+        setLastSyncTime(new Date().toLocaleTimeString());
     } catch (e: any) {
         console.error("Sync failed", e);
         // Alert the user that although the UI updated, the persistence failed
@@ -144,6 +152,7 @@ export default function App() {
       )}
       <KioskApp 
         storeData={storeData}
+        lastSyncTime={lastSyncTime}
         onGoToAdmin={() => handleNavigate('/admin')}
       />
     </>

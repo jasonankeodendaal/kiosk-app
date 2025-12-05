@@ -101,6 +101,13 @@ export interface KioskRegistry {
   restartRequested?: boolean; // Admin triggers this to true, Kiosk reloads and resets to false
 }
 
+export interface ArchiveData {
+    brands: Brand[];
+    products: { product: Product, originalBrand: string, originalCategory: string }[];
+    catalogues: Catalogue[];
+    deletedAt: Record<string, string>; // Map ID to deletion date
+}
+
 export interface StoreData {
   companyLogoUrl?: string; // Global app logo displayed on Home Page TopBar
   hero: HeroConfig;
@@ -109,6 +116,7 @@ export interface StoreData {
   ads?: AdConfig;
   screensaverSettings?: ScreensaverSettings; // New configuration object
   fleet?: KioskRegistry[]; // Persisted fleet data
+  archive?: ArchiveData; // History of deleted/expired items
 }
 
 // Helper type for flatten product list used in Screensaver

@@ -1,7 +1,7 @@
 
 
 import React, { useState } from 'react';
-import { X, Server, Copy, Check, ArrowRight, ExternalLink, ShieldCheck, Database, Key, Settings, Layers, Smartphone, Globe, Cpu, Cloud, ToggleRight, CloudLightning } from 'lucide-react';
+import { X, Server, Copy, Check, ArrowRight, ExternalLink, ShieldCheck, Database, Key, Settings, Layers, Smartphone, Globe, Cpu, Cloud, ToggleRight, CloudLightning, Book } from 'lucide-react';
 
 interface SetupGuideProps {
   onClose: () => void;
@@ -44,7 +44,7 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
              </div>
              <h1 className="text-2xl font-black tracking-tight">System Setup Manual</h1>
            </div>
-           <p className="text-slate-400 text-xs font-bold uppercase tracking-widest pl-12">Zero-to-Hero Configuration Guide</p>
+           <p className="text-slate-400 text-xs font-bold uppercase tracking-widest pl-12">Beginner's Zero-to-Hero Guide</p>
         </div>
         <button onClick={onClose} className="p-3 hover:bg-white/10 rounded-full transition-colors">
           <X size={28} />
@@ -56,7 +56,7 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
         
         {/* Sidebar */}
         <div className="w-72 bg-white border-r border-slate-200 p-4 flex flex-col shrink-0 overflow-y-auto hidden md:flex">
-           <h3 className="font-black text-slate-900 text-xs uppercase tracking-widest mb-4 text-opacity-50 mt-4 px-2">Core Infrastructure</h3>
+           <h3 className="font-black text-slate-900 text-xs uppercase tracking-widest mb-4 text-opacity-50 mt-4 px-2">Local Development</h3>
            
            <button 
              onClick={() => setActiveTab('local')}
@@ -64,7 +64,7 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
            >
               <div className="flex items-center gap-3 relative z-10">
                  <Server size={18} className={activeTab === 'local' ? 'text-blue-600' : 'text-slate-400'} />
-                 <span className={`font-bold text-sm ${activeTab === 'local' ? 'text-blue-900' : 'text-slate-600'}`}>1. The PC Hub (Backend)</span>
+                 <span className={`font-bold text-sm ${activeTab === 'local' ? 'text-blue-900' : 'text-slate-600'}`}>1. The PC Hub</span>
               </div>
            </button>
 
@@ -74,11 +74,11 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
            >
               <div className="flex items-center gap-3 relative z-10">
                  <Layers size={18} className={activeTab === 'split' ? 'text-purple-600' : 'text-slate-400'} />
-                 <span className={`font-bold text-sm ${activeTab === 'split' ? 'text-purple-900' : 'text-slate-600'}`}>2. Split & PWA Build</span>
+                 <span className={`font-bold text-sm ${activeTab === 'split' ? 'text-purple-900' : 'text-slate-600'}`}>2. Split App</span>
               </div>
            </button>
 
-           <h3 className="font-black text-slate-900 text-xs uppercase tracking-widest mb-4 text-opacity-50 mt-6 px-2">Alternatives</h3>
+           <h3 className="font-black text-slate-900 text-xs uppercase tracking-widest mb-4 text-opacity-50 mt-6 px-2">Cloud Infrastructure</h3>
 
            <button 
              onClick={() => setActiveTab('vercel')}
@@ -86,7 +86,7 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
            >
               <div className="flex items-center gap-3 relative z-10">
                  <Globe size={18} className={activeTab === 'vercel' ? 'text-black' : 'text-slate-400'} />
-                 <span className={`font-bold text-sm ${activeTab === 'vercel' ? 'text-slate-900' : 'text-slate-600'}`}>Vercel Hosting</span>
+                 <span className={`font-bold text-sm ${activeTab === 'vercel' ? 'text-slate-900' : 'text-slate-600'}`}>3. Vercel Hosting</span>
               </div>
            </button>
 
@@ -96,7 +96,7 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
            >
               <div className="flex items-center gap-3 relative z-10">
                  <Database size={18} className={activeTab === 'supabase' ? 'text-green-600' : 'text-slate-400'} />
-                 <span className={`font-bold text-sm ${activeTab === 'supabase' ? 'text-green-900' : 'text-slate-600'}`}>Supabase Cloud</span>
+                 <span className={`font-bold text-sm ${activeTab === 'supabase' ? 'text-green-900' : 'text-slate-600'}`}>4. Supabase Cloud</span>
               </div>
            </button>
         </div>
@@ -109,8 +109,8 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
               <div className="md:hidden flex border-b border-slate-200 overflow-x-auto">
                  <button onClick={() => setActiveTab('local')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'local' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500'}`}>1. Local Hub</button>
                  <button onClick={() => setActiveTab('split')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'split' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-slate-500'}`}>2. Split App</button>
-                 <button onClick={() => setActiveTab('vercel')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'vercel' ? 'text-black border-b-2 border-black' : 'text-slate-500'}`}>Vercel</button>
-                 <button onClick={() => setActiveTab('supabase')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'supabase' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500'}`}>Supabase</button>
+                 <button onClick={() => setActiveTab('vercel')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'vercel' ? 'text-black border-b-2 border-black' : 'text-slate-500'}`}>3. Vercel</button>
+                 <button onClick={() => setActiveTab('supabase')} className={`flex-1 p-4 font-bold text-xs uppercase tracking-wider whitespace-nowrap ${activeTab === 'supabase' ? 'text-green-600 border-b-2 border-green-600' : 'text-slate-500'}`}>4. Supabase</button>
               </div>
 
               {/* === TAB 1: LOCAL SERVER === */}
@@ -120,11 +120,11 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
                       <div className="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest mb-4">Step 1: The Engine</div>
                       <h2 className="text-3xl font-black text-slate-900 mb-4">Setting up the PC Hub</h2>
                       <p className="text-slate-600 leading-relaxed text-lg mb-4">
-                        We will turn your personal computer into a professional server. It will host the database, serve the website, and manage the fleet.
+                        We will turn your personal computer into a professional server. It will host the database, serve the website to your tablets, and manage the fleet.
                       </p>
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm text-slate-600">
+                      <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-sm text-blue-800">
                         <strong>Why do we need this?</strong><br/>
-                        Regular websites live in the "Cloud". But you want to run this 100% free and control the data yourself. To do that, your PC needs to act like the Cloud.
+                        Normally, websites live on the internet ("Cloud"). But if your internet goes down, your Kiosk stops working. This "Local Hub" ensures your shop runs 100% offline using your PC as the brain.
                       </div>
                    </div>
 
@@ -138,8 +138,8 @@ const SetupGuide: React.FC<SetupGuideProps> = ({ onClose }) => {
                                <p className="text-slate-600 mb-4 text-sm font-medium">
                                  <strong>What is it?</strong> JavaScript usually only lives in the browser. Node.js lets JavaScript live on your hard drive so it can read files (like your product database).
                                </p>
-                               <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500 text-sm mb-4">
-                                  <strong>Action:</strong> Create a folder named <code>server</code> in your project root. Inside it, create <code>index.js</code>.
+                               <div className="bg-slate-100 p-4 rounded-lg border-l-4 border-slate-400 text-sm mb-4">
+                                  <strong>Action:</strong> Create a folder named <code>server</code> in your project root. Inside it, create <code>index.js</code>. Copy the code below exactly.
                                </div>
                                <CodeBlock 
                                  id="server-code"
@@ -194,22 +194,22 @@ app.listen(3000, () => console.log('HUB SERVER ONLINE: Port 3000'));`}
                       <div className="inline-block px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-[10px] font-black uppercase tracking-widest mb-4">Step 2: Build & Structure</div>
                       <h2 className="text-3xl font-black text-slate-900 mb-4">The Split Architecture</h2>
                       <p className="text-slate-600 leading-relaxed text-lg mb-4">
-                         Separating the frontend (UI) from the backend (Server) ensures the kiosk runs smoothly even if you move hosting providers.
+                         "Split App" means we separate the <strong>Frontend</strong> (What you see on screen) from the <strong>Backend</strong> (Where data is saved). This is standard for professional apps.
                       </p>
                     </div>
 
                     <div className="space-y-8">
                         <div>
-                             <h3 className="font-bold text-slate-900 text-lg mb-2">1. Project Structure</h3>
-                             <p className="text-sm text-slate-600 mb-4">Organize your folders like this to make the split work:</p>
+                             <h3 className="font-bold text-slate-900 text-lg mb-2">1. Project Folder Structure</h3>
+                             <p className="text-sm text-slate-600 mb-4">Make sure your files are organized exactly like this, or the server won't find the website files.</p>
                              <CodeBlock 
                                 id="folder-structure"
                                 code={`/my-kiosk-project
-  /dist           <-- Built frontend code (Auto-generated)
-  /src            <-- React source code
-  /server         <-- The Node.js backend
+  /dist           <-- Built frontend code (Auto-generated by build command)
+  /src            <-- React source code (Where you edit the app)
+  /server         <-- The Node.js backend (Created in Step 1)
      index.js
-     db.json      <-- Your local database
+     db.json      <-- Your local database (Auto-created when you save)
   package.json
   vite.config.ts`}
                              />
@@ -218,29 +218,34 @@ app.listen(3000, () => console.log('HUB SERVER ONLINE: Port 3000'));`}
                         <div>
                             <h3 className="font-bold text-slate-900 text-lg mb-2">2. Building the Frontend</h3>
                             <p className="text-sm text-slate-600 mb-4">
-                                Before running the server, you must compile the React code into standard HTML/JS.
+                                Browsers can't read React code directly. We must "compile" it into standard HTML.
                             </p>
                             <CodeBlock 
                                 id="build-cmd"
-                                label="Terminal"
+                                label="Terminal Command"
                                 code={`npm run build`}
                             />
-                            <p className="text-xs text-slate-500 mt-2">This command uses Vite to create the <code>dist</code> folder.</p>
+                            <p className="text-xs text-slate-500 mt-2">This command uses Vite to create the <code>dist</code> folder. Run this every time you change the visual code.</p>
                         </div>
                         
                         <div>
                             <h3 className="font-bold text-slate-900 text-lg mb-2">3. Running the Combo</h3>
                             <p className="text-sm text-slate-600 mb-4">
-                                Once built, start your custom Node server to host everything locally.
+                                Now we start the server, which serves the <code>dist</code> folder to your tablets.
                             </p>
                             <CodeBlock 
                                 id="run-server"
-                                label="Terminal"
+                                label="Terminal Command"
                                 code={`node server/index.js`}
                             />
-                            <div className="bg-green-50 text-green-800 p-4 rounded-lg text-sm mt-4">
+                            <div className="bg-green-50 text-green-800 p-4 rounded-lg text-sm mt-4 border border-green-200">
                                 <strong>Success!</strong> You can now access your kiosk at <code>http://localhost:3000</code>.
-                                Other tablets on the same WiFi can access it via your PC's IP Address (e.g., <code>http://192.168.1.5:3000</code>).
+                                <br/><br/>
+                                <strong>Connecting Tablets:</strong>
+                                <br/>
+                                1. Find your PC's IP Address (Open CMD/Terminal, type <code>ipconfig</code> or <code>ifconfig</code>).
+                                <br/>
+                                2. On the tablet, open Chrome and go to <code>http://YOUR_PC_IP:3000</code>.
                             </div>
                         </div>
                     </div>
@@ -254,16 +259,17 @@ app.listen(3000, () => console.log('HUB SERVER ONLINE: Port 3000'));`}
                       <div className="inline-block px-3 py-1 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest mb-4">Step 3: Cloud Hosting</div>
                       <h2 className="text-3xl font-black text-slate-900 mb-4">Deploying to Vercel</h2>
                       <p className="text-slate-600 leading-relaxed text-lg mb-4">
-                         Vercel is the easiest way to put your kiosk online for free. It handles SSL (HTTPS) and global CDN distribution automatically.
+                         Vercel puts your kiosk on the public internet. This allows you to manage the kiosk from home, while the kiosk sits in the shop.
                       </p>
                     </div>
 
                     <div className="space-y-8">
                         <div>
-                            <h3 className="font-bold text-slate-900 text-lg mb-2">1. Install Vercel CLI</h3>
+                            <h3 className="font-bold text-slate-900 text-lg mb-2">1. Install Vercel Tool</h3>
+                            <p className="text-sm text-slate-600 mb-2">This tool lets you upload your code from the terminal.</p>
                             <CodeBlock 
                                 id="vercel-install"
-                                label="Terminal"
+                                label="Terminal Command"
                                 code={`npm i -g vercel`}
                             />
                         </div>
@@ -273,23 +279,24 @@ app.listen(3000, () => console.log('HUB SERVER ONLINE: Port 3000'));`}
                             <p className="text-sm text-slate-600 mb-2">Run these commands in your project root folder:</p>
                             <CodeBlock 
                                 id="vercel-deploy"
-                                label="Terminal"
+                                label="Terminal Command"
                                 code={`vercel login
 vercel --prod`}
                             />
-                            <p className="text-xs text-slate-500 mt-2">Follow the prompts. Accept defaults for most questions.</p>
+                            <p className="text-xs text-slate-500 mt-2">Follow the prompts. Accept defaults (Y) for most questions.</p>
                         </div>
 
-                        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl">
-                            <h3 className="font-bold text-yellow-900 text-sm uppercase mb-2">Important: Environment Variables</h3>
+                        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl shadow-sm">
+                            <h3 className="font-bold text-yellow-900 text-sm uppercase mb-2">Important: Connecting Supabase</h3>
                             <p className="text-sm text-yellow-800 mb-2">
-                                If you are using Supabase, you must add your keys to Vercel.
+                                For the website to talk to your database, you must give Vercel the "keys".
                             </p>
-                            <ol className="list-decimal pl-5 text-sm text-yellow-800 space-y-1">
-                                <li>Go to your Vercel Dashboard &rarr; Project &rarr; Settings.</li>
-                                <li>Click <strong>Environment Variables</strong>.</li>
-                                <li>Add <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>.</li>
-                                <li>Redeploy for changes to take effect.</li>
+                            <ol className="list-decimal pl-5 text-sm text-yellow-800 space-y-2">
+                                <li>Go to your Vercel Dashboard in your browser.</li>
+                                <li>Select your Project &rarr; Settings &rarr; <strong>Environment Variables</strong>.</li>
+                                <li>Add <code>NEXT_PUBLIC_SUPABASE_URL</code> (Get this from Supabase Settings).</li>
+                                <li>Add <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> (Get this from Supabase Settings).</li>
+                                <li><strong>Redeploy</strong> your app for changes to take effect.</li>
                             </ol>
                         </div>
                     </div>
@@ -300,8 +307,8 @@ vercel --prod`}
               {activeTab === 'supabase' && (
                 <div className="p-8 animate-fade-in">
                     <div className="mb-8">
-                       <h2 className="text-3xl font-black text-slate-900 mb-2">Supabase Cloud Config</h2>
-                       <p className="text-slate-600">Use Supabase for database hosting and optimized large file storage.</p>
+                       <h2 className="text-3xl font-black text-slate-900 mb-2">Supabase Cloud Database</h2>
+                       <p className="text-slate-600">Supabase acts as your real-time cloud database. It syncs data between the Admin Hub (Home) and the Kiosk (Shop).</p>
                     </div>
 
                     <div className="space-y-8">
@@ -309,30 +316,33 @@ vercel --prod`}
                         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
                              <div className="flex items-center gap-3 mb-4">
                                  <CloudLightning size={24} className="text-blue-600" />
-                                 <h3 className="text-lg font-black text-blue-900 uppercase">1. Optimize Uploads (Storage Bucket)</h3>
+                                 <h3 className="text-lg font-black text-blue-900 uppercase">1. Fix Upload Errors (Storage Bucket)</h3>
                              </div>
                              <p className="text-sm text-slate-700 mb-4">
-                                 Your error "File too large" happens because the storage bucket isn't setup. <br/>Run the SQL in Step 4 below to fix this instantly.
+                                 If you see "File too large" errors, it's because Supabase Storage isn't active. <br/>Run the SQL in <strong>Step 4 (Bottom)</strong> to fix this instantly.
                              </p>
                         </div>
 
                         <div>
-                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2">2. Database Schema</h3>
-                            <p className="text-sm text-slate-600 mb-4">Run this SQL in your Supabase SQL Editor to create the required tables.</p>
+                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2">2. Setup Tables</h3>
+                            <p className="text-sm text-slate-600 mb-4">
+                                Go to the <strong>SQL Editor</strong> in Supabase, paste this code, and click <strong>RUN</strong>. This creates the database structure.
+                            </p>
                             <CodeBlock 
                                 id="supabase-sql"
                                 label="SQL Editor"
-                                code={`-- 1. Store Config Table
+                                code={`-- 1. Store Config Table (Holds all products/settings)
 create table if not exists public.store_config (
   id bigint primary key,
   data jsonb,
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 2. Kiosk Telemetry Table
+-- 2. Kiosk Telemetry Table (Tracks online status of tablets)
 create table if not exists public.kiosks (
   id text primary key,
   name text,
+  device_type text,
   status text,
   last_seen timestamp with time zone,
   wifi_strength int,
@@ -349,26 +359,37 @@ insert into public.store_config (id, data)
 select 1, '{}'::jsonb
 where not exists (select 1 from public.store_config where id = 1);
 
--- 4. Enable Realtime (For Auto-Sync)
-alter publication supabase_realtime add table public.store_config;
-`}
+-- 4. Enable Realtime (Auto-Sync)
+-- We use a DO block to prevent errors if you run this script twice.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables 
+    where pubname = 'supabase_realtime' 
+    and schemaname = 'public' 
+    and tablename = 'store_config'
+  ) then
+    alter publication supabase_realtime add table public.store_config;
+  end if;
+end;
+$$;`}
                             />
                         </div>
 
                         <div>
-                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2">3. Environment Variables</h3>
-                            <p className="text-sm text-slate-600 mb-4">Add these to your Vercel project or .env file.</p>
+                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2">3. Connect App</h3>
+                            <p className="text-sm text-slate-600 mb-4">Copy these keys from Supabase Settings -> API, and put them in your Vercel Environment Variables.</p>
                             <CodeBlock 
                                 id="supabase-env"
-                                label=".env"
+                                label=".env Example"
                                 code={`NEXT_PUBLIC_SUPABASE_URL=your_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key`}
                             />
                         </div>
 
                         <div>
-                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2 text-red-600">4. Storage Bucket SQL (FIX FOR UPLOAD ERRORS)</h3>
-                            <p className="text-sm text-slate-600 mb-4">Run this SQL to create the media bucket and allow uploads.</p>
+                            <h3 className="font-bold text-slate-900 uppercase text-xs tracking-wider mb-2 text-red-600">4. Create Media Bucket (REQUIRED FOR VIDEOS)</h3>
+                            <p className="text-sm text-slate-600 mb-4">Run this SQL to create the 'kiosk-media' folder in the cloud and allow public access.</p>
                             <CodeBlock 
                                 id="supabase-storage-sql"
                                 label="SQL Editor - Storage Fix"

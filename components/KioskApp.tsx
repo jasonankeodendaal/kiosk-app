@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
 import { 
@@ -17,7 +19,7 @@ import ProductList from './ProductList';
 import ProductDetail from './ProductDetail';
 import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
-import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive } from 'lucide-react';
+import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw } from 'lucide-react';
 
 const DEFAULT_IDLE_TIMEOUT = 60000;
 
@@ -154,7 +156,7 @@ export const SetupScreen = ({
   );
 };
 
-export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | null, onGoToAdmin: () => void }) => {
+export const KioskApp = ({ storeData, onGoToAdmin, lastSyncTime }: { storeData: StoreData | null, onGoToAdmin: () => void, lastSyncTime?: string }) => {
   const [isSetup, setIsSetup] = useState(isKioskConfigured());
   const [kioskId, setKioskId] = useState(getKioskId());
   const [deviceType, setDeviceTypeState] = useState(getDeviceType());
@@ -315,6 +317,13 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
       });
   }, []);
 
+  // Filter Expired Content
+  const filteredCatalogs = useMemo(() => {
+      if(!storeData?.catalogues) return [];
+      const now = new Date();
+      return storeData.catalogues.filter(c => !c.endDate || new Date(c.endDate) >= now);
+  }, [storeData?.catalogues]);
+
   // MEMOIZED TO PREVENT SCREENSAVER RE-RENDERS
   // MOVED BEFORE CONDITIONAL RETURNS TO FIX REACT ERROR #300
   const allProducts = useMemo(() => {
@@ -362,7 +371,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
          <Screensaver 
            products={allProducts} 
            ads={storeData.ads?.screensaver || []} 
-           pamphlets={storeData.catalogues || []}
+           pamphlets={filteredCatalogs}
            onWake={resetIdleTimer}
            settings={storeData.screensaverSettings}
          />
@@ -374,7 +383,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
                <BrandGrid 
                  brands={storeData.brands} 
                  heroConfig={storeData.hero}
-                 allCatalogs={storeData.catalogues || []} 
+                 allCatalogs={filteredCatalogs} 
                  ads={storeData.ads}
                  onSelectBrand={setActiveBrand}
                  onViewGlobalCatalog={handleViewCatalog} 
@@ -385,7 +394,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
              ) : !activeCategory ? (
                <CategoryGrid 
                  brand={activeBrand} 
-                 storeCatalogs={storeData.catalogues || []}
+                 storeCatalogs={filteredCatalogs}
                  onSelectCategory={setActiveCategory}
                  onViewCatalog={handleViewCatalog} 
                  onBack={() => setActiveBrand(null)} 
@@ -396,7 +405,7 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
                <ProductList 
                  category={activeCategory} 
                  brand={activeBrand}
-                 storeCatalogs={storeData.catalogues || []}
+                 storeCatalogs={filteredCatalogs}
                  onSelectProduct={setActiveProduct} 
                  onBack={() => setActiveCategory(null)}
                  onViewCatalog={handleViewCatalog} 
@@ -443,6 +452,12 @@ export const KioskApp = ({ storeData, onGoToAdmin }: { storeData: StoreData | nu
           </div>
 
           <div className="flex items-center gap-6">
+              {lastSyncTime && (
+                  <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                      <RefreshCw size={10} />
+                      <span>Sync: {lastSyncTime}</span>
+                  </div>
+              )}
               <div className="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
                  <Clock size={12} className="text-blue-400" />
                  <span className="text-xs font-mono font-bold">

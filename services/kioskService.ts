@@ -129,7 +129,7 @@ export const isKioskConfigured = (): boolean => {
   return !!getKioskId() && !!getShopName();
 };
 
-// 6. Complete Setup
+// 6. Complete Setup (Robust Version)
 export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' | 'mobile'): Promise<boolean> => {
   const id = getKioskId();
   if (!id) return false;
@@ -137,11 +137,12 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
   localStorage.setItem(STORAGE_KEY_NAME, shopName);
   localStorage.setItem(STORAGE_KEY_TYPE, deviceType);
   
-  // Register in DB
+  // Ensure DB is ready
   initSupabase();
   
   if (supabase) {
       try {
+        console.log(`Registering Kiosk: ${id} (${shopName})...`);
         const kioskData: KioskRegistry = {
           id,
           name: shopName,
@@ -150,34 +151,41 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
           last_seen: new Date().toISOString(),
           wifiStrength: 100,
           ipAddress: 'Unknown',
-          version: '1.0.4',
+          version: '1.0.5',
           locationDescription: 'Newly Registered',
           assignedZone: 'Unassigned',
           requestSnapshot: false,
           restartRequested: false
         };
 
-        // 1. Write to Telemetry Table (Keep Alive)
+        // 1. Write to Telemetry Table (Individual Record)
         const { error: telemetryError } = await supabase.from('kiosks').upsert(kioskData);
-        if (telemetryError) console.warn("Telemetry update failed", telemetryError);
+        if (telemetryError) {
+             console.warn("Telemetry update failed:", telemetryError.message);
+             throw new Error("Telemetry Write Failed");
+        }
 
-        // 2. Update the Global Store Config JSON so Admin Hub sees it in the list immediately
-        const { data: currentConfig, error } = await supabase
+        // 2. Update the Global Store Config JSON
+        // CRITICAL: Fetch LATEST config first to avoid overwriting other fleet members
+        const { data: currentConfig, error: fetchError } = await supabase
           .from('store_config')
           .select('data')
           .eq('id', 1)
           .single();
 
-        let newFleet: KioskRegistry[] = [];
-        let configData: any = { brands: [], fleet: [] };
-
-        if (currentConfig && currentConfig.data) {
-             configData = currentConfig.data;
-             newFleet = [...(configData.fleet || [])];
+        if (fetchError) {
+             console.warn("Could not fetch current fleet config:", fetchError.message);
         }
 
-        // Remove existing entry if present (avoid duplicates)
-        newFleet = newFleet.filter((k: KioskRegistry) => k.id !== id);
+        let configData: any = { brands: [], fleet: [] };
+        if (currentConfig && currentConfig.data) {
+             configData = currentConfig.data;
+        }
+
+        const currentFleet = Array.isArray(configData.fleet) ? configData.fleet : [];
+        
+        // Remove self if exists (update scenario), then append
+        const newFleet = currentFleet.filter((k: KioskRegistry) => k.id !== id);
         newFleet.push(kioskData);
         
         const { error: updateError } = await supabase
@@ -188,13 +196,15 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
           });
           
         if (updateError) {
-            console.error("Fleet registry update failed", updateError);
-            alert("Warning: Failed to register with Fleet Manager. Please check connection.");
+            console.error("Fleet registry update failed:", updateError.message);
+            alert("Warning: Failed to update Global Fleet list. However, device telemetry is active.");
+        } else {
+            console.log("Fleet list updated successfully.");
         }
 
-      } catch(e) {
+      } catch(e: any) {
         console.error("Failed to register kiosk in cloud", e);
-        alert("Setup Warning: Could not connect to cloud database. Kiosk running in offline mode.");
+        alert(`Setup Warning: Cloud registration failed (${e.message}). Kiosk is running locally.`);
       }
   } else {
       console.warn("Supabase not configured. Kiosk running in local mode.");
