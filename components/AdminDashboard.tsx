@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll
 } from 'lucide-react';
-import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, ProductManual } from '../types';
+import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet } from '../types';
 import { resetStoreData } from '../services/geminiService';
 import { uploadFileToStorage, supabase, checkCloudConnection } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
@@ -14,7 +14,6 @@ import JSZip from 'jszip';
 
 const generateId = (prefix: string) => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
 
-// Updated to convert ALL pages of PDF
 const convertPdfToImages = async (pdfDataUrl: string): Promise<string[]> => {
     try {
         const pdfjsLib = await import('pdfjs-dist');
@@ -27,9 +26,6 @@ const convertPdfToImages = async (pdfDataUrl: string): Promise<string[]> => {
         const numPages = pdf.numPages;
         const images: string[] = [];
 
-        console.log(`Converting PDF with ${numPages} pages...`);
-
-        // Loop through ALL pages
         for (let i = 1; i <= numPages; i++) {
             const page = await pdf.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
@@ -43,387 +39,178 @@ const convertPdfToImages = async (pdfDataUrl: string): Promise<string[]> => {
                 images.push(canvas.toDataURL('image/jpeg', 0.8));
             }
         }
-        
-        console.log(`Converted ${images.length} pages.`);
         return images;
-    } catch (error) {
-        console.error("PDF Conversion Error:", error);
-        alert("Failed to convert PDF. Ensure it is a valid PDF file.");
+    } catch (e) {
+        console.error("PDF Conversion Error", e);
         return [];
     }
 };
 
-const FileUpload = ({ label, onUpload, accept = "image/*", type="image", multiple=false }: { label: string, onUpload: (urls: string[]) => void, accept?: string, type?: 'image'|'video'|'pdf', multiple?: boolean }) => {
-    const [uploading, setUploading] = useState(false);
-  
-    const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files.length > 0) {
-        setUploading(true);
-        const files = Array.from(e.target.files) as File[];
-        const uploadedUrls: string[] = [];
-  
-        try {
-            for (const file of files) {
-                // PDF HANDLING
-                if (file.type === 'application/pdf' || type === 'pdf') {
-                    const reader = new FileReader();
-                    const pdfDataUrl = await new Promise<string>((resolve) => {
-                        reader.onload = (ev) => resolve(ev.target?.result as string);
-                        reader.readAsDataURL(file);
-                    });
-                    
-                    // Convert ALL pages to Images
-                    const images = await convertPdfToImages(pdfDataUrl);
-                    
-                    // Upload all converted page images
-                    for(const imgBase64 of images) {
-                        // Convert base64 back to Blob for upload
-                        const res = await fetch(imgBase64);
-                        const blob = await res.blob();
-                        const imageFile = new File([blob], `page_${Date.now()}.jpg`, { type: "image/jpeg" });
-                        
-                        const url = await uploadFileToStorage(imageFile);
-                        uploadedUrls.push(url);
-                    }
-                } 
-                // STANDARD IMAGE/VIDEO HANDLING
-                else {
-                    const url = await uploadFileToStorage(file);
-                    uploadedUrls.push(url);
-                }
-            }
-            onUpload(uploadedUrls);
-        } catch (err: any) {
-            console.error(err);
-            alert("Upload Failed: " + err.message);
-        } finally {
-            setUploading(false);
-        }
-      }
-    };
-  
-    return (
-      <div className="mb-4">
-        <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{label}</label>
-        <div className="flex items-center gap-4">
-           <label className={`flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer transition-colors border border-slate-200 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-               {uploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-               <span className="text-xs font-bold uppercase">{uploading ? 'Processing...' : multiple ? 'Upload Files' : 'Upload File'}</span>
-               <input type="file" className="hidden" accept={accept} onChange={handleFile} multiple={multiple} disabled={uploading} />
-           </label>
-           {uploading && <span className="text-xs text-slate-400 animate-pulse">This may take a moment...</span>}
+const Auth = ({ setSession }: { setSession: (s: boolean) => void }) => {
+  const [password, setPassword] = useState('');
+  const handleAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if(password === 'admin') setSession(true); 
+    else alert('Incorrect password.');
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-slate-800 p-4 animate-fade-in">
+      <div className="bg-slate-100 p-8 rounded-3xl shadow-2xl max-w-md w-full relative overflow-hidden border border-slate-300">
+        <h1 className="text-4xl font-black mb-2 text-center text-slate-900 mt-4 tracking-tight">Admin Hub</h1>
+        <form onSubmit={handleAuth} className="space-y-6">
+          <input className="w-full p-4 border border-slate-300 rounded-xl bg-white font-bold" type="password" placeholder="ACCESS KEY" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+          <button type="submit" className="w-full p-4 font-black rounded-xl bg-slate-900 text-white uppercase">Login</button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <ImageIcon />, allowMultiple = false }: any) => {
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setIsProcessing(true);
+      setUploadProgress(10); 
+      const files = Array.from(e.target.files) as File[];
+      let fileType = files[0].type.startsWith('video') ? 'video' : files[0].type === 'application/pdf' ? 'pdf' : 'image';
+
+      const uploadSingle = async (file: File) => {
+           try {
+              return await uploadFileToStorage(file);
+           } catch (e) {
+              return new Promise((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(file);
+              });
+           }
+      };
+
+      try {
+          if (allowMultiple) {
+              const results: string[] = [];
+              for(let i=0; i<files.length; i++) {
+                  results.push(await uploadSingle(files[i]) as string);
+                  setUploadProgress(((i+1)/files.length)*100);
+              }
+              onUpload(results, fileType);
+          } else {
+              const res = await uploadSingle(files[0]);
+              setUploadProgress(100);
+              onUpload(res, fileType);
+          }
+      } catch (err) { alert("Upload error"); } 
+      finally { setTimeout(() => { setIsProcessing(false); setUploadProgress(0); }, 500); }
+    }
+  };
+
+  return (
+    <div className="mb-4">
+      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">{label}</label>
+      <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+        {isProcessing && <div className="absolute bottom-0 left-0 h-1 bg-blue-500 transition-all" style={{ width: `${uploadProgress}%` }}></div>}
+        <div className="w-16 h-16 bg-slate-50 border border-slate-200 border-dashed rounded-lg flex items-center justify-center overflow-hidden shrink-0">
+           {isProcessing ? <Loader2 className="animate-spin text-blue-500" /> : currentUrl && !allowMultiple ? (accept.includes('video') ? <Video /> : accept.includes('pdf') ? <FileText /> : <img src={currentUrl} className="w-full h-full object-cover" />) : icon}
         </div>
+        <label className={`cursor-pointer bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-[10px] uppercase ${isProcessing ? 'opacity-50' : ''}`}>
+              <Upload size={12} className="inline mr-2" /> {isProcessing ? 'Uploading...' : 'Select File'}
+              <input type="file" className="hidden" accept={accept} onChange={handleFileChange} disabled={isProcessing} multiple={allowMultiple}/>
+        </label>
       </div>
-    );
+    </div>
+  );
 };
 
-// --- SUB-COMPONENTS ---
-const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave: (p: Product) => void, onCancel: () => void }) => {
-    const [formData, setFormData] = useState<Product>({ ...product });
-    // Ensure manuals is init
-    if(!formData.manuals) formData.manuals = [];
+const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false }: any) => (
+    <div className={`mb-4 ${half ? 'w-full' : ''}`}>
+      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">{label}</label>
+      {isArea ? <textarea value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl h-24 focus:ring-2 focus:ring-blue-500 outline-none resize-none text-sm" placeholder={placeholder} /> : <input value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" placeholder={placeholder} />}
+    </div>
+);
 
-    const updateSpec = (key: string, value: string) => {
-       setFormData(prev => ({ ...prev, specs: { ...prev.specs, [key]: value } }));
-    };
-  
-    const removeSpec = (key: string) => {
-      const newSpecs = { ...formData.specs };
-      delete newSpecs[key];
-      setFormData(prev => ({ ...prev, specs: newSpecs }));
-    };
+const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalogue[], onSave: (c: Catalogue[]) => void, brandId?: string }) => {
+    const [localList, setLocalList] = useState(catalogues || []);
+    useEffect(() => setLocalList(catalogues || []), [catalogues]);
 
-    // Dimension Helpers
-    const updateDimension = (index: number, field: keyof DimensionSet, value: string) => {
-        const newDims = [...formData.dimensions];
-        newDims[index] = { ...newDims[index], [field]: value };
-        setFormData(prev => ({ ...prev, dimensions: newDims }));
+    // Local update wrapper
+    const handleUpdate = (newList: Catalogue[]) => {
+        setLocalList(newList);
+        onSave(newList); // Propagate up to AdminDashboard local state
     };
 
-    const addDimensionSet = () => {
-        setFormData(prev => ({
-            ...prev,
-            dimensions: [...prev.dimensions, { label: "New Box", width: "", height: "", depth: "", weight: "" }]
-        }));
+    const addCatalogue = () => {
+        handleUpdate([...localList, {
+            id: generateId('cat'),
+            title: brandId ? 'New Brand Catalogue' : 'New Pamphlet',
+            brandId: brandId,
+            type: brandId ? 'catalogue' : 'pamphlet', 
+            pages: [],
+            year: new Date().getFullYear(),
+            startDate: '',
+            endDate: ''
+        }]);
     };
 
-    const removeDimensionSet = (index: number) => {
-        const newDims = formData.dimensions.filter((_, i) => i !== index);
-        setFormData(prev => ({ ...prev, dimensions: newDims }));
+    const updateCatalogue = (id: string, updates: Partial<Catalogue>) => {
+        handleUpdate(localList.map(c => c.id === id ? { ...c, ...updates } : c));
     };
 
-    // Manual Helpers
-    const handleAddManual = (images: string[]) => {
-        if(images.length === 0) return;
-        const newManual: ProductManual = {
-            id: generateId('man'),
-            title: `Manual ${formData.manuals ? formData.manuals.length + 1 : 1}`,
-            images: images
-        };
-        setFormData(prev => ({ ...prev, manuals: [...(prev.manuals || []), newManual] }));
-    };
-
-    const updateManualTitle = (index: number, title: string) => {
-        const newManuals = [...(formData.manuals || [])];
-        newManuals[index].title = title;
-        setFormData(prev => ({ ...prev, manuals: newManuals }));
-    };
-
-    const removeManual = (index: number) => {
-        const newManuals = (formData.manuals || []).filter((_, i) => i !== index);
-        setFormData(prev => ({ ...prev, manuals: newManuals }));
-    };
-  
-    return (
-      <div className="fixed inset-0 z-[60] bg-slate-900/95 backdrop-blur-sm flex items-center justify-center p-4">
-         <div className="bg-white rounded-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-               <h3 className="text-xl font-black text-slate-800 uppercase flex items-center gap-2">
-                 <Edit2 size={20} className="text-blue-600" /> Edit Product
-               </h3>
-               <button onClick={onCancel} className="text-slate-400 hover:text-red-500 transition-colors"><X size={24} /></button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-8 space-y-8">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                      <div>
-                          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Product Name</label>
-                          <input className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-900 focus:border-blue-500 outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">SKU / Code</label>
-                          <input className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg font-mono text-sm" value={formData.sku || ''} onChange={e => setFormData({...formData, sku: e.target.value})} />
-                      </div>
-                      <div>
-                          <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Description</label>
-                          <textarea className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg h-32 text-sm" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-                      </div>
-                  </div>
-                  
-                  <div className="space-y-6">
-                      <FileUpload label="Main Product Image" onUpload={(urls) => setFormData({...formData, imageUrl: urls[0]})} />
-                      {formData.imageUrl && (
-                          <div className="w-32 h-32 bg-slate-100 rounded-lg border border-slate-200 p-2 relative group">
-                              <img src={formData.imageUrl} className="w-full h-full object-contain" alt="Preview" />
-                              <button onClick={() => setFormData({...formData, imageUrl: ''})} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
-                          </div>
-                      )}
-
-                      <FileUpload label="Gallery Images" multiple onUpload={(urls) => setFormData({...formData, galleryUrls: [...(formData.galleryUrls || []), ...urls]})} />
-                      {formData.galleryUrls && formData.galleryUrls.length > 0 && (
-                          <div className="flex gap-2 overflow-x-auto pb-2">
-                              {formData.galleryUrls.map((url, i) => (
-                                  <div key={i} className="w-16 h-16 shrink-0 bg-slate-100 rounded border relative group">
-                                      <img src={url} className="w-full h-full object-cover" alt="" />
-                                      <button onClick={() => setFormData({...formData, galleryUrls: formData.galleryUrls?.filter((_, idx) => idx !== i)})} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl opacity-0 group-hover:opacity-100"><X size={10} /></button>
-                                  </div>
-                              ))}
-                          </div>
-                      )}
-
-                      <FileUpload label="Product Videos (MP4)" type="video" multiple onUpload={(urls) => setFormData({...formData, videoUrls: [...(formData.videoUrls || []), ...urls]})} />
-                      {formData.videoUrls && formData.videoUrls.length > 0 && (
-                          <div className="space-y-2">
-                             {formData.videoUrls.map((url, i) => (
-                                 <div key={i} className="flex items-center justify-between bg-slate-50 p-2 rounded border border-slate-200">
-                                     <div className="flex items-center gap-2 truncate">
-                                         <Video size={14} className="text-blue-500" />
-                                         <span className="text-xs truncate max-w-[200px]">{url.split('/').pop()}</span>
-                                     </div>
-                                     <button onClick={() => setFormData({...formData, videoUrls: formData.videoUrls?.filter((_, idx) => idx !== i)})} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={14} /></button>
-                                 </div>
-                             ))}
-                          </div>
-                      )}
-                  </div>
-               </div>
-
-               {/* MULTI MANUALS SECTION */}
-               <div className="border-t border-slate-200 pt-6">
-                  <h4 className="text-sm font-black text-slate-800 uppercase mb-4 flex items-center gap-2">
-                      <Book size={16} /> User Manuals
-                  </h4>
-                  
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-4">
-                     <FileUpload label="Add New Manual (PDF)" type="pdf" onUpload={handleAddManual} />
-                     <p className="text-[10px] text-slate-500 mt-1">Upload a PDF. All pages will be converted to images automatically.</p>
-                  </div>
-
-                  {formData.manuals && formData.manuals.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {formData.manuals.map((manual, idx) => (
-                              <div key={manual.id} className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm flex items-center gap-3">
-                                  <div className="w-12 h-16 bg-slate-100 border border-slate-200 rounded flex items-center justify-center shrink-0 overflow-hidden">
-                                      {manual.images && manual.images[0] ? (
-                                          <img src={manual.images[0]} className="w-full h-full object-cover" alt="Cover" />
-                                      ) : <FileText size={20} className="text-slate-300" />}
-                                  </div>
-                                  <div className="flex-1">
-                                      <input 
-                                        type="text" 
-                                        value={manual.title}
-                                        onChange={(e) => updateManualTitle(idx, e.target.value)}
-                                        className="w-full text-sm font-bold border-b border-transparent focus:border-blue-500 outline-none bg-transparent"
-                                        placeholder="Manual Title"
-                                      />
-                                      <div className="text-[10px] text-slate-400 mt-1">{manual.images.length} Pages</div>
-                                  </div>
-                                  <button onClick={() => removeManual(idx)} className="text-slate-400 hover:text-red-500 p-2"><Trash2 size={16} /></button>
-                              </div>
-                          ))}
-                      </div>
-                  ) : (
-                      <div className="text-center py-4 text-slate-400 text-sm italic">No manuals uploaded.</div>
-                  )}
-               </div>
-
-               <div className="border-t border-slate-200 pt-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-black text-slate-800 uppercase flex items-center gap-2"><Ruler size={16} /> Dimensions & Weights</h4>
-                    <button onClick={addDimensionSet} className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-bold uppercase hover:bg-blue-100">+ Add Box/Unit</button>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {formData.dimensions.map((dim, i) => (
-                          <div key={i} className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative group">
-                              <button onClick={() => removeDimensionSet(i)} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={14} /></button>
-                              
-                              <div className="mb-2">
-                                  <label className="text-[10px] font-bold uppercase text-slate-400">Label (e.g. Stand)</label>
-                                  <input className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs font-bold" value={dim.label || ''} onChange={(e) => updateDimension(i, 'label', e.target.value)} placeholder={`Unit ${i+1}`} />
-                              </div>
-
-                              <div className="grid grid-cols-4 gap-2">
-                                  <div><label className="text-[10px] font-bold uppercase text-slate-400">H</label><input className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs" value={dim.height} onChange={(e) => updateDimension(i, 'height', e.target.value)} /></div>
-                                  <div><label className="text-[10px] font-bold uppercase text-slate-400">W</label><input className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs" value={dim.width} onChange={(e) => updateDimension(i, 'width', e.target.value)} /></div>
-                                  <div><label className="text-[10px] font-bold uppercase text-slate-400">D</label><input className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs" value={dim.depth} onChange={(e) => updateDimension(i, 'depth', e.target.value)} /></div>
-                                  <div><label className="text-[10px] font-bold uppercase text-slate-400">Wt</label><input className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs" value={dim.weight} onChange={(e) => updateDimension(i, 'weight', e.target.value)} /></div>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-               </div>
-
-               <div className="border-t border-slate-200 pt-6">
-                  <h4 className="text-sm font-black text-slate-800 uppercase mb-4 flex items-center gap-2"><Settings size={16} /> Specifications</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                     {Object.entries(formData.specs).map(([key, val]) => (
-                        <div key={key} className="flex items-center gap-2 bg-slate-50 p-2 rounded border border-slate-100">
-                           <span className="text-xs font-bold text-slate-500 uppercase w-1/3">{key}</span>
-                           <input className="flex-1 bg-transparent border-none text-sm font-semibold outline-none" value={val} onChange={e => updateSpec(key, e.target.value)} />
-                           <button onClick={() => removeSpec(key)} className="text-slate-300 hover:text-red-500"><X size={14} /></button>
-                        </div>
-                     ))}
-                  </div>
-                  <div className="flex gap-2">
-                      <input id="newSpecKey" placeholder="New Spec Name (e.g. Battery)" className="bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm outline-none" />
-                      <button onClick={() => {
-                          const input = document.getElementById('newSpecKey') as HTMLInputElement;
-                          if(input.value) { updateSpec(input.value, "Value"); input.value = ""; }
-                      }} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded text-xs font-bold uppercase">Add Spec</button>
-                  </div>
-               </div>
-            </div>
-
-            <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-4">
-               <button onClick={onCancel} className="px-6 py-3 rounded-lg font-bold text-slate-500 hover:bg-slate-200 transition-colors uppercase text-xs">Cancel</button>
-               <button onClick={() => onSave(formData)} className="px-8 py-3 rounded-lg font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg uppercase text-xs flex items-center gap-2">
-                   <Save size={16} /> Save Changes
-               </button>
-            </div>
-         </div>
-      </div>
-    );
-};
-
-const CatalogueManager = ({ catalogues, onUpdate, onDelete, onAdd }: { catalogues: Catalogue[], onUpdate: (c: Catalogue) => void, onDelete: (id: string) => void, onAdd: (c: Catalogue) => void }) => {
-    const [isAdding, setIsAdding] = useState(false);
-    const [newCat, setNewCat] = useState<Partial<Catalogue>>({ title: '', type: 'catalogue', pages: [] });
-
-    const handleUpload = (urls: string[]) => {
-        // urls array comes from convertPdfToImages via FileUpload
-        // It contains ALL pages now.
-        setNewCat(prev => ({ ...prev, pages: [...(prev.pages || []), ...urls] }));
-    };
-
-    const handleSave = () => {
-        if(newCat.title && newCat.pages && newCat.pages.length > 0) {
-            onAdd({
-                id: generateId('cat'),
-                title: newCat.title!,
-                type: newCat.type as 'catalogue' | 'pamphlet' || 'catalogue',
-                pages: newCat.pages!,
-                startDate: newCat.startDate,
-                endDate: newCat.endDate,
-                year: newCat.year
-            });
-            setIsAdding(false);
-            setNewCat({ title: '', type: 'catalogue', pages: [] });
-        }
+    const handleUpload = async (id: string, data: any, type?: string) => {
+        const cat = localList.find(c => c.id === id);
+        if(!cat) return;
+        let newPages = [...cat.pages];
+        if (type === 'pdf' && typeof data === 'string') newPages = [...newPages, ...(await convertPdfToImages(data))];
+        else if (Array.isArray(data)) newPages = [...newPages, ...data];
+        else if (typeof data === 'string') newPages.push(data);
+        updateCatalogue(id, { pages: newPages });
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-black text-slate-800 uppercase flex items-center gap-2"><BookOpen size={20} /> Catalogues & Pamphlets</h3>
-                <button onClick={() => setIsAdding(true)} className="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase hover:bg-slate-800 flex items-center gap-2"><Plus size={14} /> Add New</button>
+        <div className="space-y-6">
+            <div className="flex justify-between items-center mb-4">
+                 <h3 className="font-bold uppercase text-slate-500 text-xs tracking-wider">{brandId ? 'Brand Catalogues' : 'Global Pamphlets'}</h3>
+                 <button onClick={addCatalogue} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase flex items-center gap-2"><Plus size={14} /> Add New</button>
             </div>
-
-            {isAdding && (
-                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-6 animate-fade-in">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                        <div>
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Title</label>
-                            <input className="w-full p-2 rounded border border-slate-200" value={newCat.title} onChange={e => setNewCat({...newCat, title: e.target.value})} placeholder="e.g. Summer Collection" />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Type</label>
-                            <div className="flex bg-white rounded border border-slate-200 p-1">
-                                <button onClick={() => setNewCat({...newCat, type: 'catalogue'})} className={`flex-1 py-1 text-xs font-bold uppercase rounded ${newCat.type === 'catalogue' ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>Catalogue</button>
-                                <button onClick={() => setNewCat({...newCat, type: 'pamphlet'})} className={`flex-1 py-1 text-xs font-bold uppercase rounded ${newCat.type === 'pamphlet' ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>Pamphlet</button>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {localList.map((cat) => (
+                    <div key={cat.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                        <div className="h-40 bg-slate-100 relative group flex items-center justify-center">
+                            {cat.pages[0] ? <img src={cat.pages[0]} className="w-full h-full object-cover" /> : <BookOpen size={32} className="text-slate-300" />}
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <button onClick={() => updateCatalogue(cat.id, { pages: [] })} className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold uppercase">Clear Pages</button>
                             </div>
                         </div>
-                    </div>
-                    
-                    {newCat.type === 'pamphlet' && (
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                             <div><label className="block text-xs font-bold uppercase text-slate-500 mb-1">Start Date</label><input type="date" className="w-full p-2 border rounded" onChange={e => setNewCat({...newCat, startDate: e.target.value})} /></div>
-                             <div><label className="block text-xs font-bold uppercase text-slate-500 mb-1">End Date (Auto-Remove)</label><input type="date" className="w-full p-2 border rounded" onChange={e => setNewCat({...newCat, endDate: e.target.value})} /></div>
-                        </div>
-                    )}
-
-                    <FileUpload label="Upload PDF (Auto-Converts Pages)" type="pdf" onUpload={handleUpload} />
-                    
-                    {newCat.pages && newCat.pages.length > 0 && (
-                        <div className="flex gap-2 overflow-x-auto py-2 mb-4">
-                            {newCat.pages.map((page, i) => (
-                                <img key={i} src={page} className="h-24 w-auto object-contain border rounded" alt="" />
-                            ))}
-                        </div>
-                    )}
-
-                    <div className="flex justify-end gap-2">
-                        <button onClick={() => setIsAdding(false)} className="px-4 py-2 text-xs font-bold uppercase text-slate-500">Cancel</button>
-                        <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded text-xs font-bold uppercase">Save</button>
-                    </div>
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {catalogues.map(cat => (
-                    <div key={cat.id} className="border border-slate-200 rounded-xl p-4 flex gap-4 bg-slate-50 hover:bg-white transition-colors">
-                        <div className="w-16 h-24 bg-slate-200 rounded shrink-0 overflow-hidden">
-                            {cat.pages[0] ? <img src={cat.pages[0]} className="w-full h-full object-cover" alt="" /> : <div className="w-full h-full flex items-center justify-center text-slate-400"><Book size={16} /></div>}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start">
-                                <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded mb-1 inline-block ${cat.type === 'pamphlet' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{cat.type}</span>
-                                <button onClick={() => onDelete(cat.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={14} /></button>
+                        <div className="p-4 space-y-3">
+                            <input value={cat.title} onChange={(e) => updateCatalogue(cat.id, { title: e.target.value })} className="w-full font-black text-slate-900 border-b border-transparent focus:border-blue-500 outline-none text-sm" placeholder="Title" />
+                            
+                            {cat.type === 'catalogue' || brandId ? (
+                                <div>
+                                    <label className="text-[8px] font-bold text-slate-400 uppercase">Catalogue Year</label>
+                                    <input type="number" value={cat.year || new Date().getFullYear()} onChange={(e) => updateCatalogue(cat.id, { year: parseInt(e.target.value) })} className="w-full text-xs border border-slate-200 rounded p-1" />
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="text-[8px] font-bold text-slate-400 uppercase">Start Date</label>
+                                        <input type="date" value={cat.startDate || ''} onChange={(e) => updateCatalogue(cat.id, { startDate: e.target.value })} className="w-full text-xs border border-slate-200 rounded p-1" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[8px] font-bold text-slate-400 uppercase">End Date (Auto-Expire)</label>
+                                        <input type="date" value={cat.endDate || ''} onChange={(e) => updateCatalogue(cat.id, { endDate: e.target.value })} className="w-full text-xs border border-slate-200 rounded p-1" />
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <FileUpload label="Pages (PDF/Images)" accept="image/*,application/pdf" currentUrl="" onUpload={(d: any, t: any) => handleUpload(cat.id, d, t)} allowMultiple={true} />
+                            
+                            <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                                <span className="text-[10px] text-slate-400 font-bold">{cat.pages.length} Pages</span>
+                                <button onClick={() => handleUpdate(localList.filter(c => c.id !== cat.id))} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button>
                             </div>
-                            <h4 className="font-bold text-slate-900 truncate">{cat.title}</h4>
-                            <p className="text-xs text-slate-500">{cat.pages.length} Pages</p>
-                            {cat.endDate && <p className="text-[10px] text-red-400 mt-1 font-mono">Expires: {new Date(cat.endDate).toLocaleDateString()}</p>}
                         </div>
                     </div>
                 ))}
@@ -432,464 +219,619 @@ const CatalogueManager = ({ catalogues, onUpdate, onDelete, onAdd }: { catalogue
     );
 };
 
-// --- MAIN ADMIN COMPONENT ---
-export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'design' | 'fleet' | 'settings'>('overview');
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [editingBrandId, setEditingBrandId] = useState<string | null>(null);
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [showSetup, setShowSetup] = useState(false);
-  const [unsavedChanges, setUnsavedChanges] = useState(false);
-  
-  // Snapshot Viewer State
-  const [viewingSnapshot, setViewingSnapshot] = useState<string | null>(null);
+const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave: (p: Product) => void, onCancel: () => void }) => {
+    // Migrate legacy data on init (single video -> multiple array)
+    const [draft, setDraft] = useState<Product>({ 
+        ...product, 
+        dimensions: Array.isArray(product.dimensions) 
+            ? product.dimensions 
+            : (product.dimensions ? [{label: "Device", ...(product.dimensions as any)}] : []),
+        videoUrls: product.videoUrls || (product.videoUrl ? [product.videoUrl] : [])
+    });
+    const [newFeature, setNewFeature] = useState('');
+    const [newBoxItem, setNewBoxItem] = useState('');
+    const [newSpecKey, setNewSpecKey] = useState('');
+    const [newSpecValue, setNewSpecValue] = useState('');
 
-  // Sorting
-  const [brands, setBrands] = useState<Brand[]>([]);
+    const addFeature = () => { if (newFeature.trim()) { setDraft({ ...draft, features: [...draft.features, newFeature.trim()] }); setNewFeature(''); } };
+    const addBoxItem = () => { if(newBoxItem.trim()) { setDraft({ ...draft, boxContents: [...(draft.boxContents || []), newBoxItem.trim()] }); setNewBoxItem(''); } };
+    const addSpec = () => { if (newSpecKey.trim() && newSpecValue.trim()) { setDraft({ ...draft, specs: { ...draft.specs, [newSpecKey.trim()]: newSpecValue.trim() } }); setNewSpecKey(''); setNewSpecValue(''); } };
+
+    // Dimensions Logic
+    const addDimensionSet = () => {
+        setDraft({ 
+            ...draft, 
+            dimensions: [...draft.dimensions, { label: "New Set", width: "", height: "", depth: "", weight: "" }] 
+        });
+    };
+    const updateDimension = (index: number, field: keyof DimensionSet, value: string) => {
+        const newDims = [...draft.dimensions];
+        newDims[index] = { ...newDims[index], [field]: value };
+        setDraft({ ...draft, dimensions: newDims });
+    };
+    const removeDimension = (index: number) => {
+        const newDims = draft.dimensions.filter((_, i) => i !== index);
+        setDraft({ ...draft, dimensions: newDims });
+    };
+
+    return (
+        <div className="flex flex-col h-full bg-white rounded-2xl overflow-hidden">
+            <div className="bg-slate-900 text-white p-4 flex justify-between items-center shrink-0">
+                <h3 className="font-bold uppercase tracking-wide">Edit Product: {draft.name || 'New Product'}</h3>
+                <button onClick={onCancel} className="text-slate-400 hover:text-white"><X size={24} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                        <InputField label="Product Name" val={draft.name} onChange={(e: any) => setDraft({ ...draft, name: e.target.value })} />
+                        <InputField label="SKU" val={draft.sku || ''} onChange={(e: any) => setDraft({ ...draft, sku: e.target.value })} />
+                        <InputField label="Description" isArea val={draft.description} onChange={(e: any) => setDraft({ ...draft, description: e.target.value })} />
+                        <InputField label="Warranty & Terms" isArea val={draft.terms || ''} onChange={(e: any) => setDraft({ ...draft, terms: e.target.value })} placeholder="Enter warranty info or legal terms..." />
+                        
+                        {/* MULTI DIMENSIONS EDITOR */}
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                             <div className="flex justify-between items-center mb-4">
+                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Dimensions Sets</label>
+                                 <button onClick={addDimensionSet} className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded font-bold uppercase flex items-center gap-1"><Plus size={10}/> Add Set</button>
+                             </div>
+                             {draft.dimensions.map((dim, idx) => (
+                                 <div key={idx} className="mb-4 bg-white p-3 rounded-lg border border-slate-200 shadow-sm relative">
+                                     <button onClick={() => removeDimension(idx)} className="absolute top-2 right-2 text-red-400 hover:text-red-600"><Trash2 size={12}/></button>
+                                     <input value={dim.label || ''} onChange={(e) => updateDimension(idx, 'label', e.target.value)} placeholder="Label (e.g. Box 1)" className="w-full text-xs font-black uppercase mb-2 border-b border-transparent focus:border-blue-500 outline-none" />
+                                     <div className="grid grid-cols-2 gap-2">
+                                         <InputField label="Height" val={dim.height} onChange={(e:any) => updateDimension(idx, 'height', e.target.value)} half placeholder="10cm" />
+                                         <InputField label="Width" val={dim.width} onChange={(e:any) => updateDimension(idx, 'width', e.target.value)} half placeholder="10cm" />
+                                         <InputField label="Depth" val={dim.depth} onChange={(e:any) => updateDimension(idx, 'depth', e.target.value)} half placeholder="10cm" />
+                                         <InputField label="Weight" val={dim.weight} onChange={(e:any) => updateDimension(idx, 'weight', e.target.value)} half placeholder="1kg" />
+                                     </div>
+                                 </div>
+                             ))}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <FileUpload label="Main Image" currentUrl={draft.imageUrl} onUpload={(url: any) => setDraft({ ...draft, imageUrl: url as string })} />
+                        
+                        {/* IMAGE LIBRARY UPLOAD */}
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Image Gallery (Multiple)</label>
+                            <FileUpload 
+                                label="Add Images" 
+                                allowMultiple={true} 
+                                currentUrl="" 
+                                onUpload={(urls: any) => {
+                                    const newUrls = Array.isArray(urls) ? urls : [urls];
+                                    setDraft(prev => ({ ...prev, galleryUrls: [...(prev.galleryUrls || []), ...newUrls] }));
+                                }} 
+                            />
+                            {draft.galleryUrls && draft.galleryUrls.length > 0 && (
+                                <div className="grid grid-cols-4 gap-2 mt-2">
+                                    {draft.galleryUrls.map((url, idx) => (
+                                        <div key={idx} className="relative group aspect-square bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                                            <img src={url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
+                                            <button 
+                                                onClick={() => setDraft(prev => ({...prev, galleryUrls: prev.galleryUrls?.filter((_, i) => i !== idx)}))}
+                                                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* VIDEO LIBRARY UPLOAD (MULTIPLE) */}
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Product Videos</label>
+                            <FileUpload 
+                                label="Add Videos" 
+                                allowMultiple={true} 
+                                accept="video/*"
+                                icon={<Video />}
+                                currentUrl="" 
+                                onUpload={(urls: any) => {
+                                    const newUrls = Array.isArray(urls) ? urls : [urls];
+                                    setDraft(prev => ({ ...prev, videoUrls: [...(prev.videoUrls || []), ...newUrls] }));
+                                }} 
+                            />
+                            {draft.videoUrls && draft.videoUrls.length > 0 && (
+                                <div className="grid grid-cols-4 gap-2 mt-2">
+                                    {draft.videoUrls.map((url, idx) => (
+                                        <div key={idx} className="relative group aspect-square bg-slate-900 border border-slate-700 rounded-lg overflow-hidden shadow-sm flex items-center justify-center">
+                                            <video src={url} className="w-full h-full object-cover opacity-60" muted />
+                                            <Video size={20} className="absolute text-white" />
+                                            <button 
+                                                onClick={() => setDraft(prev => ({...prev, videoUrls: prev.videoUrls?.filter((_, i) => i !== idx)}))}
+                                                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Key Features</label>
+                             <div className="flex gap-2 mb-2">
+                                 <input type="text" value={newFeature} onChange={(e) => setNewFeature(e.target.value)} className="flex-1 p-2 border border-slate-300 rounded-lg text-sm" placeholder="Add feature..." onKeyDown={(e) => e.key === 'Enter' && addFeature()} />
+                                 <button onClick={addFeature} className="p-2 bg-blue-600 text-white rounded-lg"><Plus size={16} /></button>
+                             </div>
+                             <ul className="space-y-1">{draft.features.map((f, i) => (<li key={i} className="flex justify-between bg-white p-2 rounded border border-slate-100 text-xs font-bold text-slate-700">{f}<button onClick={() => setDraft({...draft, features: draft.features.filter((_, ix) => ix !== i)})} className="text-red-400"><Trash2 size={12}/></button></li>))}</ul>
+                        </div>
+                        <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                             <label className="block text-[10px] font-black text-orange-600 uppercase tracking-wider mb-2">What's in the Box</label>
+                             <div className="flex gap-2 mb-2">
+                                 <input type="text" value={newBoxItem} onChange={(e) => setNewBoxItem(e.target.value)} className="flex-1 p-2 border border-slate-300 rounded-lg text-sm" placeholder="Add item..." onKeyDown={(e) => e.key === 'Enter' && addBoxItem()} />
+                                 <button onClick={addBoxItem} className="p-2 bg-orange-500 text-white rounded-lg"><Plus size={16} /></button>
+                             </div>
+                             <ul className="space-y-1">{(draft.boxContents || []).map((item, i) => (<li key={i} className="flex justify-between bg-white p-2 rounded border border-slate-100 text-xs font-bold text-slate-700">{item}<button onClick={() => setDraft({...draft, boxContents: (draft.boxContents || []).filter((_, ix) => ix !== i)})} className="text-red-400"><Trash2 size={12}/></button></li>))}</ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="mt-8 border-t border-slate-100 pt-8">
+                     <h4 className="font-bold text-slate-900 uppercase text-sm mb-4">Manuals & Specs</h4>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                             <FileUpload label="Manual (PDF)" accept="application/pdf" icon={<FileText />} currentUrl={draft.manualUrl} onUpload={async (url: any, type: any) => { if(type === 'pdf' && typeof url === 'string') { const pages = await convertPdfToImages(url); setDraft({ ...draft, manualUrl: url, manualImages: pages }); } }} />
+                        </div>
+                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                             <div className="flex gap-4 mb-4 items-end">
+                                <input value={newSpecKey} onChange={(e) => setNewSpecKey(e.target.value)} placeholder="Spec Name" className="flex-1 p-2 border border-slate-300 rounded-lg text-sm font-bold" />
+                                <input value={newSpecValue} onChange={(e) => setNewSpecValue(e.target.value)} placeholder="Value" className="flex-1 p-2 border border-slate-300 rounded-lg text-sm font-bold" onKeyDown={(e) => e.key === 'Enter' && addSpec()} />
+                                <button onClick={addSpec} className="bg-blue-600 text-white p-2.5 rounded-lg"><Plus size={18} /></button>
+                             </div>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                 {Object.entries(draft.specs).map(([key, value]) => (<div key={key} className="flex justify-between bg-white p-3 rounded-lg border border-slate-200 shadow-sm"><div><span className="block text-[10px] font-bold text-slate-400 uppercase">{key}</span><span className="block text-sm font-black">{value}</span></div><button onClick={() => { const s = {...draft.specs}; delete s[key]; setDraft({...draft, specs: s}); }} className="text-red-400"><Trash2 size={16}/></button></div>))}
+                             </div>
+                        </div>
+                     </div>
+                </div>
+            </div>
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-4 shrink-0">
+                <button onClick={onCancel} className="px-6 py-3 font-bold text-slate-500 uppercase text-xs">Cancel</button>
+                <button onClick={() => onSave(draft)} className="px-6 py-3 bg-blue-600 text-white font-bold uppercase text-xs rounded-lg shadow-lg">Confirm Changes</button>
+            </div>
+        </div>
+    );
+};
+
+const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, onSave: (k: KioskRegistry) => void, onClose: () => void }) => {
+    const [draft, setDraft] = useState({ ...kiosk });
+    return (
+        <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 className="font-black text-slate-900 uppercase">Edit Device</h3>
+                    <button onClick={onClose}><X size={20} className="text-slate-400" /></button>
+                </div>
+                <div className="p-6 space-y-4">
+                    <InputField label="Device Name" val={draft.name} onChange={(e:any) => setDraft({...draft, name: e.target.value})} />
+                    <InputField label="Assigned Zone" val={draft.assignedZone || ''} onChange={(e:any) => setDraft({...draft, assignedZone: e.target.value})} />
+                    
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Device Type</label>
+                        <div className="grid grid-cols-2 gap-2">
+                             <button onClick={() => setDraft({...draft, deviceType: 'kiosk'})} className={`p-3 rounded-lg border text-xs font-bold uppercase flex items-center justify-center gap-2 ${draft.deviceType === 'kiosk' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                                 <Tablet size={16}/> Kiosk
+                             </button>
+                             <button onClick={() => setDraft({...draft, deviceType: 'mobile'})} className={`p-3 rounded-lg border text-xs font-bold uppercase flex items-center justify-center gap-2 ${draft.deviceType === 'mobile' ? 'bg-purple-50 border-purple-500 text-purple-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                                 <Smartphone size={16}/> Mobile
+                             </button>
+                        </div>
+                    </div>
+                </div>
+                <div className="p-4 border-t border-slate-100 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold uppercase text-xs">Cancel</button>
+                    <button onClick={() => onSave(draft)} className="px-4 py-2 bg-blue-600 text-white font-bold uppercase text-xs rounded-lg">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh: () => void }) => {
+  const [session, setSession] = useState(false);
+  const [activeTab, setActiveTab] = useState<'inventory' | 'marketing' | 'screensaver' | 'fleet' | 'history' | 'settings'>('inventory');
+  const [activeSubTab, setActiveSubTab] = useState<string>('brands'); 
+  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingKiosk, setEditingKiosk] = useState<KioskRegistry | null>(null);
+  const [historyFolder, setHistoryFolder] = useState<'brands' | 'products' | 'catalogues' | null>(null);
+  const [isCloudConnected, setIsCloudConnected] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const [viewingSnapshot, setViewingSnapshot] = useState<string | null>(null);
+  
+  // GLOBAL LOCAL STATE (BUFFER)
+  const [localData, setLocalData] = useState<StoreData | null>(storeData);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
-    if (storeData?.brands) {
-        // Ensure alphabetized
-        const sorted = [...storeData.brands].sort((a,b) => a.name.localeCompare(b.name));
-        setBrands(sorted);
-    }
+      checkCloudConnection().then(setIsCloudConnected);
+      const interval = setInterval(() => checkCloudConnection().then(setIsCloudConnected), 30000);
+      return () => clearInterval(interval);
+  }, []);
+
+  // Sync prop changes to local state if we don't have dirty unsaved changes
+  useEffect(() => {
+      if (!hasUnsavedChanges && storeData) {
+          setLocalData(storeData);
+      }
   }, [storeData]);
 
-  if (!storeData) return <div className="h-screen w-screen flex items-center justify-center"><Loader2 className="animate-spin text-slate-400" /></div>;
+  // Warn before leaving if unsaved
+  useEffect(() => {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+          if (hasUnsavedChanges) {
+              e.preventDefault();
+              e.returnValue = '';
+          }
+      };
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
-  const handleSaveData = async (newData: StoreData) => {
-      await onUpdateData(newData);
-      setUnsavedChanges(false);
-  };
-
-  // --- HANDLERS (CRUD) ---
-  const handleAddBrand = () => {
-    const name = prompt("Enter Brand Name:");
-    if (name) {
-      const newBrand: Brand = { id: generateId('brand'), name, categories: [] };
-      const updatedBrands = [...brands, newBrand].sort((a,b) => a.name.localeCompare(b.name));
-      handleSaveData({ ...storeData, brands: updatedBrands });
-    }
-  };
-
-  const handleUpdateBrand = (id: string, updates: Partial<Brand>) => {
-      const updatedBrands = brands.map(b => b.id === id ? { ...b, ...updates } : b).sort((a,b) => a.name.localeCompare(b.name));
-      handleSaveData({ ...storeData, brands: updatedBrands });
-  };
-
-  const handleDeleteBrand = (id: string) => {
-    if (confirm("Delete this brand and ALL its products?")) {
-        const updatedBrands = brands.filter(b => b.id !== id);
-        handleSaveData({ ...storeData, brands: updatedBrands });
-    }
-  };
-
-  const handleAddCategory = (brandId: string) => {
-      const name = prompt("Enter Category Name (e.g. Smartphones):");
-      if (name) {
-          const updatedBrands = brands.map(b => {
-              if (b.id === brandId) {
-                  return {
-                      ...b,
-                      categories: [...b.categories, { id: generateId('cat'), name, icon: 'Box', products: [] }]
-                  };
-              }
-              return b;
-          });
-          handleSaveData({ ...storeData, brands: updatedBrands });
+  // Main Local Update Handler
+  const handleLocalUpdate = (newData: StoreData) => {
+      setLocalData(newData);
+      setHasUnsavedChanges(true);
+      
+      // Update selected references to keep UI in sync
+      if (selectedBrand) {
+          const updatedBrand = newData.brands.find(b => b.id === selectedBrand.id);
+          if (updatedBrand) setSelectedBrand(updatedBrand);
+      }
+      if (selectedCategory && selectedBrand) {
+          const updatedBrand = newData.brands.find(b => b.id === selectedBrand.id);
+          const updatedCat = updatedBrand?.categories.find(c => c.id === selectedCategory.id);
+          if (updatedCat) setSelectedCategory(updatedCat);
       }
   };
 
-  const handleAddProduct = (brandId: string, catId: string) => {
-      setEditingBrandId(brandId);
-      setEditingCategoryId(catId);
-      setEditingProduct({
-          id: generateId('prod'),
-          name: 'New Product',
-          description: '',
-          specs: {},
-          features: [],
-          dimensions: [{ label: 'Device', width: '', height: '', depth: '', weight: '' }],
-          imageUrl: '',
-          manuals: [] // Init manuals array
-      });
+  const handleGlobalSave = () => {
+      if (localData) {
+          onUpdateData(localData);
+          setHasUnsavedChanges(false);
+      }
   };
 
-  const saveProduct = (product: Product) => {
-      const updatedBrands = brands.map(b => {
-          if (b.id === editingBrandId) {
-              return {
-                  ...b,
-                  categories: b.categories.map(c => {
-                      if (c.id === editingCategoryId) {
-                          const existingIndex = c.products.findIndex(p => p.id === product.id);
-                          let newProducts;
-                          if (existingIndex >= 0) {
-                              newProducts = [...c.products];
-                              newProducts[existingIndex] = product;
-                          } else {
-                              newProducts = [...c.products, product];
-                          }
-                          // Sort Products Alphabetically
-                          newProducts.sort((a,b) => a.name.localeCompare(b.name));
-                          return { ...c, products: newProducts };
-                      }
-                      return c;
-                  })
-              };
-          }
-          return b;
-      });
-      handleSaveData({ ...storeData, brands: updatedBrands });
-      setEditingProduct(null);
+  // Fleet Actions (These still interact directly with Supabase via Service, then refresh)
+  const updateFleetMember = async (kiosk: KioskRegistry) => {
+      if(supabase) {
+          const payload = {
+              id: kiosk.id,
+              name: kiosk.name,
+              device_type: kiosk.deviceType,
+              assigned_zone: kiosk.assignedZone
+          };
+          await supabase.from('kiosks').upsert(payload);
+          onRefresh(); // Pull fresh data
+      }
   };
 
-  const deleteProduct = (brandId: string, catId: string, prodId: string) => {
-    if(confirm("Are you sure?")) {
-        const updatedBrands = brands.map(b => {
-            if (b.id === brandId) {
-                return {
-                    ...b,
-                    categories: b.categories.map(c => {
-                        if (c.id === catId) {
-                            return { ...c, products: c.products.filter(p => p.id !== prodId) };
-                        }
-                        return c;
-                    })
-                };
-            }
-            return b;
-        });
-        handleSaveData({ ...storeData, brands: updatedBrands });
-    }
+  const removeFleetMember = async (id: string) => {
+      if(confirm("Remove device from fleet? This cannot be undone.") && supabase) {
+          await supabase.from('kiosks').delete().eq('id', id);
+          onRefresh();
+      }
   };
 
-  const handleFleetCommand = async (kioskId: string, command: 'snapshot' | 'restart') => {
-      if (!supabase) return alert("Cloud connection required for commands.");
-      
-      const update: any = {};
-      if (command === 'snapshot') update.request_snapshot = true;
-      if (command === 'restart') update.restart_requested = true;
-
-      const { error } = await supabase.from('kiosks').update(update).eq('id', kioskId);
-      if (error) alert("Command failed: " + error.message);
-      else alert(`Command sent: ${command}`);
+  const requestSnapshot = async (id: string) => {
+      if(supabase) {
+          const { error } = await supabase.from('kiosks').update({ request_snapshot: true }).eq('id', id);
+          if(!error) alert("Snapshot requested. It will appear here shortly.");
+      }
   };
 
-  // Stats
-  const totalProducts = brands.reduce((acc, b) => acc + b.categories.reduce((cAcc, c) => cAcc + c.products.length, 0), 0);
-  const totalKiosks = storeData.fleet?.length || 0;
-  const onlineKiosks = storeData.fleet?.filter(k => {
-      const lastSeen = new Date(k.last_seen);
-      const now = new Date();
-      return (now.getTime() - lastSeen.getTime()) < 5 * 60 * 1000; // 5 mins
-  }).length || 0;
+  if (!session) return <Auth setSession={setSession} />;
+  if (!localData) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /> Loading...</div>;
+
+  // Auto-sort brands alphabetically for consistent display
+  const brands = Array.isArray(localData.brands) 
+      ? [...localData.brands].sort((a, b) => a.name.localeCompare(b.name)) 
+      : [];
 
   return (
-    <div className="flex h-screen bg-slate-100 text-slate-900 font-sans overflow-hidden">
-      
-      {/* Sidebar */}
-      <div className="w-64 bg-slate-900 text-white flex flex-col shrink-0 border-r border-slate-800">
-         <div className="p-6 border-b border-slate-800">
-             <div className="flex items-center gap-3 text-blue-400 mb-1">
-                 <Layout size={24} />
-                 <span className="font-black text-lg tracking-tight">ADMIN HUB</span>
-             </div>
-             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Kiosk Pro Systems</p>
-         </div>
-
-         <nav className="flex-1 p-4 space-y-2">
-             <button onClick={() => setActiveTab('overview')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'overview' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                 <BarChart3 size={18} /> Overview
-             </button>
-             <button onClick={() => setActiveTab('products')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'products' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                 <Box size={18} /> Products & Brands
-             </button>
-             <button onClick={() => setActiveTab('design')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'design' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                 <Monitor size={18} /> Appearance & Ads
-             </button>
-             <button onClick={() => setActiveTab('fleet')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'fleet' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                 <Signal size={18} /> Kiosk Fleet
-             </button>
-             <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'settings' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                 <Settings size={18} /> System Setup
-             </button>
-         </nav>
-
-         <div className="p-4 border-t border-slate-800">
-             <button onClick={() => window.location.href = '/'} className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg text-xs font-bold uppercase transition-colors">
-                 <LogOut size={14} /> Exit to Kiosk
-             </button>
-         </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-             <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">{activeTab}</h2>
-             <div className="flex items-center gap-4">
-                 <button onClick={onRefresh} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="Sync Data"><RefreshCw size={18} /></button>
-                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                     <div className={`w-2 h-2 rounded-full ${supabase ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-                     {supabase ? 'Cloud Connected' : 'Local Mode'}
+    <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
+        <header className="bg-slate-900 text-white shrink-0 shadow-xl z-20">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+                 <div className="flex items-center gap-2">
+                     <Settings className="text-blue-500" size={24} />
+                     <div><h1 className="text-lg font-black uppercase tracking-widest leading-none">Admin Hub</h1></div>
                  </div>
-             </div>
-         </header>
+                 
+                 {/* GLOBAL SAVE BUTTON */}
+                 <button 
+                     onClick={handleGlobalSave}
+                     disabled={!hasUnsavedChanges}
+                     className={`flex items-center gap-2 px-6 py-2 rounded-lg font-black uppercase tracking-widest text-xs transition-all ${
+                         hasUnsavedChanges 
+                         ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] animate-pulse' 
+                         : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                     }`}
+                 >
+                     <SaveAll size={16} />
+                     {hasUnsavedChanges ? 'Save Changes' : 'Saved'}
+                 </button>
 
-         <main className="flex-1 overflow-y-auto p-8 bg-slate-50">
-             
-             {/* OVERVIEW TAB */}
-             {activeTab === 'overview' && (
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                         <div className="flex items-center gap-3 text-slate-400 mb-2 uppercase text-xs font-bold tracking-widest"><Box size={16} /> Total Products</div>
-                         <div className="text-4xl font-black text-slate-900">{totalProducts}</div>
+                 <div className="flex items-center gap-3">
+                     <div className={`flex items-center gap-2 px-3 py-1 rounded-lg ${isCloudConnected ? 'bg-blue-900/50 text-blue-300' : 'bg-orange-900/50 text-orange-300'}`}>
+                         {isCloudConnected ? <Cloud size={14} /> : <HardDrive size={14} />}
+                         <span className="text-[10px] font-bold uppercase">{isCloudConnected ? 'Cloud Online' : 'Local Mode'}</span>
                      </div>
-                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                         <div className="flex items-center gap-3 text-slate-400 mb-2 uppercase text-xs font-bold tracking-widest"><Grid size={16} /> Total Brands</div>
-                         <div className="text-4xl font-black text-slate-900">{brands.length}</div>
-                     </div>
-                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                         <div className="flex items-center gap-3 text-slate-400 mb-2 uppercase text-xs font-bold tracking-widest"><Signal size={16} /> Online Kiosks</div>
-                         <div className="text-4xl font-black text-slate-900">{onlineKiosks} <span className="text-lg text-slate-400 font-bold">/ {totalKiosks}</span></div>
-                     </div>
+                     <button onClick={onRefresh} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-white"><RefreshCw size={16} /></button>
+                     <button onClick={() => setSession(false)} className="p-2 bg-red-900/50 hover:bg-red-900 text-red-400 hover:text-white rounded-lg flex items-center gap-2">
+                        <LogOut size={16} />
+                        <span className="text-[10px] font-bold uppercase hidden md:inline">Logout</span>
+                     </button>
                  </div>
-             )}
+            </div>
+            <div className="flex overflow-x-auto no-scrollbar">
+                {['inventory', 'marketing', 'screensaver', 'fleet', 'history', 'settings'].map(tab => (
+                    <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 min-w-[100px] py-4 text-center text-xs font-black uppercase tracking-wider border-b-4 transition-all ${activeTab === tab ? 'border-blue-500 text-white bg-slate-800' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>{tab}</button>
+                ))}
+            </div>
+        </header>
 
-             {/* PRODUCTS TAB */}
-             {activeTab === 'products' && (
-                 <div className="space-y-8">
-                     <div className="flex justify-end">
-                         <button onClick={handleAddBrand} className="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase hover:bg-slate-800 flex items-center gap-2"><Plus size={14} /> Add Brand</button>
-                     </div>
-                     
-                     {brands.map(brand => (
-                         <div key={brand.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                             <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-                                 <div className="flex items-center gap-4">
-                                     <div className="w-10 h-10 bg-white rounded-lg border border-slate-200 flex items-center justify-center p-1">
-                                         {brand.logoUrl ? <img src={brand.logoUrl} className="max-w-full max-h-full" /> : <span className="font-bold">{brand.name[0]}</span>}
-                                     </div>
-                                     <div>
-                                         <h3 className="font-black text-lg text-slate-900">{brand.name}</h3>
-                                         <button onClick={() => setEditingBrandId(brand.id)} className="text-[10px] text-blue-600 font-bold uppercase hover:underline">Edit Brand Details</button>
-                                     </div>
-                                 </div>
-                                 <div className="flex items-center gap-2">
-                                      <FileUpload label="Logo" onUpload={(urls) => handleUpdateBrand(brand.id, { logoUrl: urls[0] })} />
-                                      <button onClick={() => handleDeleteBrand(brand.id)} className="text-slate-300 hover:text-red-500 p-2"><Trash2 size={16} /></button>
-                                 </div>
-                             </div>
+        {activeTab === 'marketing' && (
+            <div className="bg-white border-b border-slate-200 flex overflow-x-auto no-scrollbar shadow-sm z-10">
+                <button onClick={() => setActiveSubTab('hero')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'hero' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Hero Banner</button>
+                <button onClick={() => setActiveSubTab('ads')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'ads' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Ad Zones</button>
+                <button onClick={() => setActiveSubTab('catalogues')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'catalogues' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Pamphlets & Catalogues</button>
+            </div>
+        )}
 
-                             <div className="p-4">
-                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                     {brand.categories.map(cat => (
-                                         <div key={cat.id} className="border border-slate-100 rounded-xl p-4 hover:border-blue-200 transition-colors bg-slate-50/50">
-                                             <div className="flex justify-between items-center mb-3">
-                                                 <span className="text-xs font-black uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
-                                                     <Folder size={12} /> {cat.name}
-                                                 </span>
-                                                 <button onClick={() => handleAddProduct(brand.id, cat.id)} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-full"><Plus size={14} /></button>
-                                             </div>
-                                             <div className="space-y-1">
-                                                 {cat.products.map(prod => (
-                                                     <div key={prod.id} className="flex justify-between items-center bg-white p-2 rounded border border-slate-100 hover:shadow-sm transition-shadow group">
-                                                         <span className="text-sm font-bold text-slate-700 truncate">{prod.name}</span>
-                                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                             <button onClick={() => { setEditingBrandId(brand.id); setEditingCategoryId(cat.id); setEditingProduct(prod); }} className="p-1 text-blue-500 hover:bg-blue-50 rounded"><Edit2 size={12} /></button>
-                                                             <button onClick={() => deleteProduct(brand.id, cat.id, prod.id)} className="p-1 text-red-500 hover:bg-red-50 rounded"><Trash2 size={12} /></button>
-                                                         </div>
-                                                     </div>
-                                                 ))}
-                                                 {cat.products.length === 0 && <div className="text-xs text-slate-300 italic py-2 text-center">No products</div>}
-                                             </div>
-                                         </div>
-                                     ))}
-                                     <button onClick={() => handleAddCategory(brand.id)} className="border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-400 hover:border-blue-300 hover:text-blue-500 font-bold uppercase text-xs p-4 gap-2 transition-all">
-                                         <Plus size={16} /> Add Category
-                                     </button>
-                                 </div>
-                             </div>
-                         </div>
-                     ))}
-                 </div>
-             )}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+            {activeTab === 'inventory' && (
+                !selectedBrand ? (
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
+                       <button onClick={() => { const name = prompt("Brand Name:"); if(name) handleLocalUpdate({ ...localData, brands: [...brands, { id: generateId('b'), name, categories: [] }] }) }} className="bg-white border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-8 text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all group min-h-[200px]">
+                           <Plus size={24} className="mb-2" /><span className="font-bold uppercase text-xs tracking-wider">Add Brand</span>
+                       </button>
+                       {brands.map(brand => (
+                           <div key={brand.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition-all group relative">
+                               <div className="h-32 bg-slate-50 flex items-center justify-center p-4 relative">
+                                   {brand.logoUrl ? <img src={brand.logoUrl} className="max-h-full max-w-full object-contain" /> : <span className="text-4xl font-black text-slate-200">{brand.name.charAt(0)}</span>}
+                                   <button onClick={(e) => { e.stopPropagation(); if(confirm("Move to archive?")) { handleLocalUpdate({...localData, brands: brands.filter(b=>b.id!==brand.id), archive: {...localData.archive, brands: [...(localData.archive?.brands||[]), brand]}}); } }} className="absolute top-2 right-2 p-2 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14}/></button>
+                               </div>
+                               <div className="p-4">
+                                   <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight mb-1">{brand.name}</h3>
+                                   <p className="text-xs text-slate-500 font-bold mb-4">{brand.categories.length} Categories</p>
+                                   <button onClick={() => setSelectedBrand(brand)} className="w-full bg-slate-900 text-white py-2 rounded-lg font-bold text-xs uppercase hover:bg-blue-600 transition-colors">Manage</button>
+                               </div>
+                           </div>
+                       ))}
+                   </div>
+               ) : !selectedCategory ? (
+                   <div className="animate-fade-in">
+                       <div className="flex items-center gap-4 mb-6"><button onClick={() => setSelectedBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500"><ArrowLeft size={20} /></button><h2 className="text-2xl font-black uppercase text-slate-900 flex-1">{selectedBrand.name}</h2><FileUpload label="Brand Logo" currentUrl={selectedBrand.logoUrl} onUpload={(url: any) => { const updated = {...selectedBrand, logoUrl: url}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }} /></div>
+                       <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                           <button onClick={() => { const name = prompt("Category Name:"); if(name) { const updated = {...selectedBrand, categories: [...selectedBrand.categories, { id: generateId('c'), name, icon: 'Box', products: [] }]}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); } }} className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-6 text-slate-400 hover:border-blue-500 hover:text-blue-500"><Plus size={24} /><span className="font-bold text-xs uppercase mt-2">New Category</span></button>
+                           {selectedBrand.categories.map(cat => (<button key={cat.id} onClick={() => setSelectedCategory(cat)} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md text-left group relative"><Box size={24} className="mb-4 text-slate-400" /><h3 className="font-black text-slate-900 uppercase text-sm">{cat.name}</h3><p className="text-xs text-slate-500 font-bold">{cat.products.length} Products</p><div onClick={(e)=>{e.stopPropagation(); if(confirm("Delete?")){ const updated={...selectedBrand, categories: selectedBrand.categories.filter(c=>c.id!==cat.id)}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }}} className="absolute top-2 right-2 p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded"><Trash2 size={14}/></div></button>))}
+                       </div>
+                       <div className="mt-8 border-t border-slate-200 pt-8"><h3 className="font-bold text-slate-900 uppercase text-sm mb-4">Brand Catalogues</h3><CatalogueManager catalogues={localData.catalogues?.filter(c => c.brandId === selectedBrand.id) || []} brandId={selectedBrand.id} onSave={(c) => handleLocalUpdate({ ...localData, catalogues: [...(localData.catalogues?.filter(x => x.brandId !== selectedBrand.id) || []), ...c] })} /></div>
+                   </div>
+               ) : (
+                   <div className="animate-fade-in h-full flex flex-col">
+                       <div className="flex items-center gap-4 mb-6 shrink-0"><button onClick={() => setSelectedCategory(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500"><ArrowLeft size={20} /></button><h2 className="text-2xl font-black uppercase text-slate-900 flex-1">{selectedCategory.name}</h2><button onClick={() => setEditingProduct({ id: generateId('p'), name: '', description: '', specs: {}, features: [], dimensions: [], imageUrl: '' } as any)} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold uppercase text-xs flex items-center gap-2"><Plus size={16} /> Add Product</button></div>
+                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-y-auto pb-20">
+                           {selectedCategory.products.map(product => (<div key={product.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col group hover:shadow-lg transition-all"><div className="aspect-square bg-slate-50 relative flex items-center justify-center p-4">{product.imageUrl ? <img src={product.imageUrl} className="max-w-full max-h-full object-contain" /> : <Box size={32} className="text-slate-300" />}<div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"><button onClick={() => setEditingProduct(product)} className="p-2 bg-white text-blue-600 rounded-lg font-bold text-xs uppercase shadow-lg">Edit</button></div></div><div className="p-4"><h4 className="font-bold text-slate-900 text-sm truncate uppercase">{product.name}</h4><p className="text-xs text-slate-500 font-mono">{product.sku || 'No SKU'}</p></div></div>))}
+                       </div>
+                   </div>
+               )
+            )}
 
-             {/* DESIGN TAB */}
-             {activeTab === 'design' && (
-                 <div className="space-y-8 max-w-4xl mx-auto">
-                     
-                     {/* HERO CONFIG */}
-                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                         <h3 className="text-lg font-black text-slate-800 uppercase mb-4 flex items-center gap-2"><LayoutTemplate size={20} /> Home Screen Hero</h3>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <div className="space-y-4">
-                                 <div><label className="block text-xs font-bold uppercase text-slate-500 mb-1">Hero Title</label><input className="w-full p-2 border rounded" value={storeData.hero.title} onChange={e => handleSaveData({...storeData, hero: {...storeData.hero, title: e.target.value}})} /></div>
-                                 <div><label className="block text-xs font-bold uppercase text-slate-500 mb-1">Subtitle</label><input className="w-full p-2 border rounded" value={storeData.hero.subtitle} onChange={e => handleSaveData({...storeData, hero: {...storeData.hero, subtitle: e.target.value}})} /></div>
-                                 <div><label className="block text-xs font-bold uppercase text-slate-500 mb-1">Website URL</label><input className="w-full p-2 border rounded" value={storeData.hero.websiteUrl} onChange={e => handleSaveData({...storeData, hero: {...storeData.hero, websiteUrl: e.target.value}})} /></div>
-                             </div>
-                             <div className="space-y-4">
-                                 <FileUpload label="Background Image" onUpload={(urls) => handleSaveData({...storeData, hero: {...storeData.hero, backgroundImageUrl: urls[0]}})} />
-                                 <FileUpload label="Logo Overlay" onUpload={(urls) => handleSaveData({...storeData, hero: {...storeData.hero, logoUrl: urls[0]}})} />
-                             </div>
-                         </div>
-                     </div>
-
-                     {/* CATALOGUE MANAGER */}
-                     <CatalogueManager 
-                        catalogues={storeData.catalogues || []} 
-                        onAdd={(c) => handleSaveData({...storeData, catalogues: [...(storeData.catalogues || []), c]})}
-                        onDelete={(id) => handleSaveData({...storeData, catalogues: (storeData.catalogues || []).filter(x => x.id !== id)})}
-                        onUpdate={() => {}} // Simple delete/add model for now
-                     />
-
-                     {/* SCREENSAVER SETTINGS */}
-                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                         <h3 className="text-lg font-black text-slate-800 uppercase mb-4 flex items-center gap-2"><Monitor size={20} /> Screensaver</h3>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Idle Timeout (Seconds)</label>
-                                <input type="number" className="w-full p-2 border rounded" value={storeData.screensaverSettings?.idleTimeout || 60} onChange={e => handleSaveData({...storeData, screensaverSettings: {...storeData.screensaverSettings!, idleTimeout: parseInt(e.target.value)}})} />
+            {activeTab === 'marketing' && (
+                <div className="max-w-5xl mx-auto">
+                    {activeSubTab === 'catalogues' && <CatalogueManager catalogues={localData.catalogues || []} onSave={(c) => handleLocalUpdate({ ...localData, catalogues: c })} />}
+                    {activeSubTab === 'hero' && (
+                        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <InputField label="Title" val={localData.hero.title} onChange={(e:any) => handleLocalUpdate({...localData, hero: {...localData.hero, title: e.target.value}})} />
+                                    <InputField label="Subtitle" val={localData.hero.subtitle} onChange={(e:any) => handleLocalUpdate({...localData, hero: {...localData.hero, subtitle: e.target.value}})} />
+                                    <InputField label="Website URL" val={localData.hero.websiteUrl || ''} onChange={(e:any) => handleLocalUpdate({...localData, hero: {...localData.hero, websiteUrl: e.target.value}})} placeholder="https://example.com" />
+                                </div>
+                                <div className="space-y-4">
+                                    <FileUpload label="Background Image" currentUrl={localData.hero.backgroundImageUrl} onUpload={(url:any) => handleLocalUpdate({...localData, hero: {...localData.hero, backgroundImageUrl: url}})} />
+                                    <FileUpload label="Brand Logo" currentUrl={localData.hero.logoUrl} onUpload={(url:any) => handleLocalUpdate({...localData, hero: {...localData.hero, logoUrl: url}})} />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Image Duration (Seconds)</label>
-                                <input type="number" className="w-full p-2 border rounded" value={storeData.screensaverSettings?.imageDuration || 8} onChange={e => handleSaveData({...storeData, screensaverSettings: {...storeData.screensaverSettings!, imageDuration: parseInt(e.target.value)}})} />
-                            </div>
+                        </div>
+                    )}
+                    {activeSubTab === 'ads' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {['homeBottomLeft', 'homeBottomRight', 'homeSideVertical'].map(zone => (
+                                <div key={zone} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                    <h4 className="font-bold uppercase text-xs mb-1">{zone.replace('home', '')}</h4>
+                                    <p className="text-[10px] text-slate-400 mb-4 uppercase font-bold tracking-wide">
+                                        {zone.includes('Side') ? 'Size: 1080x1920 (Portrait)' : 'Size: 1920x1080 (Landscape)'}
+                                    </p>
+                                    <FileUpload 
+                                        label="Upload Media" 
+                                        accept="image/*,video/*" 
+                                        allowMultiple 
+                                        onUpload={(urls:any, type:any) => { 
+                                            const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ad'), type, url:u})); 
+                                            handleLocalUpdate({...localData, ads: {...localData.ads, [zone]: [...(localData.ads as any)[zone], ...newAds]} as any}); 
+                                        }} 
+                                    />
+                                    
+                                    {/* --- ADDED: Display existing ads in a grid to allow deleting --- */}
+                                    <div className="grid grid-cols-3 gap-2 mt-4">
+                                        {((localData.ads as any)[zone] || []).map((ad: any, idx: number) => (
+                                            <div key={ad.id} className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                                                {ad.type === 'video' ? (
+                                                    <video src={ad.url} className="w-full h-full object-cover opacity-60" />
+                                                ) : (
+                                                    <img src={ad.url} alt="Ad" className="w-full h-full object-cover" />
+                                                )}
+                                                <button 
+                                                    onClick={() => {
+                                                        const currentAds = (localData.ads as any)[zone];
+                                                        const newAdsList = currentAds.filter((_: any, i: number) => i !== idx);
+                                                        handleLocalUpdate({ ...localData, ads: { ...localData.ads, [zone]: newAdsList } as any });
+                                                    }}
+                                                    className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                    title="Remove Ad"
+                                                >
+                                                    <Trash2 size={10} />
+                                                </button>
+                                                {ad.type === 'video' && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Video size={12} className="text-white drop-shadow-md"/></div>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {/* ----------------------------------------------------------------- */}
+
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {activeTab === 'screensaver' && (
+                <div className="max-w-4xl mx-auto bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                     <h3 className="font-bold text-slate-900 uppercase tracking-wider mb-6 pb-4 border-b border-slate-100">Screensaver Config</h3>
+                     <div className="grid grid-cols-2 gap-8">
+                         <div className="space-y-4">
+                             <InputField label="Idle Timeout (sec)" val={localData.screensaverSettings?.idleTimeout||60} onChange={(e:any)=>handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, idleTimeout: parseInt(e.target.value)}})} />
+                             <InputField label="Image Duration (sec)" val={localData.screensaverSettings?.imageDuration||8} onChange={(e:any)=>handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, imageDuration: parseInt(e.target.value)}})} />
                          </div>
-                         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-                             {[
-                                 ['showProductImages', 'Product Images'], 
-                                 ['showProductVideos', 'Product Videos'],
-                                 ['showPamphlets', 'Pamphlets'],
-                                 ['showCustomAds', 'Custom Ads'],
-                                 ['muteVideos', 'Mute Videos']
-                             ].map(([key, label]) => (
-                                 <label key={key} className="flex items-center gap-2 p-3 bg-slate-50 rounded border cursor-pointer">
-                                     <input type="checkbox" checked={(storeData.screensaverSettings as any)?.[key] || false} onChange={e => handleSaveData({...storeData, screensaverSettings: {...storeData.screensaverSettings!, [key]: e.target.checked}})} />
-                                     <span className="text-xs font-bold uppercase text-slate-700">{label}</span>
-                                 </label>
+                         <div className="space-y-2">
+                             {Object.keys(localData.screensaverSettings || {}).filter(k => typeof (localData.screensaverSettings as any)[k] === 'boolean').map(k => (
+                                 <div key={k} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl"><span className="text-xs font-bold uppercase text-slate-700">{k.replace(/([A-Z])/g, ' $1').trim()}</span><button onClick={() => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, [k]: !(localData.screensaverSettings as any)[k]}})} className={`w-8 h-4 rounded-full transition-colors relative ${ (localData.screensaverSettings as any)[k] ? 'bg-green-500' : 'bg-slate-300' }`}><div className={`w-2 h-2 bg-white rounded-full absolute top-1 transition-all ${ (localData.screensaverSettings as any)[k] ? 'left-5' : 'left-1' }`}></div></button></div>
                              ))}
                          </div>
                      </div>
-                 </div>
-             )}
-
-             {/* FLEET TAB */}
-             {activeTab === 'fleet' && (
-                 <div className="max-w-6xl mx-auto space-y-6">
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                         {(storeData.fleet || []).map(kiosk => {
-                             const isOnline = (new Date().getTime() - new Date(kiosk.last_seen).getTime()) < 5 * 60 * 1000;
-                             return (
-                                 <div key={kiosk.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
-                                     <div className={`absolute top-0 left-0 w-1.5 h-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                                     <div className="flex justify-between items-start mb-4">
-                                         <div>
-                                             <h3 className="font-black text-lg text-slate-900">{kiosk.name}</h3>
-                                             <div className="text-xs font-mono text-slate-400">{kiosk.id}</div>
-                                         </div>
-                                         <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${kiosk.deviceType === 'mobile' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>{kiosk.deviceType || 'Kiosk'}</div>
-                                     </div>
-                                     
-                                     <div className="space-y-2 text-xs text-slate-600 mb-6 font-medium">
-                                         <div className="flex justify-between"><span>Status:</span> <span className={isOnline ? 'text-green-600 font-bold' : 'text-red-500 font-bold'}>{isOnline ? 'ONLINE' : 'OFFLINE'}</span></div>
-                                         <div className="flex justify-between"><span>Last Seen:</span> <span>{new Date(kiosk.last_seen).toLocaleTimeString()}</span></div>
-                                         <div className="flex justify-between"><span>IP Addr:</span> <span>{kiosk.ipAddress}</span></div>
-                                         <div className="flex justify-between"><span>Signal:</span> <span>{kiosk.wifiStrength}%</span></div>
-                                     </div>
-
-                                     <div className="flex gap-2">
-                                         {kiosk.deviceType !== 'mobile' && (
-                                             <button 
-                                                onClick={() => handleFleetCommand(kiosk.id, 'snapshot')} 
-                                                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded font-bold uppercase text-[10px] flex items-center justify-center gap-1"
-                                                disabled={!isOnline}
-                                             >
-                                                <Camera size={12} /> Snapshot
-                                             </button>
-                                         )}
-                                         <button 
-                                            onClick={() => handleFleetCommand(kiosk.id, 'restart')} 
-                                            className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded font-bold uppercase text-[10px] flex items-center justify-center gap-1"
-                                            disabled={!isOnline}
-                                         >
-                                            <Power size={12} /> Reboot
-                                         </button>
-                                     </div>
-                                     
-                                     {/* View Snapshot Trigger */}
-                                     {kiosk.snapshotUrl && (
-                                         <div className="mt-4 pt-4 border-t border-slate-100">
-                                            <button 
-                                                onClick={() => setViewingSnapshot(kiosk.snapshotUrl!)}
-                                                className="w-full text-xs text-blue-600 font-bold uppercase hover:underline flex items-center justify-center gap-1"
-                                            >
-                                                <Eye size={12} /> View Latest Snapshot
-                                            </button>
-                                            <div className="text-[9px] text-center text-slate-400 mt-1">
-                                                Taken: {new Date(kiosk.last_seen).toLocaleTimeString()}
-                                            </div>
-                                         </div>
-                                     )}
-                                 </div>
-                             );
-                         })}
-                     </div>
-                 </div>
-             )}
-
-             {/* SETTINGS TAB */}
-             {activeTab === 'settings' && (
-                <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-                     <h3 className="text-xl font-black text-slate-800 uppercase mb-6 flex items-center gap-2"><Database size={24} /> System Management</h3>
-                     <div className="space-y-4">
-                         <button onClick={() => setShowSetup(true)} className="w-full p-4 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-                             <Book size={20} /> Open Setup Guide
-                         </button>
-                         <button onClick={async () => {
-                             if(confirm("Factory Reset? This wipes ALL data locally and pushes a clean slate to cloud.")) {
-                                 const clean = await resetStoreData();
-                                 handleSaveData(clean);
-                                 alert("System Reset Complete.");
-                             }
-                         }} className="w-full p-4 bg-red-50 text-red-600 rounded-xl font-bold uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100 flex items-center justify-center gap-2">
-                             <AlertCircle size={20} /> Factory Reset Database
-                         </button>
+                     <div className="mt-8 pt-8 border-t border-slate-100">
+                        <h4 className="font-bold text-slate-900 uppercase text-xs mb-4">Custom Media</h4>
+                        <FileUpload 
+                            label="Upload" 
+                            allowMultiple 
+                            accept="image/*,video/*" 
+                            currentUrl="" 
+                            onUpload={(urls:any, type:any) => { 
+                                const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ss'), type, url:u})); 
+                                handleLocalUpdate({...localData, ads: {...localData.ads!, screensaver: [...(localData.ads?.screensaver||[]), ...newAds]}}); 
+                            }} 
+                        />
+                        
+                        {/* --- ADDED: Display Screensaver Media Grid --- */}
+                        <div className="grid grid-cols-4 md:grid-cols-6 gap-3 mt-4">
+                            {(localData.ads?.screensaver || []).map((ad, idx) => (
+                                <div key={ad.id} className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                                    {ad.type === 'video' ? (
+                                        <video src={ad.url} className="w-full h-full object-cover opacity-60" />
+                                    ) : (
+                                        <img src={ad.url} alt="Screensaver" className="w-full h-full object-cover" />
+                                    )}
+                                    <button 
+                                        onClick={() => {
+                                            const newAds = (localData.ads?.screensaver || []).filter((_, i) => i !== idx);
+                                            handleLocalUpdate({...localData, ads: {...localData.ads!, screensaver: newAds}});
+                                        }}
+                                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
+                                        title="Delete"
+                                    >
+                                        <Trash2 size={10} />
+                                    </button>
+                                    {ad.type === 'video' && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Video size={16} className="text-white drop-shadow-md"/></div>}
+                                </div>
+                            ))}
+                        </div>
+                        {/* --------------------------------------------- */}
                      </div>
                 </div>
-             )}
-         </main>
-      </div>
+            )}
 
-      {editingProduct && (
-        <ProductEditor 
-           product={editingProduct} 
-           onCancel={() => setEditingProduct(null)} 
-           onSave={saveProduct} 
-        />
-      )}
+            {activeTab === 'fleet' && (
+                <div className="animate-fade-in max-w-6xl mx-auto">
+                   <h2 className="text-2xl font-black text-slate-900 uppercase mb-6">Device Fleet</h2>
+                   <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                       <table className="w-full text-left">
+                           <thead className="bg-slate-50 border-b border-slate-200"><tr><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Status</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Name</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Type</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Snapshot</th><th className="p-4 text-[10px] font-black text-slate-500 uppercase">Actions</th></tr></thead>
+                           <tbody>{localData.fleet?.map(kiosk => {
+                               const isOnline = (new Date().getTime() - new Date(kiosk.last_seen).getTime()) < 350000; // Increased offline tolerance slightly due to 5m poll
+                               return (
+                                   <tr key={kiosk.id} className="border-b border-slate-100 hover:bg-slate-50">
+                                       <td className="p-4"><div className={`flex items-center gap-2 px-2 py-1 rounded-full w-fit text-[10px] font-bold uppercase ${isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}><div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>{isOnline ? 'Online' : 'Offline'}</div></td>
+                                       <td className="p-4"><div className="font-bold text-sm text-slate-900">{kiosk.name}</div><div className="text-[10px] text-slate-400 font-mono">{kiosk.id}</div></td>
+                                       <td className="p-4"><div className="flex items-center gap-2 text-xs font-bold text-slate-600">{kiosk.deviceType === 'mobile' ? <Smartphone size={14}/> : <Tablet size={14}/>}{kiosk.deviceType || 'Kiosk'}</div></td>
+                                       <td className="p-4">
+                                           {kiosk.snapshotUrl ? (
+                                               <button onClick={() => setViewingSnapshot(kiosk.snapshotUrl)} className="flex items-center gap-2 text-[10px] font-bold uppercase text-blue-600 hover:underline">
+                                                   <Eye size={14} /> View
+                                               </button>
+                                           ) : (
+                                               <span className="text-[10px] text-slate-400 font-bold uppercase">No Image</span>
+                                           )}
+                                       </td>
+                                       <td className="p-4 flex gap-2">
+                                           <button onClick={() => requestSnapshot(kiosk.id)} title="Request Camera Snapshot" className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"><Camera size={14}/></button>
+                                           <button onClick={() => setEditingKiosk(kiosk)} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200"><Edit2 size={14}/></button>
+                                           {supabase && <button onClick={async () => { if(confirm("Restart Device?")) await supabase.from('kiosks').update({restart_requested: true}).eq('id', kiosk.id); }} className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100" title="Remote Restart"><Power size={14}/></button>}
+                                           <button onClick={() => removeFleetMember(kiosk.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"><Trash2 size={14}/></button>
+                                       </td>
+                                   </tr>
+                               );
+                           })}</tbody>
+                       </table>
+                       {localData.fleet?.length === 0 && <div className="p-8 text-center text-slate-400 font-bold uppercase text-xs">No devices registered</div>}
+                   </div>
+                </div>
+            )}
 
-      {showSetup && <SetupGuide onClose={() => setShowSetup(false)} />}
-      
-      {/* SNAPSHOT POPUP MODAL */}
-      {viewingSnapshot && (
-          <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setViewingSnapshot(null)}>
-              <div className="relative max-w-4xl w-full bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-700" onClick={e => e.stopPropagation()}>
-                  <div className="p-4 flex justify-between items-center border-b border-slate-800">
-                      <h3 className="text-white font-bold uppercase tracking-widest flex items-center gap-2"><Camera size={16} /> Remote Snapshot</h3>
-                      <button onClick={() => setViewingSnapshot(null)} className="text-slate-400 hover:text-white"><X size={24} /></button>
-                  </div>
-                  <div className="bg-black flex items-center justify-center min-h-[400px]">
-                      <img src={viewingSnapshot} className="max-w-full max-h-[70vh] object-contain" alt="Snapshot" />
-                  </div>
-                  <div className="p-4 bg-slate-900 border-t border-slate-800 flex justify-end">
-                      <a href={viewingSnapshot} download={`snapshot_${Date.now()}.jpg`} className="bg-blue-600 text-white px-4 py-2 rounded font-bold uppercase text-xs flex items-center gap-2 hover:bg-blue-700">
-                          <Download size={14} /> Save Image
-                      </a>
-                  </div>
-              </div>
-          </div>
-      )}
+            {activeTab === 'settings' && (
+                <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+                    <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="p-3 bg-red-100 text-red-600 rounded-xl"><AlertCircle size={24} /></div>
+                            <div><h3 className="text-lg font-black text-slate-900 uppercase tracking-wide">Danger Zone</h3><p className="text-xs text-slate-500 font-bold uppercase">Irreversible Actions</p></div>
+                        </div>
+                        <div className="flex gap-4">
+                            <button onClick={async () => { if(confirm("Are you sure? This will wipe all data.")) { await resetStoreData(); window.location.reload(); } }} className="bg-red-500 text-white px-6 py-3 rounded-xl font-bold uppercase text-xs hover:bg-red-600 shadow-lg flex items-center gap-2"><Trash2 size={16} /> Factory Reset</button>
+                            <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="bg-slate-200 text-slate-600 px-6 py-3 rounded-xl font-bold uppercase text-xs hover:bg-slate-300 flex items-center gap-2"><RotateCcw size={16} /> Clear Local Cache</button>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-blue-600 text-white p-8 rounded-2xl shadow-xl relative overflow-hidden">
+                        <div className="relative z-10">
+                            <h3 className="text-2xl font-black uppercase mb-2">System Setup Guide</h3>
+                            <p className="text-blue-200 mb-6 max-w-md">Learn how to connect your Kiosk to the Cloud, set up your Database, and deploy to the web.</p>
+                            <button onClick={() => setShowGuide(true)} className="bg-white text-blue-600 px-6 py-3 rounded-xl font-black uppercase text-xs hover:bg-blue-50 transition-colors flex items-center gap-2"><BookOpen size={16}/> Open Guide</button>
+                        </div>
+                        <CloudLightning size={200} className="absolute -bottom-10 -right-10 text-blue-500 opacity-50" />
+                    </div>
+                </div>
+            )}
+        </main>
+
+        {editingProduct && <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm p-4 md:p-12"><ProductEditor product={editingProduct} onSave={(p) => { if(selectedCategory) { const updated = {...selectedBrand!, categories: selectedBrand!.categories.map(c => c.id === selectedCategory.id ? {...c, products: editingProduct.id.startsWith('p-') ? [...c.products, p] : c.products.map(px => px.id === p.id ? p : px)} : c)}; handleLocalUpdate({...localData, brands: brands.map(b => b.id === updated.id ? updated : b)}); setEditingProduct(null); } }} onCancel={() => setEditingProduct(null)} /></div>}
+
+        {editingKiosk && <KioskEditorModal kiosk={editingKiosk} onSave={(k) => { updateFleetMember(k); setEditingKiosk(null); }} onClose={() => setEditingKiosk(null)} />}
+
+        {showGuide && <SetupGuide onClose={() => setShowGuide(false)} />}
+        
+        {viewingSnapshot && (
+            <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setViewingSnapshot(null)}>
+                <button onClick={() => setViewingSnapshot(null)} className="absolute top-4 right-4 text-white hover:text-red-400 transition-colors p-2 bg-white/10 rounded-full backdrop-blur-md">
+                    <X size={24} />
+                </button>
+                <div className="relative max-w-5xl max-h-[90vh] rounded-xl overflow-hidden shadow-2xl bg-black border border-slate-800" onClick={e => e.stopPropagation()}>
+                    <img src={viewingSnapshot} alt="Device Snapshot" className="w-full h-full object-contain" />
+                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent flex justify-center pointer-events-none">
+                         <a href={viewingSnapshot} download="snapshot.jpg" target="_blank" rel="noreferrer" className="pointer-events-auto bg-white text-black px-6 py-2 rounded-full font-bold uppercase text-xs flex items-center gap-2 hover:bg-slate-200 transition-colors">
+                            <Download size={14} /> Download Original
+                         </a>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
   );
 };
