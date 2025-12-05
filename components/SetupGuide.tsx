@@ -361,17 +361,13 @@ where not exists (select 1 from public.store_config where id = 1);
 
 -- 4. Enable Realtime (Auto-Sync)
 -- We use a DO block to prevent errors if you run this script twice.
-do $$
-begin
-  if not exists (
-    select 1 from pg_publication_tables 
-    where pubname = 'supabase_realtime' 
-    and schemaname = 'public' 
-    and tablename = 'store_config'
-  ) then
-    alter publication supabase_realtime add table public.store_config;
-  end if;
-end;
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.store_config;
+EXCEPTION WHEN OTHERS THEN
+    -- Ignore error if publication already exists or table is already a member
+    NULL;
+END;
 $$;`}
                             />
                         </div>

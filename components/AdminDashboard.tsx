@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -541,9 +542,6 @@ const DataManagerModal = ({ storeData, onImport, onClose }: { storeData: StoreDa
     );
 };
 
-// ... [Existing BrandImportModal, KioskEditorModal, CameraViewerModal, BulkImporter - Keep as is, omitted for brevity but assumed present]
-// Re-implementing simplified versions for the XML context to ensure they exist
-
 const BrandImportModal = ({ brand, onImport, onClose }: { brand: Brand, onImport: (d: any) => void, onClose: () => void }) => (
     <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center backdrop-blur-sm p-4">
         <div className="bg-white rounded-2xl w-full max-w-lg p-8 text-center shadow-2xl">
@@ -597,9 +595,9 @@ const CameraViewerModal = ({ kiosk, onClose, onRequestSnapshot }: { kiosk: Kiosk
 export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: { onExit: () => void, storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh: () => void }) => {
   const [session, setSession] = useState(false);
   
-  // NAVIGATION STATE - HEADER TABS
+  // NAVIGATION STATE - HEADER TABS ONLY (NO SIDEBAR)
   const [activeTab, setActiveTab] = useState<'inventory' | 'marketing' | 'screensaver' | 'fleet' | 'history' | 'settings'>('inventory');
-  const [activeSubTab, setActiveSubTab] = useState<string>('brands'); // Dynamic sub-tab state
+  const [activeSubTab, setActiveSubTab] = useState<string>('brands'); 
 
   // Selection State
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
@@ -710,7 +708,7 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                  </div>
             </div>
 
-            {/* Scrollable Horizontal Tabs */}
+            {/* Scrollable Horizontal Tabs - NO SIDEBAR */}
             <div className="flex overflow-x-auto no-scrollbar">
                 <button onClick={() => setActiveTab('inventory')} className={`flex-1 min-w-[100px] py-4 text-center text-xs font-black uppercase tracking-wider border-b-4 transition-all ${activeTab === 'inventory' ? 'border-blue-500 text-white bg-slate-800' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Inventory</button>
                 <button onClick={() => setActiveTab('marketing')} className={`flex-1 min-w-[100px] py-4 text-center text-xs font-black uppercase tracking-wider border-b-4 transition-all ${activeTab === 'marketing' ? 'border-purple-500 text-white bg-slate-800' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>Marketing</button>
@@ -726,7 +724,9 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
             <div className="bg-white border-b border-slate-200 flex overflow-x-auto no-scrollbar shadow-sm z-10">
                 <button onClick={() => setActiveSubTab('hero')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'hero' ? 'text-purple-600 bg-purple-50' : 'text-slate-500 hover:bg-slate-50'}`}>Hero Banner</button>
                 <button onClick={() => setActiveSubTab('ads')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'ads' ? 'text-purple-600 bg-purple-50' : 'text-slate-500 hover:bg-slate-50'}`}>Ad Zones</button>
-                <button onClick={() => setActiveSubTab('catalogues')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'catalogues' ? 'text-purple-600 bg-purple-50' : 'text-slate-500 hover:bg-slate-50'}`}>Pamphlets & Catalogues</button>
+                <button onClick={() => setActiveSubTab('catalogues')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'catalogues' ? 'text-purple-600 bg-purple-50' : 'text-slate-500 hover:bg-slate-50'} flex items-center gap-2`}>
+                   <BookOpen size={14} /> Pamphlets & Catalogues
+                </button>
             </div>
         )}
 
@@ -1085,7 +1085,6 @@ export const AdminDashboard = ({ onExit, storeData, onUpdateData, onRefresh }: {
                                        <div className="text-[10px] text-slate-400 font-mono">Deleted: {storeData.archive?.deletedAt?.[b.id] || 'Unknown'}</div>
                                    </div>
                                ))}
-                               {/* ... (Keep existing history render logic) ... */}
                                {(!storeData.archive || (storeData.archive as any)[historyFolder]?.length === 0) && (
                                    <div className="text-center py-12 text-slate-400 italic text-sm">Folder is empty.</div>
                                )}
