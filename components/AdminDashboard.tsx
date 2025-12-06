@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -814,6 +815,17 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-black text-slate-900 uppercase">TV Video Management</h2>
                         </div>
+                        
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-8 flex items-start gap-3">
+                            <Tv size={24} className="text-blue-500 shrink-0 mt-1" />
+                            <div>
+                                <h4 className="font-bold text-blue-900 uppercase text-xs mb-1">How to manage TV Content</h4>
+                                <p className="text-sm text-blue-800 leading-relaxed">
+                                    Create a TV Brand below, then click "Manage Videos" to upload content. You can add a Brand Logo, change the Brand Name, and upload multiple videos to create a playlist. These will appear on the TV Home Page.
+                                </p>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                             <button 
                                 onClick={() => { 
@@ -839,15 +851,15 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                     </div>
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); if(confirm("Delete TV Brand?")) { handleLocalUpdate({...localData, tv: { ...localData.tv, brands: tvBrands.filter(b => b.id !== brand.id) } as TVConfig }); } }} 
-                                        className="absolute top-2 right-2 p-1.5 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="absolute top-2 right-2 p-1.5 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity z-20"
                                     >
                                         <Trash2 size={14}/>
                                     </button>
                                     <button 
                                         onClick={() => setSelectedTVBrand(brand)} 
-                                        className="absolute inset-0 w-full h-full opacity-0 z-0"
+                                        className="absolute inset-0 w-full h-full opacity-0 z-10"
                                     />
-                                    <div className="absolute bottom-16 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                    <div className="absolute bottom-16 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
                                         <span className="bg-slate-900 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">Manage Videos</span>
                                     </div>
                                 </div>

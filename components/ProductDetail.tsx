@@ -23,7 +23,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
   const dimensionSets = useMemo(() => {
       if (Array.isArray(product.dimensions)) return product.dimensions;
       // Legacy support
-      if (typeof product.dimensions === 'object') return [{ label: "Device", ...product.dimensions }];
+      if (typeof product.dimensions === 'object' && product.dimensions) {
+          return [{ label: "Device", ...(product.dimensions as any) }];
+      }
       return [];
   }, [product.dimensions]);
 
