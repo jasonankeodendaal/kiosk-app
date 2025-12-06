@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, ChevronLeft, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv
 } from 'lucide-react';
-import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual } from '../types';
+import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig } from '../types';
 import { resetStoreData } from '../services/geminiService';
 import { uploadFileToStorage, supabase, checkCloudConnection } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
@@ -188,7 +188,7 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
                         <div className="h-40 bg-slate-100 relative group flex items-center justify-center overflow-hidden">
                             {cat.pages[0] ? <img src={cat.pages[0]} className="w-full h-full object-cover" /> : <BookOpen size={32} className="text-slate-300" />}
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button onClick={() => updateCatalogue(cat.id, { pages: [] })} className="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold uppercase">Clear All Pages</button>
+                                <button onClick={() => updateCatalogue(cat.id, { pages: [] })} className="bg-red-50 text-white px-3 py-1 rounded text-xs font-bold uppercase">Clear All Pages</button>
                             </div>
                         </div>
                         <div className="p-4 space-y-3">
@@ -512,12 +512,15 @@ const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, on
                     
                     <div>
                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Device Type</label>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                              <button onClick={() => setDraft({...draft, deviceType: 'kiosk'})} className={`p-3 rounded-lg border text-xs font-bold uppercase flex items-center justify-center gap-2 ${draft.deviceType === 'kiosk' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-500'}`}>
                                  <Tablet size={16}/> Kiosk
                              </button>
                              <button onClick={() => setDraft({...draft, deviceType: 'mobile'})} className={`p-3 rounded-lg border text-xs font-bold uppercase flex items-center justify-center gap-2 ${draft.deviceType === 'mobile' ? 'bg-purple-50 border-purple-500 text-purple-700' : 'bg-white border-slate-200 text-slate-500'}`}>
                                  <Smartphone size={16}/> Mobile
+                             </button>
+                             <button onClick={() => setDraft({...draft, deviceType: 'tv'})} className={`p-3 rounded-lg border text-xs font-bold uppercase flex items-center justify-center gap-2 ${draft.deviceType === 'tv' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                                 <Tv size={16}/> TV
                              </button>
                         </div>
                     </div>
@@ -533,7 +536,7 @@ const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, on
 
 export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh: () => void }) => {
   const [session, setSession] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inventory' | 'marketing' | 'screensaver' | 'fleet' | 'history' | 'settings'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'marketing' | 'tv' | 'screensaver' | 'fleet' | 'history' | 'settings'>('inventory');
   const [activeSubTab, setActiveSubTab] = useState<string>('brands'); 
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -543,6 +546,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [viewingSnapshot, setViewingSnapshot] = useState<string | null>(null);
+  const [selectedTVBrand, setSelectedTVBrand] = useState<TVBrand | null>(null);
   
   // GLOBAL LOCAL STATE (BUFFER)
   const [localData, setLocalData] = useState<StoreData | null>(storeData);
@@ -583,6 +587,10 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
           const updatedBrand = newData.brands.find(b => b.id === selectedBrand.id);
           const updatedCat = updatedBrand?.categories.find(c => c.id === selectedCategory.id);
           if (updatedCat) setSelectedCategory(updatedCat);
+      }
+      if (selectedTVBrand && newData.tv) {
+          const updatedTVBrand = newData.tv.brands.find(b => b.id === selectedTVBrand.id);
+          if (updatedTVBrand) setSelectedTVBrand(updatedTVBrand);
       }
   };
 
@@ -661,6 +669,11 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       ? [...localData.brands].sort((a, b) => a.name.localeCompare(b.name)) 
       : [];
 
+  // TV Brands
+  const tvBrands = Array.isArray(localData.tv?.brands)
+      ? [...localData.tv!.brands].sort((a, b) => a.name.localeCompare(b.name))
+      : [];
+
   return (
     <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
         <header className="bg-slate-900 text-white shrink-0 shadow-xl z-20">
@@ -696,7 +709,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                  </div>
             </div>
             <div className="flex overflow-x-auto no-scrollbar">
-                {['inventory', 'marketing', 'screensaver', 'fleet', 'history', 'settings'].map(tab => (
+                {['inventory', 'marketing', 'tv', 'screensaver', 'fleet', 'history', 'settings'].map(tab => (
                     <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 min-w-[100px] py-4 text-center text-xs font-black uppercase tracking-wider border-b-4 transition-all ${activeTab === tab ? 'border-blue-500 text-white bg-slate-800' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>{tab}</button>
                 ))}
             </div>
@@ -795,6 +808,147 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                )
             )}
 
+            {activeTab === 'tv' && (
+                !selectedTVBrand ? (
+                    <div className="animate-fade-in max-w-6xl mx-auto">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-black text-slate-900 uppercase">TV Video Management</h2>
+                        </div>
+                        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            <button 
+                                onClick={() => { 
+                                    const name = prompt("Brand Name:"); 
+                                    if(name) {
+                                        const newBrand = { id: generateId('tvb'), name, videoUrls: [] };
+                                        handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: [...(localData.tv?.brands || []), newBrand] } as TVConfig });
+                                    }
+                                }} 
+                                className="bg-indigo-50 border-2 border-dashed border-indigo-200 rounded-2xl flex flex-col items-center justify-center p-4 min-h-[160px] text-indigo-400 hover:border-indigo-500 hover:text-indigo-600 transition-all group"
+                            >
+                                <Plus size={32} className="mb-2" />
+                                <span className="font-bold uppercase text-xs tracking-wider text-center">Add TV Brand</span>
+                            </button>
+                            {tvBrands.map(brand => (
+                                <div key={brand.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:shadow-lg transition-all relative">
+                                    <div className="flex-1 bg-slate-50 flex items-center justify-center p-4 aspect-square">
+                                        {brand.logoUrl ? <img src={brand.logoUrl} className="max-w-full max-h-full object-contain" /> : <Tv size={32} className="text-slate-300" />}
+                                    </div>
+                                    <div className="p-4 bg-white border-t border-slate-100">
+                                        <h3 className="font-black text-slate-900 text-sm uppercase truncate mb-1">{brand.name}</h3>
+                                        <p className="text-xs text-slate-500 font-bold">{brand.videoUrls?.length || 0} Videos</p>
+                                    </div>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); if(confirm("Delete TV Brand?")) { handleLocalUpdate({...localData, tv: { ...localData.tv, brands: tvBrands.filter(b => b.id !== brand.id) } as TVConfig }); } }} 
+                                        className="absolute top-2 right-2 p-1.5 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <Trash2 size={14}/>
+                                    </button>
+                                    <button 
+                                        onClick={() => setSelectedTVBrand(brand)} 
+                                        className="absolute inset-0 w-full h-full opacity-0 z-0"
+                                    />
+                                    <div className="absolute bottom-16 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                        <span className="bg-slate-900 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">Manage Videos</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="animate-fade-in max-w-5xl mx-auto">
+                        <div className="flex items-center gap-4 mb-6">
+                            <button onClick={() => setSelectedTVBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50"><ArrowLeft size={20} /></button>
+                            <h2 className="text-2xl font-black uppercase text-slate-900 flex-1">{selectedTVBrand.name} <span className="text-slate-400 font-bold ml-2 text-lg">TV Config</span></h2>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <div className="space-y-6">
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                    <h4 className="font-bold text-slate-900 uppercase text-xs mb-4">Brand Identity</h4>
+                                    <div className="space-y-4">
+                                        <InputField 
+                                            label="Brand Name" 
+                                            val={selectedTVBrand.name} 
+                                            onChange={(e: any) => {
+                                                const updated = { ...selectedTVBrand, name: e.target.value };
+                                                handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
+                                            }} 
+                                        />
+                                        <FileUpload 
+                                            label="Brand Logo" 
+                                            currentUrl={selectedTVBrand.logoUrl} 
+                                            onUpload={(url: any) => { 
+                                                const updated = { ...selectedTVBrand, logoUrl: url };
+                                                handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
+                                            }} 
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="md:col-span-2">
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h4 className="font-bold text-slate-900 uppercase text-xs">Video Playlist</h4>
+                                        <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase">{selectedTVBrand.videoUrls?.length || 0} Videos</span>
+                                    </div>
+                                    
+                                    <FileUpload 
+                                        label="Add Videos to Playlist" 
+                                        accept="video/*" 
+                                        allowMultiple={true}
+                                        icon={<Video />}
+                                        currentUrl="" 
+                                        onUpload={(urls: any) => {
+                                            const newUrls = Array.isArray(urls) ? urls : [urls];
+                                            const updated = { ...selectedTVBrand, videoUrls: [...(selectedTVBrand.videoUrls || []), ...newUrls] };
+                                            handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
+                                        }} 
+                                    />
+                                    
+                                    <div className="grid grid-cols-1 gap-3 mt-4">
+                                        {(selectedTVBrand.videoUrls || []).map((url, idx) => (
+                                            <div key={idx} className="flex items-center gap-4 bg-slate-50 p-3 rounded-lg border border-slate-100 group">
+                                                <div className="w-16 h-10 bg-slate-900 rounded flex items-center justify-center shrink-0">
+                                                    <Video size={16} className="text-white opacity-50" />
+                                                </div>
+                                                <div className="flex-1 overflow-hidden">
+                                                    <div className="text-[10px] font-bold text-slate-500 uppercase">Video {idx + 1}</div>
+                                                    <div className="text-xs font-mono truncate text-slate-700">{url.split('/').pop()}</div>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    {idx > 0 && <button onClick={() => {
+                                                        const newUrls = [...selectedTVBrand.videoUrls];
+                                                        [newUrls[idx], newUrls[idx-1]] = [newUrls[idx-1], newUrls[idx]];
+                                                        const updated = { ...selectedTVBrand, videoUrls: newUrls };
+                                                        handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
+                                                    }} className="p-1 hover:bg-slate-200 rounded"><ChevronDown size={14} className="rotate-180"/></button>}
+                                                    
+                                                    {idx < selectedTVBrand.videoUrls.length - 1 && <button onClick={() => {
+                                                        const newUrls = [...selectedTVBrand.videoUrls];
+                                                        [newUrls[idx], newUrls[idx+1]] = [newUrls[idx+1], newUrls[idx]];
+                                                        const updated = { ...selectedTVBrand, videoUrls: newUrls };
+                                                        handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
+                                                    }} className="p-1 hover:bg-slate-200 rounded"><ChevronDown size={14} /></button>}
+                                                    
+                                                    <button onClick={() => {
+                                                        const updated = { ...selectedTVBrand, videoUrls: selectedTVBrand.videoUrls.filter((_, i) => i !== idx) };
+                                                        handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
+                                                    }} className="p-1.5 bg-white border border-slate-200 text-red-500 hover:bg-red-50 rounded ml-2"><Trash2 size={14} /></button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {(!selectedTVBrand.videoUrls || selectedTVBrand.videoUrls.length === 0) && (
+                                            <div className="text-center py-8 text-slate-400 text-xs italic">No videos in playlist. Upload some above.</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            )}
+
             {activeTab === 'marketing' && (
                 <div className="max-w-5xl mx-auto">
                     {activeSubTab === 'catalogues' && <CatalogueManager catalogues={localData.catalogues || []} onSave={(c) => handleLocalUpdate({ ...localData, catalogues: c })} />}
@@ -874,7 +1028,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                    <div className="p-1 md:p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start bg-slate-50/50 gap-0 md:gap-0">
                                        <div>
                                            <div className="flex items-center gap-0.5 md:gap-2 mb-0 md:mb-1">
-                                               {kiosk.deviceType === 'mobile' ? <Smartphone size={10} className="text-purple-500 md:w-4 md:h-4"/> : <Tablet size={10} className="text-blue-500 md:w-4 md:h-4"/>}
+                                               {kiosk.deviceType === 'mobile' ? <Smartphone size={10} className="text-purple-500 md:w-4 md:h-4"/> : kiosk.deviceType === 'tv' ? <Tv size={10} className="text-indigo-500 md:w-4 md:h-4" /> : <Tablet size={10} className="text-blue-500 md:w-4 md:h-4"/>}
                                                <span className="font-black text-slate-900 text-[8px] md:text-sm uppercase truncate max-w-[60px] md:max-w-none">{kiosk.name}</span>
                                            </div>
                                            <span className="text-[6px] md:text-[10px] font-mono text-slate-400 bg-white border border-slate-200 px-0.5 py-0 rounded hidden md:inline-block">{kiosk.id}</span>

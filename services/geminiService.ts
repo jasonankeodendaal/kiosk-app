@@ -25,6 +25,10 @@ const DEFAULT_DATA: StoreData = {
     showCustomAds: true
   },
   catalogues: [],
+  brands: [],
+  tv: {
+    brands: []
+  },
   ads: {
     homeBottomLeft: [],
     homeBottomRight: [],
@@ -32,7 +36,6 @@ const DEFAULT_DATA: StoreData = {
     screensaver: []
   },
   fleet: [],
-  brands: [],
   about: {
       title: "About Our Vision",
       text: "Welcome to the Kiosk Pro Showcase.\n\nWe are a premier provider of digital retail solutions, dedicated to bridging the gap between physical stores and the digital world. Our mission is to empower customers with information.\n\nThis kiosk is designed to provide you with a comprehensive view of our product catalog, complete with high-definition visuals, detailed specifications, and instant access to stock availability. We believe in transparency and quality, ensuring that every product you see meets our rigorous standards.\n\nExplore our curated selection of top-tier brands, compare features side-by-side, and discover new arrivals daily. Whether you are a tech enthusiast, a fashion forward individual, or simply looking for the best deals, our platform is built for you.\n\nIf you require assistance, our knowledgeable staff is just a tap away. Thank you for choosing us for your shopping journey.",
@@ -52,6 +55,10 @@ const migrateData = (data: any): StoreData => {
     if (!data.ads) data.ads = { ...DEFAULT_DATA.ads };
     if (!data.screensaverSettings) data.screensaverSettings = { ...DEFAULT_DATA.screensaverSettings };
     if (!data.about) data.about = { ...DEFAULT_DATA.about };
+    
+    // TV Config
+    if (!data.tv) data.tv = { brands: [] };
+    if (data.tv && !data.tv.brands) data.tv.brands = [];
 
     // 3. Migrate Deep Structures
     if (data.brands) {

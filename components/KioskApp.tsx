@@ -20,7 +20,8 @@ import ProductList from './ProductList';
 import ProductDetail from './ProductDetail';
 import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
-import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
+import TVMode from './TVMode';
+import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv } from 'lucide-react';
 
 const DEFAULT_IDLE_TIMEOUT = 60000;
 
@@ -79,11 +80,11 @@ export const SetupScreen = ({
   onRestoreId
 }: { 
   kioskId: string, 
-  onComplete: (name: string, type: 'kiosk' | 'mobile') => void,
+  onComplete: (name: string, type: 'kiosk' | 'mobile' | 'tv') => void,
   onRestoreId: (id: string) => void
 }) => {
   const [shopName, setShopName] = useState('');
-  const [deviceType, setDeviceType] = useState<'kiosk' | 'mobile'>('kiosk');
+  const [deviceType, setDeviceType] = useState<'kiosk' | 'mobile' | 'tv'>('kiosk');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRestoreMode, setIsRestoreMode] = useState(false);
   const [customId, setCustomId] = useState('');
@@ -102,7 +103,7 @@ export const SetupScreen = ({
 
   return (
     <div className="h-screen w-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="max-w-lg w-full bg-white rounded-3xl p-10 shadow-2xl animate-fade-in relative overflow-hidden">
+      <div className="max-w-xl w-full bg-white rounded-3xl p-10 shadow-2xl animate-fade-in relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-yellow-400"></div>
         <div className="mb-8 text-center">
            <div className="bg-blue-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-blue-600"><Store size={32} /></div>
@@ -112,27 +113,35 @@ export const SetupScreen = ({
         <form onSubmit={handleSubmit}>
           
           {/* Device Type Selection */}
-          <div className="mb-6 grid grid-cols-2 gap-4">
+          <div className="mb-6 grid grid-cols-3 gap-2">
              <button
                 type="button" 
                 onClick={() => setDeviceType('kiosk')}
-                className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${deviceType === 'kiosk' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 hover:border-slate-300 text-slate-500'}`}
+                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${deviceType === 'kiosk' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 hover:border-slate-300 text-slate-500'}`}
              >
-                 <Tablet size={32} />
-                 <span className="text-xs font-black uppercase tracking-wider">Kiosk Display</span>
-                 {deviceType === 'kiosk' && <div className="absolute top-2 right-2 text-blue-500"><Check size={16} /></div>}
-                 <span className="text-[9px] text-center opacity-70 leading-tight">Screensaver & Camera Active</span>
+                 <Tablet size={24} />
+                 <span className="text-[10px] font-black uppercase tracking-wider">Kiosk</span>
+                 {deviceType === 'kiosk' && <div className="absolute top-2 right-2 text-blue-500"><Check size={12} /></div>}
              </button>
 
              <button 
                 type="button"
                 onClick={() => setDeviceType('mobile')}
-                className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${deviceType === 'mobile' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 hover:border-slate-300 text-slate-500'}`}
+                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${deviceType === 'mobile' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 hover:border-slate-300 text-slate-500'}`}
              >
-                 <Smartphone size={32} />
-                 <span className="text-xs font-black uppercase tracking-wider">Personal Mobile</span>
-                 {deviceType === 'mobile' && <div className="absolute top-2 right-2 text-purple-500"><Check size={16} /></div>}
-                 <span className="text-[9px] text-center opacity-70 leading-tight">No Screensaver / Camera Off</span>
+                 <Smartphone size={24} />
+                 <span className="text-[10px] font-black uppercase tracking-wider">Mobile</span>
+                 {deviceType === 'mobile' && <div className="absolute top-2 right-2 text-purple-500"><Check size={12} /></div>}
+             </button>
+
+             <button 
+                type="button"
+                onClick={() => setDeviceType('tv')}
+                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${deviceType === 'tv' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 hover:border-slate-300 text-slate-500'}`}
+             >
+                 <Tv size={24} />
+                 <span className="text-[10px] font-black uppercase tracking-wider">TV Mode</span>
+                 {deviceType === 'tv' && <div className="absolute top-2 right-2 text-indigo-500"><Check size={12} /></div>}
              </button>
           </div>
 
@@ -375,7 +384,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
       );
   }, [storeData]);
 
-  const handleSetupComplete = (name: string, type: 'kiosk' | 'mobile') => {
+  const handleSetupComplete = (name: string, type: 'kiosk' | 'mobile' | 'tv') => {
     completeKioskSetup(name, type).then(() => {
         setDeviceTypeState(type);
         setIsSetup(true);
@@ -402,6 +411,18 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   }
   
   if (!storeData) return null;
+
+  // TV Mode Route
+  if (deviceType === 'tv') {
+      return (
+          <TVMode 
+             storeData={storeData} 
+             onRefresh={() => window.location.reload()} 
+             screensaverEnabled={screensaverEnabled}
+             onToggleScreensaver={() => setScreensaverEnabled(!screensaverEnabled)}
+          />
+      );
+  }
 
   return (
     <div className="h-[100dvh] w-full relative bg-slate-100 overflow-hidden flex flex-col">

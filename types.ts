@@ -52,6 +52,17 @@ export interface Brand {
   categories: Category[];
 }
 
+export interface TVBrand {
+  id: string;
+  name: string;
+  logoUrl?: string;
+  videoUrls: string[];
+}
+
+export interface TVConfig {
+  brands: TVBrand[];
+}
+
 export interface HeroConfig {
   title: string;
   subtitle: string;
@@ -104,7 +115,7 @@ export interface ScreensaverSettings {
 export interface KioskRegistry {
   id: string;
   name: string;
-  deviceType?: 'kiosk' | 'mobile'; 
+  deviceType?: 'kiosk' | 'mobile' | 'tv'; 
   status: 'online' | 'offline';
   last_seen: string;
   wifiStrength: number; 
@@ -136,6 +147,7 @@ export interface StoreData {
   hero: HeroConfig;
   catalogues?: Catalogue[]; 
   brands: Brand[];
+  tv?: TVConfig; // New TV Configuration
   ads?: AdConfig;
   screensaverSettings?: ScreensaverSettings; 
   fleet?: KioskRegistry[]; 

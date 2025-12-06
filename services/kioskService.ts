@@ -129,8 +129,8 @@ export const getShopName = (): string | null => {
   return localStorage.getItem(STORAGE_KEY_NAME);
 };
 
-export const getDeviceType = (): 'kiosk' | 'mobile' => {
-    return (localStorage.getItem(STORAGE_KEY_TYPE) as 'kiosk' | 'mobile') || 'kiosk';
+export const getDeviceType = (): 'kiosk' | 'mobile' | 'tv' => {
+    return (localStorage.getItem(STORAGE_KEY_TYPE) as 'kiosk' | 'mobile' | 'tv') || 'kiosk';
 };
 
 // 5. Check Config
@@ -139,7 +139,7 @@ export const isKioskConfigured = (): boolean => {
 };
 
 // 6. Complete Setup (Robust Version)
-export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' | 'mobile'): Promise<boolean> => {
+export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' | 'mobile' | 'tv'): Promise<boolean> => {
   const id = getKioskId();
   if (!id) return false;
   
