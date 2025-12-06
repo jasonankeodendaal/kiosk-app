@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Brand, Catalogue, HeroConfig, AdConfig, AdItem } from '../types';
-import { BookOpen, Globe, ChevronRight, MonitorPlay, MonitorStop, X, Grid } from 'lucide-react';
+import { BookOpen, Globe, ChevronRight, X, Grid } from 'lucide-react';
 
 interface BrandGridProps {
   brands: Brand[];
@@ -148,17 +148,6 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
   return (
     <div className="flex flex-col h-full bg-slate-50 overflow-y-auto animate-fade-in pb-24">
       
-      {/* Header - Simplified to just screensaver toggle */}
-      <div className="bg-white border-b border-slate-200 p-2 md:p-4 shadow-sm flex items-center justify-end shrink-0 relative z-50">
-        <button 
-            onClick={onToggleScreensaver}
-            className={`p-2 rounded-lg border transition-colors ${screensaverEnabled ? 'bg-green-100 text-green-600 border-green-200' : 'bg-slate-100 text-slate-400 border-slate-200'}`}
-            title="Toggle Screensaver"
-        >
-            {screensaverEnabled ? <MonitorPlay size={18} /> : <MonitorStop size={18} />}
-        </button>
-      </div>
-
       {/* Hero Section */}
       <div className="bg-slate-900 text-white relative overflow-hidden shrink-0 min-h-[20vh] md:min-h-[40vh] flex flex-col">
         {heroConfig?.backgroundImageUrl ? (
