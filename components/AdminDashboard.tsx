@@ -3,13 +3,12 @@ import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, ChevronLeft, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, MegaphoneIcon, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig } from '../types';
 import { resetStoreData } from '../services/geminiService';
 import { uploadFileToStorage, supabase, checkCloudConnection } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
-import JSZip from 'jszip';
 
 const generateId = (prefix: string) => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -543,7 +542,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingKiosk, setEditingKiosk] = useState<KioskRegistry | null>(null);
-  const [historyFolder, setHistoryFolder] = useState<'brands' | 'products' | 'catalogues' | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [viewingSnapshot, setViewingSnapshot] = useState<string | null>(null);
@@ -1147,7 +1145,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                      {/* Screensaver Ads Direct Management */}
                      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mt-8">
                          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-                             <div className="p-2 bg-orange-50 text-orange-600 rounded-lg"><MegaphoneIcon size={20} /></div>
+                             <div className="p-2 bg-orange-50 text-orange-600 rounded-lg"><Megaphone size={20} /></div>
                              <h3 className="font-black text-slate-900 uppercase tracking-wider text-sm">Screensaver Ads</h3>
                          </div>
                          <FileUpload 
