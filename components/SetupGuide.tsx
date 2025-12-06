@@ -651,7 +651,7 @@ app.listen(3000, () => console.log('HUB SERVER ONLINE: Port 3000'));`}
                                         <li>Click <strong>Settings</strong> (Top tab) → <strong>Environment Variables</strong> (Side menu).</li>
                                         <li>Add Key: <code>NEXT_PUBLIC_SUPABASE_URL</code> <br/> Value: Paste URL from Supabase Step 2.</li>
                                         <li>Add Key: <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> <br/> Value: Paste Anon Key from Supabase Step 2.</li>
-                                        <li><strong>IMPORTANT:</strong> Go back to the "Deployments" tab in Vercel. Click the three dots on the latest deployment -> <strong>Redeploy</strong>. This ensures the new keys are actually loaded.</li>
+                                        <li><strong>IMPORTANT:</strong> Go back to the "Deployments" tab in Vercel. Click the three dots on the latest deployment &rarr; <strong>Redeploy</strong>. This ensures the new keys are actually loaded.</li>
                                     </ol>
                                 </div>
                             </div>
