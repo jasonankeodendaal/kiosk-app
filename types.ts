@@ -152,6 +152,24 @@ export interface AboutConfig {
     audioUrl?: string;
 }
 
+export interface AdminPermissions {
+    inventory: boolean;
+    marketing: boolean;
+    tv: boolean;
+    screensaver: boolean;
+    fleet: boolean;
+    history: boolean;
+    settings: boolean;
+}
+
+export interface AdminUser {
+    id: string;
+    name: string;
+    pin: string;
+    isSuperAdmin: boolean;
+    permissions: AdminPermissions;
+}
+
 export interface StoreData {
   companyLogoUrl?: string; 
   hero: HeroConfig;
@@ -163,6 +181,7 @@ export interface StoreData {
   fleet?: KioskRegistry[]; 
   archive?: ArchiveData; 
   about?: AboutConfig;
+  admins: AdminUser[]; // New Admin Management
 }
 
 export interface FlatProduct extends Product {

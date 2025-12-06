@@ -4,37 +4,81 @@ import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, ChevronLeft, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv, UserCog, Key
 } from 'lucide-react';
-import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig, TVModel } from '../types';
+import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig, TVModel, AdminUser, AdminPermissions } from '../types';
 import { resetStoreData } from '../services/geminiService';
 import { uploadFileToStorage, supabase, checkCloudConnection } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
 
 const generateId = (prefix: string) => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
 
-// PDF Conversion removed/minimized in favor of direct image upload per user request
-const Auth = ({ setSession }: { setSession: (s: boolean) => void }) => {
-  const [password, setPassword] = useState('');
+// Updated Auth Component with Name/PIN and Admin validation
+const Auth = ({ admins, onLogin }: { admins: AdminUser[], onLogin: (user: AdminUser) => void }) => {
+  const [name, setName] = useState('');
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
-    if(password === 'admin') setSession(true); 
-    else alert('Incorrect password.');
+    setError('');
+
+    if (!name.trim() || !pin.trim()) {
+        setError('Please enter both Name and PIN.');
+        return;
+    }
+
+    const admin = admins.find(a => 
+        a.name.toLowerCase().trim() === name.toLowerCase().trim() && 
+        a.pin === pin.trim()
+    );
+
+    if (admin) {
+        onLogin(admin);
+    } else {
+        setError('Invalid credentials.');
+    }
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-slate-800 p-4 animate-fade-in">
       <div className="bg-slate-100 p-8 rounded-3xl shadow-2xl max-w-md w-full relative overflow-hidden border border-slate-300">
         <h1 className="text-4xl font-black mb-2 text-center text-slate-900 mt-4 tracking-tight">Admin Hub</h1>
-        <form onSubmit={handleAuth} className="space-y-6">
-          <input className="w-full p-4 border border-slate-300 rounded-xl bg-white font-bold" type="password" placeholder="ACCESS KEY" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
-          <button type="submit" className="w-full p-4 font-black rounded-xl bg-slate-900 text-white uppercase">Login</button>
+        <p className="text-center text-slate-500 text-sm mb-6 font-bold uppercase tracking-wide">Enter Name & PIN</p>
+        
+        <form onSubmit={handleAuth} className="space-y-4">
+          <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">Admin Name</label>
+              <input 
+                 className="w-full p-4 border border-slate-300 rounded-xl bg-white font-bold text-slate-900 outline-none focus:border-blue-500" 
+                 type="text" 
+                 placeholder="Name" 
+                 value={name} 
+                 onChange={(e) => setName(e.target.value)} 
+                 autoFocus 
+              />
+          </div>
+          <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">PIN Code</label>
+              <input 
+                 className="w-full p-4 border border-slate-300 rounded-xl bg-white font-bold text-slate-900 outline-none focus:border-blue-500" 
+                 type="password" 
+                 placeholder="####" 
+                 value={pin} 
+                 onChange={(e) => setPin(e.target.value)} 
+              />
+          </div>
+          
+          {error && <div className="text-red-500 text-xs font-bold text-center bg-red-100 p-2 rounded-lg">{error}</div>}
+
+          <button type="submit" className="w-full p-4 font-black rounded-xl bg-slate-900 text-white uppercase hover:bg-slate-800 transition-colors shadow-lg">Login</button>
         </form>
       </div>
     </div>
   );
 };
 
+// ... FileUpload, InputField, CatalogueManager ...
 // Updated FileUpload to always return Base64 for local processing if needed
 const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <ImageIcon />, allowMultiple = false }: any) => {
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -106,10 +150,10 @@ const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <I
   );
 };
 
-const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false }: any) => (
+const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false, type = 'text' }: any) => (
     <div className={`mb-4 ${half ? 'w-full' : ''}`}>
       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">{label}</label>
-      {isArea ? <textarea value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl h-24 focus:ring-2 focus:ring-blue-500 outline-none resize-none text-sm" placeholder={placeholder} /> : <input value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" placeholder={placeholder} />}
+      {isArea ? <textarea value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl h-24 focus:ring-2 focus:ring-blue-500 outline-none resize-none text-sm" placeholder={placeholder} /> : <input type={type} value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" placeholder={placeholder} />}
     </div>
 );
 
@@ -207,7 +251,7 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
     );
 };
 
-// ... ProductEditor and KioskEditorModal components remain the same ...
+// ... ProductEditor, KioskEditorModal, TVModelEditor ... 
 
 const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave: (p: Product) => void, onCancel: () => void }) => {
     // Migrate legacy data on init (single video -> multiple array, single manual -> multiple manuals)
@@ -578,9 +622,145 @@ const TVModelEditor = ({ model, onSave, onClose }: { model: TVModel, onSave: (m:
     );
 };
 
+// NEW: Admin Manager Component for Settings Tab
+const AdminManager = ({ admins, onUpdate }: { admins: AdminUser[], onUpdate: (admins: AdminUser[]) => void }) => {
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [newName, setNewName] = useState('');
+    const [newPin, setNewPin] = useState('');
+    // Default new permissions to false for safety, or true for convenience? Let's go mixed.
+    const [newPermissions, setNewPermissions] = useState<AdminPermissions>({
+        inventory: true,
+        marketing: true,
+        tv: false,
+        screensaver: false,
+        fleet: false,
+        history: false,
+        settings: false
+    });
+
+    const resetForm = () => {
+        setEditingId(null);
+        setNewName('');
+        setNewPin('');
+        setNewPermissions({
+            inventory: true,
+            marketing: true,
+            tv: false,
+            screensaver: false,
+            fleet: false,
+            history: false,
+            settings: false
+        });
+    };
+
+    const handleAddOrUpdate = () => {
+        if (!newName || !newPin) return alert("Name and PIN required");
+        
+        let updatedList = [...admins];
+
+        if (editingId) {
+            // Edit existing
+            updatedList = updatedList.map(a => a.id === editingId ? { ...a, name: newName, pin: newPin, permissions: newPermissions } : a);
+        } else {
+            // Add new
+            updatedList.push({
+                id: generateId('adm'),
+                name: newName,
+                pin: newPin,
+                isSuperAdmin: false,
+                permissions: newPermissions
+            });
+        }
+        
+        onUpdate(updatedList);
+        resetForm();
+    };
+
+    const handleDelete = (id: string) => {
+        if (confirm("Remove this admin?")) {
+             onUpdate(admins.filter(a => a.id !== id));
+        }
+    };
+
+    const startEdit = (admin: AdminUser) => {
+        if (admin.isSuperAdmin) {
+            // Limited editing for super admin (mostly just pin/name, though usually safe to block deleting)
+            // But let's allow editing name/pin
+        }
+        setEditingId(admin.id);
+        setNewName(admin.name);
+        setNewPin(admin.pin);
+        setNewPermissions(admin.permissions);
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Form Side */}
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                    <h4 className="font-bold text-slate-900 uppercase text-xs mb-4">{editingId ? 'Edit Admin' : 'Add New Admin'}</h4>
+                    <div className="space-y-4">
+                        <InputField label="Name" val={newName} onChange={(e:any) => setNewName(e.target.value)} placeholder="Admin Name" />
+                        <InputField label="PIN" val={newPin} onChange={(e:any) => setNewPin(e.target.value)} placeholder="4-Digit PIN" type="text" />
+                        
+                        <div className="bg-white p-4 rounded-lg border border-slate-200">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Access Permissions</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {Object.keys(newPermissions).map((key) => (
+                                    <label key={key} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-50 rounded">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={(newPermissions as any)[key]} 
+                                            onChange={(e) => setNewPermissions({...newPermissions, [key]: e.target.checked})}
+                                            className="w-4 h-4 text-blue-600 rounded"
+                                            disabled={editingId && admins.find(a => a.id === editingId)?.isSuperAdmin} // Prevent removing perms from super admin
+                                        />
+                                        <span className="text-xs font-bold uppercase text-slate-700">{key}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                            {editingId && <button onClick={resetForm} className="px-4 py-2 bg-slate-200 text-slate-600 rounded-lg text-xs font-bold uppercase">Cancel</button>}
+                            <button onClick={handleAddOrUpdate} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold uppercase hover:bg-blue-700">
+                                {editingId ? 'Update Admin' : 'Create Admin'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* List Side */}
+                <div className="space-y-3">
+                    {admins.map(admin => (
+                        <div key={admin.id} className={`p-4 rounded-xl border flex justify-between items-center ${editingId === admin.id ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-300' : 'bg-white border-slate-200'}`}>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-slate-900">{admin.name}</span>
+                                    {admin.isSuperAdmin && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-black uppercase">Master</span>}
+                                </div>
+                                <div className="text-xs text-slate-500 font-mono mt-0.5">PIN: {admin.pin}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => startEdit(admin)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                                {!admin.isSuperAdmin && (
+                                    <button onClick={() => handleDelete(admin.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh: () => void }) => {
-  const [session, setSession] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inventory' | 'marketing' | 'tv' | 'screensaver' | 'fleet' | 'history' | 'settings'>('inventory');
+  const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
+  
+  // Set default tab based on first available permission
+  const [activeTab, setActiveTab] = useState<string>('inventory');
+
   const [activeSubTab, setActiveSubTab] = useState<string>('brands'); 
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -597,6 +777,23 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   // GLOBAL LOCAL STATE (BUFFER)
   const [localData, setLocalData] = useState<StoreData | null>(storeData);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Determine available tabs based on user permissions
+  const availableTabs = [
+      { id: 'inventory', label: 'Inventory', icon: Box },
+      { id: 'marketing', label: 'Marketing', icon: Megaphone },
+      { id: 'tv', label: 'TV', icon: Tv },
+      { id: 'screensaver', label: 'Screensaver', icon: Monitor },
+      { id: 'fleet', label: 'Fleet', icon: Tablet },
+      { id: 'history', label: 'History', icon: History },
+      { id: 'settings', label: 'Settings', icon: Settings },
+  ].filter(tab => currentUser?.permissions[tab.id as keyof AdminPermissions]);
+
+  useEffect(() => {
+      if (currentUser && availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
+          setActiveTab(availableTabs[0].id);
+      }
+  }, [currentUser]);
 
   useEffect(() => {
       checkCloudConnection().then(setIsCloudConnected);
@@ -708,8 +905,8 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
      });
   };
 
-  if (!session) return <Auth setSession={setSession} />;
   if (!localData) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /> Loading...</div>;
+  if (!currentUser) return <Auth admins={localData.admins || []} onLogin={setCurrentUser} />;
 
   const brands = Array.isArray(localData.brands) 
       ? [...localData.brands].sort((a, b) => a.name.localeCompare(b.name)) 
@@ -729,18 +926,23 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                      <div><h1 className="text-lg font-black uppercase tracking-widest leading-none">Admin Hub</h1></div>
                  </div>
                  
-                 <button 
-                     onClick={handleGlobalSave}
-                     disabled={!hasUnsavedChanges}
-                     className={`flex items-center gap-2 px-6 py-2 rounded-lg font-black uppercase tracking-widest text-xs transition-all ${
-                         hasUnsavedChanges 
-                         ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] animate-pulse' 
-                         : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                     }`}
-                 >
-                     <SaveAll size={16} />
-                     {hasUnsavedChanges ? 'Save Changes' : 'Saved'}
-                 </button>
+                 <div className="flex items-center gap-4">
+                     <div className="text-xs font-bold text-slate-400 uppercase hidden md:block">
+                         Hello, {currentUser.name}
+                     </div>
+                     <button 
+                         onClick={handleGlobalSave}
+                         disabled={!hasUnsavedChanges}
+                         className={`flex items-center gap-2 px-6 py-2 rounded-lg font-black uppercase tracking-widest text-xs transition-all ${
+                             hasUnsavedChanges 
+                             ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] animate-pulse' 
+                             : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                         }`}
+                     >
+                         <SaveAll size={16} />
+                         {hasUnsavedChanges ? 'Save Changes' : 'Saved'}
+                     </button>
+                 </div>
 
                  <div className="flex items-center gap-3">
                      <div className={`flex items-center gap-2 px-3 py-1 rounded-lg ${isCloudConnected ? 'bg-blue-900/50 text-blue-300' : 'bg-orange-900/50 text-orange-300'}`}>
@@ -748,15 +950,15 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                          <span className="text-[10px] font-bold uppercase">{isCloudConnected ? 'Cloud Online' : 'Local Mode'}</span>
                      </div>
                      <button onClick={onRefresh} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-white"><RefreshCw size={16} /></button>
-                     <button onClick={() => setSession(false)} className="p-2 bg-red-900/50 hover:bg-red-900 text-red-400 hover:text-white rounded-lg flex items-center gap-2">
+                     <button onClick={() => setCurrentUser(null)} className="p-2 bg-red-900/50 hover:bg-red-900 text-red-400 hover:text-white rounded-lg flex items-center gap-2">
                         <LogOut size={16} />
                         <span className="text-[10px] font-bold uppercase hidden md:inline">Logout</span>
                      </button>
                  </div>
             </div>
             <div className="flex overflow-x-auto no-scrollbar">
-                {['inventory', 'marketing', 'tv', 'screensaver', 'fleet', 'history', 'settings'].map(tab => (
-                    <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 min-w-[100px] py-4 text-center text-xs font-black uppercase tracking-wider border-b-4 transition-all ${activeTab === tab ? 'border-blue-500 text-white bg-slate-800' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>{tab}</button>
+                {availableTabs.map(tab => (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 min-w-[100px] py-4 text-center text-xs font-black uppercase tracking-wider border-b-4 transition-all ${activeTab === tab.id ? 'border-blue-500 text-white bg-slate-800' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>{tab.label}</button>
                 ))}
             </div>
         </header>
@@ -1001,7 +1203,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                 )
             )}
 
-            {/* ... Other Tabs (Marketing, Fleet, History, Settings) remain unchanged ... */}
             {activeTab === 'marketing' && (
                 <div className="max-w-5xl mx-auto">
                     {activeSubTab === 'catalogues' && <CatalogueManager catalogues={localData.catalogues || []} onSave={(c) => handleLocalUpdate({ ...localData, catalogues: c })} />}
@@ -1124,8 +1325,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                 </div>
             )}
 
-            {/* SCREEN SAVER, HISTORY, SETTINGS TABS (Same as before, abbreviated for brevity in diff but assume included) */}
-            {/* ... (Screensaver, History, Settings Tabs Code from original AdminDashboard.tsx) ... */}
             {activeTab === 'screensaver' && (
                 <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1276,7 +1475,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             )}
             
             {activeTab === 'settings' && (
-                <div className="max-w-4xl mx-auto p-4 md:p-8 animate-fade-in pb-20 min-h-[50vh]">
+                <div className="max-w-6xl mx-auto p-4 md:p-8 animate-fade-in pb-20 min-h-[50vh]">
                      <h2 className="text-2xl font-black uppercase mb-6 text-slate-900">System Configuration</h2>
                      
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -1291,24 +1490,35 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                          </div>
                          
                          {/* System Actions */}
-                         <div className="bg-white p-6 rounded-2xl border border-slate-200 h-fit">
-                             <h3 className="text-sm font-black uppercase text-slate-500 mb-4 flex items-center gap-2"><Settings size={16} /> Maintenance</h3>
-                             <div className="space-y-3">
-                                 <button onClick={() => setShowGuide(true)} className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-xl flex items-center gap-3 border border-slate-200 transition-colors text-left">
-                                     <div className="bg-blue-100 p-2 rounded-lg text-blue-600"><BookOpen size={20} /></div>
-                                     <div>
-                                         <span className="block text-sm font-bold text-slate-900">Setup Guide</span>
-                                         <span className="block text-xs text-slate-500">View installation instructions</span>
-                                     </div>
-                                 </button>
-                                 
-                                 <button onClick={async () => { if(confirm("This will WIPE ALL DATA and restore factory defaults. Are you sure?")) { await resetStoreData(); window.location.reload(); }}} className="w-full p-4 bg-red-50 hover:bg-red-100 rounded-xl flex items-center gap-3 border border-red-200 transition-colors text-left group">
-                                     <div className="bg-white p-2 rounded-lg text-red-500 group-hover:text-red-600"><AlertCircle size={20} /></div>
-                                     <div>
-                                         <span className="block text-sm font-bold text-red-700">Factory Reset</span>
-                                         <span className="block text-xs text-red-400">Clear all data and start over</span>
-                                     </div>
-                                 </button>
+                         <div className="space-y-6">
+                             {/* Admin Management (Only visible to admins with Settings permissions) */}
+                             <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                                 <h3 className="text-sm font-black uppercase text-slate-500 mb-4 flex items-center gap-2"><UserCog size={16} /> Admin Access Control</h3>
+                                 <AdminManager 
+                                    admins={localData.admins || []} 
+                                    onUpdate={(updatedAdmins) => handleLocalUpdate({ ...localData, admins: updatedAdmins })}
+                                 />
+                             </div>
+
+                             <div className="bg-white p-6 rounded-2xl border border-slate-200">
+                                 <h3 className="text-sm font-black uppercase text-slate-500 mb-4 flex items-center gap-2"><Settings size={16} /> Maintenance</h3>
+                                 <div className="space-y-3">
+                                     <button onClick={() => setShowGuide(true)} className="w-full p-4 bg-slate-50 hover:bg-slate-100 rounded-xl flex items-center gap-3 border border-slate-200 transition-colors text-left">
+                                         <div className="bg-blue-100 p-2 rounded-lg text-blue-600"><BookOpen size={20} /></div>
+                                         <div>
+                                             <span className="block text-sm font-bold text-slate-900">Setup Guide</span>
+                                             <span className="block text-xs text-slate-500">View installation instructions</span>
+                                         </div>
+                                     </button>
+                                     
+                                     <button onClick={async () => { if(confirm("This will WIPE ALL DATA and restore factory defaults. Are you sure?")) { await resetStoreData(); window.location.reload(); }}} className="w-full p-4 bg-red-50 hover:bg-red-100 rounded-xl flex items-center gap-3 border border-red-200 transition-colors text-left group">
+                                         <div className="bg-white p-2 rounded-lg text-red-500 group-hover:text-red-600"><AlertCircle size={20} /></div>
+                                         <div>
+                                             <span className="block text-sm font-bold text-red-700">Factory Reset</span>
+                                             <span className="block text-xs text-red-400">Clear all data and start over</span>
+                                         </div>
+                                     </button>
+                                 </div>
                              </div>
                          </div>
                      </div>
@@ -1318,7 +1528,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
         
         {/* ADMIN FOOTER - FIXED VISIBILITY */}
         <footer className="bg-white border-t border-slate-200 p-3 px-6 flex justify-between items-center text-[10px] text-slate-500 font-bold uppercase tracking-widest shrink-0 z-30 shadow-[0_-5px_10px_rgba(0,0,0,0.02)]">
-            <div>JSTYP Admin Console v1.3</div>
+            <div>JSTYP Admin Console v1.4</div>
             <div className="flex gap-4">
                 <a href="#" onClick={(e) => {e.preventDefault(); setShowGuide(true);}} className="hover:text-blue-500 transition-colors">Help</a>
                 <span>&copy; {new Date().getFullYear()}</span>

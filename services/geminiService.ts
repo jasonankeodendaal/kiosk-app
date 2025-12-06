@@ -1,9 +1,25 @@
 
 
-import { StoreData, Product, Catalogue, ArchiveData, KioskRegistry, Manual } from "../types";
+import { StoreData, Product, Catalogue, ArchiveData, KioskRegistry, Manual, AdminUser } from "../types";
 import { supabase, getEnv, initSupabase } from "./kioskService";
 
 const STORAGE_KEY_DATA = 'kiosk_pro_store_data';
+
+const DEFAULT_ADMIN: AdminUser = {
+    id: 'super-admin',
+    name: 'Admin',
+    pin: '1723',
+    isSuperAdmin: true,
+    permissions: {
+        inventory: true,
+        marketing: true,
+        tv: true,
+        screensaver: true,
+        fleet: true,
+        history: true,
+        settings: true
+    }
+};
 
 // Full Static Default Data (Fallback)
 const DEFAULT_DATA: StoreData = {
@@ -40,7 +56,8 @@ const DEFAULT_DATA: StoreData = {
       title: "About Our Vision",
       text: "Welcome to the Kiosk Pro Showcase.\n\nWe are a premier provider of digital retail solutions, dedicated to bridging the gap between physical stores and the digital world. Our mission is to empower customers with information.\n\nThis kiosk is designed to provide you with a comprehensive view of our product catalog, complete with high-definition visuals, detailed specifications, and instant access to stock availability. We believe in transparency and quality, ensuring that every product you see meets our rigorous standards.\n\nExplore our curated selection of top-tier brands, compare features side-by-side, and discover new arrivals daily. Whether you are a tech enthusiast, a fashion forward individual, or simply looking for the best deals, our platform is built for you.\n\nIf you require assistance, our knowledgeable staff is just a tap away. Thank you for choosing us for your shopping journey.",
       audioUrl: ""
-  }
+  },
+  admins: [DEFAULT_ADMIN]
 };
 
 // Helper to migrate legacy data structures and Hydrate empty DB responses
@@ -55,6 +72,11 @@ const migrateData = (data: any): StoreData => {
     if (!data.ads) data.ads = { ...DEFAULT_DATA.ads };
     if (!data.screensaverSettings) data.screensaverSettings = { ...DEFAULT_DATA.screensaverSettings };
     if (!data.about) data.about = { ...DEFAULT_DATA.about };
+    
+    // Admin Config
+    if (!data.admins || !Array.isArray(data.admins) || data.admins.length === 0) {
+        data.admins = [DEFAULT_ADMIN];
+    }
     
     // TV Config
     if (!data.tv) data.tv = { brands: [] };
@@ -84,7 +106,7 @@ const migrateData = (data: any): StoreData => {
                             images: p.manualImages || [],
                             pdfUrl: p.manualUrl
                         });
-                        // Clean legacy to avoid duplication logic later
+                        // Clean legacy to avoid duplication on logic later
                         // p.manualUrl = undefined;
                         // p.manualImages = undefined;
                     }
