@@ -586,6 +586,18 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       }
   };
 
+  const checkSkuDuplicate = (sku: string, currentId: string) => {
+    if (!sku || !localData) return false;
+    for (const b of localData.brands) {
+        for (const c of b.categories) {
+            for (const p of c.products) {
+                if (p.sku && p.sku.toLowerCase() === sku.toLowerCase() && p.id !== currentId) return true;
+            }
+        }
+    }
+    return false;
+  };
+
   const handleGlobalSave = () => {
       if (localData) {
           onUpdateData(localData);
@@ -724,7 +736,32 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                        <div className="flex items-center gap-4 mb-6"><button onClick={() => setSelectedBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500"><ArrowLeft size={20} /></button><h2 className="text-xl md:text-2xl font-black uppercase text-slate-900 flex-1">{selectedBrand.name}</h2><FileUpload label="Brand Logo" currentUrl={selectedBrand.logoUrl} onUpload={(url: any) => { const updated = {...selectedBrand, logoUrl: url}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }} /></div>
                        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
                            <button onClick={() => { const name = prompt("Category Name:"); if(name) { const updated = {...selectedBrand, categories: [...selectedBrand.categories, { id: generateId('c'), name, icon: 'Box', products: [] }]}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); } }} className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-4 text-slate-400 hover:border-blue-500 hover:text-blue-500 aspect-square"><Plus size={24} /><span className="font-bold text-[10px] uppercase mt-2 text-center">New Category</span></button>
-                           {selectedBrand.categories.map(cat => (<button key={cat.id} onClick={() => setSelectedCategory(cat)} className="bg-white p-2 md:p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md text-left group relative aspect-square flex flex-col justify-center"><Box size={20} className="mb-2 md:mb-4 text-slate-400 mx-auto md:mx-0" /><h3 className="font-black text-slate-900 uppercase text-[10px] md:text-sm text-center md:text-left truncate w-full">{cat.name}</h3><p className="text-[9px] md:text-xs text-slate-500 font-bold text-center md:text-left">{cat.products.length} Products</p><div onClick={(e)=>{e.stopPropagation(); if(confirm("Delete?")){ const updated={...selectedBrand, categories: selectedBrand.categories.filter(c=>c.id!==cat.id)}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }}} className="absolute top-1 right-1 md:top-2 md:right-2 p-1 md:p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded"><Trash2 size={12}/></div></button>))}
+                           {selectedBrand.categories.map(cat => (
+                               <button key={cat.id} onClick={() => setSelectedCategory(cat)} className="bg-white p-2 md:p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md text-left group relative aspect-square flex flex-col justify-center">
+                                   <Box size={20} className="mb-2 md:mb-4 text-slate-400 mx-auto md:mx-0" />
+                                   <h3 className="font-black text-slate-900 uppercase text-[10px] md:text-sm text-center md:text-left truncate w-full">{cat.name}</h3>
+                                   <p className="text-[9px] md:text-xs text-slate-500 font-bold text-center md:text-left">{cat.products.length} Products</p>
+                                   <div 
+                                        onClick={(e)=>{
+                                            e.stopPropagation(); 
+                                            const newName = prompt("Rename Category:", cat.name);
+                                            if(newName && newName.trim() !== "") {
+                                                const updated = {...selectedBrand, categories: selectedBrand.categories.map(c => c.id === cat.id ? {...c, name: newName.trim()} : c)};
+                                                handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)});
+                                            }
+                                        }} 
+                                        className="absolute top-1 right-8 md:top-2 md:right-8 p-1 md:p-1.5 opacity-0 group-hover:opacity-100 hover:bg-blue-50 text-blue-500 rounded transition-all"
+                                   >
+                                       <Edit2 size={12}/>
+                                   </div>
+                                   <div 
+                                        onClick={(e)=>{e.stopPropagation(); if(confirm("Delete?")){ const updated={...selectedBrand, categories: selectedBrand.categories.filter(c=>c.id!==cat.id)}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }}} 
+                                        className="absolute top-1 right-1 md:top-2 md:right-2 p-1 md:p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded"
+                                   >
+                                       <Trash2 size={12}/>
+                                   </div>
+                                </button>
+                            ))}
                        </div>
                        <div className="mt-8 border-t border-slate-200 pt-8"><h3 className="font-bold text-slate-900 uppercase text-sm mb-4">Brand Catalogues</h3><CatalogueManager catalogues={localData.catalogues?.filter(c => c.brandId === selectedBrand.id) || []} brandId={selectedBrand.id} onSave={(c) => handleLocalUpdate({ ...localData, catalogues: [...(localData.catalogues?.filter(x => x.brandId !== selectedBrand.id) || []), ...c] })} /></div>
                    </div>
@@ -732,7 +769,27 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                    <div className="animate-fade-in h-full flex flex-col">
                        <div className="flex items-center gap-4 mb-6 shrink-0"><button onClick={() => setSelectedCategory(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500"><ArrowLeft size={20} /></button><h2 className="text-lg md:text-2xl font-black uppercase text-slate-900 flex-1 truncate">{selectedCategory.name}</h2><button onClick={() => setEditingProduct({ id: generateId('p'), name: '', description: '', specs: {}, features: [], dimensions: [], imageUrl: '' } as any)} className="bg-blue-600 text-white px-3 py-2 md:px-4 rounded-lg font-bold uppercase text-[10px] md:text-xs flex items-center gap-2 shrink-0"><Plus size={14} /> Add</button></div>
                        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 overflow-y-auto pb-20">
-                           {selectedCategory.products.map(product => (<div key={product.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col group hover:shadow-lg transition-all"><div className="aspect-square bg-slate-50 relative flex items-center justify-center p-2 md:p-4">{product.imageUrl ? <img src={product.imageUrl} className="max-w-full max-h-full object-contain" /> : <Box size={24} className="text-slate-300" />}<div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"><button onClick={() => setEditingProduct(product)} className="p-1.5 md:p-2 bg-white text-blue-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg">Edit</button></div></div><div className="p-2 md:p-4"><h4 className="font-bold text-slate-900 text-[10px] md:text-sm truncate uppercase">{product.name}</h4><p className="text-[9px] md:text-xs text-slate-500 font-mono truncate">{product.sku || 'No SKU'}</p></div></div>))}
+                           {selectedCategory.products.map(product => (
+                               <div key={product.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col group hover:shadow-lg transition-all">
+                                   <div className="aspect-square bg-slate-50 relative flex items-center justify-center p-2 md:p-4">
+                                       {product.imageUrl ? <img src={product.imageUrl} className="max-w-full max-h-full object-contain" /> : <Box size={24} className="text-slate-300" />}
+                                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                           <button onClick={() => setEditingProduct(product)} className="p-1.5 md:p-2 bg-white text-blue-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-blue-50">Edit</button>
+                                           <button onClick={() => {
+                                              if(confirm(`Delete product "${product.name}"?`)) {
+                                                  const updatedCat = {...selectedCategory, products: selectedCategory.products.filter(p => p.id !== product.id)};
+                                                  const updatedBrand = {...selectedBrand, categories: selectedBrand.categories.map(c => c.id === updatedCat.id ? updatedCat : c)};
+                                                  handleLocalUpdate({...localData, brands: brands.map(b => b.id === updatedBrand.id ? updatedBrand : b)});
+                                              }
+                                           }} className="p-1.5 md:p-2 bg-white text-red-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-red-50">Delete</button>
+                                       </div>
+                                   </div>
+                                   <div className="p-2 md:p-4">
+                                       <h4 className="font-bold text-slate-900 text-[10px] md:text-sm truncate uppercase">{product.name}</h4>
+                                       <p className="text-[9px] md:text-xs text-slate-500 font-mono truncate">{product.sku || 'No SKU'}</p>
+                                   </div>
+                               </div>
+                            ))}
                        </div>
                    </div>
                )
@@ -1062,7 +1119,32 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             </div>
         </footer>
 
-        {editingProduct && <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm p-4 md:p-12"><ProductEditor product={editingProduct} onSave={(p) => { if(selectedCategory) { const updated = {...selectedBrand!, categories: selectedBrand!.categories.map(c => c.id === selectedCategory.id ? {...c, products: editingProduct.id.startsWith('p-') ? [...c.products, p] : c.products.map(px => px.id === p.id ? p : px)} : c)}; handleLocalUpdate({...localData, brands: brands.map(b => b.id === updated.id ? updated : b)}); setEditingProduct(null); } }} onCancel={() => setEditingProduct(null)} /></div>}
+        {editingProduct && <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm p-4 md:p-12">
+            <ProductEditor 
+                product={editingProduct} 
+                onSave={(p) => { 
+                    if(selectedCategory) { 
+                        if (checkSkuDuplicate(p.sku || '', p.id)) {
+                             alert(`Cannot save: SKU "${p.sku}" already exists in the inventory.`);
+                             return;
+                        }
+                        const isNew = !selectedCategory.products.some(x => x.id === p.id);
+                        const updated = {
+                            ...selectedBrand!, 
+                            categories: selectedBrand!.categories.map(c => 
+                                c.id === selectedCategory.id ? {
+                                    ...c, 
+                                    products: isNew ? [...c.products, p] : c.products.map(px => px.id === p.id ? p : px)
+                                } : c
+                            )
+                        }; 
+                        handleLocalUpdate({...localData, brands: brands.map(b => b.id === updated.id ? updated : b)}); 
+                        setEditingProduct(null); 
+                    } 
+                }} 
+                onCancel={() => setEditingProduct(null)} 
+            />
+        </div>}
 
         {editingKiosk && <KioskEditorModal kiosk={editingKiosk} onSave={(k) => { updateFleetMember(k); setEditingKiosk(null); }} onClose={() => setEditingKiosk(null)} />}
 
