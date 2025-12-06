@@ -1,7 +1,8 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
-import { StoreData, TVBrand } from '../types';
-import { Play, Tv, ArrowLeft, ChevronLeft, ChevronRight, Pause, RotateCcw, MonitorPlay, MonitorStop, Film, LayoutGrid, SkipForward } from 'lucide-react';
+import { StoreData, TVBrand, TVModel } from '../types';
+import { Play, Tv, ArrowLeft, ChevronLeft, ChevronRight, Pause, RotateCcw, MonitorPlay, MonitorStop, Film, LayoutGrid, SkipForward, Monitor } from 'lucide-react';
 
 interface TVModeProps {
   storeData: StoreData;
@@ -13,6 +14,7 @@ interface TVModeProps {
 const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnabled, onToggleScreensaver }) => {
   // Navigation State
   const [viewingBrand, setViewingBrand] = useState<TVBrand | null>(null);
+  const [viewingModel, setViewingModel] = useState<TVModel | null>(null);
   
   // Player State
   const [activePlaylist, setActivePlaylist] = useState<string[]>([]);
@@ -54,13 +56,15 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
 
   // --- PLAYBACK LOGIC ---
 
-  // 1. Play Global Loop (All videos from all brands)
+  // 1. Play Global Loop (All videos from all brands/models)
   const handlePlayGlobal = () => {
       if (tvBrands.length === 0) {
           alert("No brands configured.");
           return;
       }
-      const allVideos = tvBrands.flatMap(b => b.videoUrls || []);
+      // Gather ALL videos
+      const allVideos = tvBrands.flatMap(b => (b.models || []).flatMap(m => m.videoUrls || []));
+      
       if (allVideos.length === 0) {
           alert("No videos found in system.");
           return;
@@ -80,15 +84,29 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
       setIsPaused(false);
   };
 
-  // 2. Play Brand (Start from beginning or specific index)
-  const handlePlayBrand = (brand: TVBrand, startIndex: number = 0) => {
-      if (!brand.videoUrls || brand.videoUrls.length === 0) {
-          alert("No videos available for this brand.");
+  // 2. Play Model Playlist
+  const handlePlayModel = (model: TVModel, startIndex: number = 0) => {
+      if (!model.videoUrls || model.videoUrls.length === 0) {
+          alert("No videos available for this model.");
           return;
       }
-      setActivePlaylist(brand.videoUrls);
+      setActivePlaylist(model.videoUrls);
       setCurrentVideoIndex(startIndex);
-      setPlayerTitle(brand.name);
+      setPlayerTitle(model.name);
+      setIsPlaying(true);
+      setIsPaused(false);
+  };
+
+  // 3. Play Whole Brand Loop
+  const handlePlayBrandLoop = (brand: TVBrand) => {
+      const allBrandVideos = (brand.models || []).flatMap(m => m.videoUrls || []);
+      if (allBrandVideos.length === 0) {
+          alert("No videos for this brand.");
+          return;
+      }
+      setActivePlaylist(allBrandVideos);
+      setCurrentVideoIndex(0);
+      setPlayerTitle(`${brand.name} - Full Loop`);
       setIsPlaying(true);
       setIsPaused(false);
   };
@@ -185,7 +203,99 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
       );
   }
 
-  // --- RENDER: BRAND DETAIL VIEW ---
+  // --- RENDER: MODEL DETAIL VIEW (List of videos) ---
+  if (viewingBrand && viewingModel) {
+      return (
+        <div className="h-screen w-screen bg-slate-900 text-white flex flex-col animate-fade-in relative overflow-hidden">
+             {/* Background blur effect */}
+             <div className="absolute inset-0 z-0">
+                 {viewingBrand.logoUrl && (
+                     <img src={viewingBrand.logoUrl} className="w-full h-full object-cover opacity-5 blur-3xl scale-150" alt="" />
+                 )}
+                 <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-900/80"></div>
+             </div>
+
+             {/* Header */}
+             <header className="relative z-10 p-6 md:p-10 flex items-center justify-between shrink-0">
+                 <button 
+                    onClick={() => setViewingModel(null)}
+                    className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors font-bold uppercase tracking-widest text-xs md:text-sm bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg border border-white/5"
+                 >
+                     <ArrowLeft size={16} /> Back to Models
+                 </button>
+                 <div className="text-right">
+                     <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tight">{viewingModel.name}</h1>
+                     <p className="text-blue-500 font-bold uppercase tracking-widest text-xs">{viewingBrand.name}</p>
+                 </div>
+             </header>
+
+             <main className="relative z-10 flex-1 overflow-hidden flex flex-col md:flex-row p-6 md:p-10 gap-8 md:gap-16">
+                 
+                 {/* Left Panel: Info & Play All */}
+                 <div className="w-full md:w-1/3 flex flex-col items-center md:items-start text-center md:text-left gap-8">
+                     <div className="w-48 h-48 md:w-64 md:h-64 bg-white rounded-3xl p-8 flex items-center justify-center shadow-2xl shadow-black/50 border border-white/10 overflow-hidden">
+                         {viewingModel.imageUrl ? (
+                             <img src={viewingModel.imageUrl} alt={viewingModel.name} className="w-full h-full object-cover rounded-xl" />
+                         ) : viewingBrand.logoUrl ? (
+                             <img src={viewingBrand.logoUrl} alt={viewingBrand.name} className="max-w-full max-h-full object-contain" />
+                         ) : (
+                             <Monitor size={80} className="text-slate-300" />
+                         )}
+                     </div>
+                     
+                     <div className="space-y-4 w-full max-w-sm">
+                         <div className="bg-slate-800/50 rounded-xl p-4 border border-white/5">
+                             <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Playlist Size</div>
+                             <div className="text-2xl font-black text-white">{viewingModel.videoUrls?.length || 0} Videos</div>
+                         </div>
+                         
+                         <button 
+                            onClick={() => handlePlayModel(viewingModel, 0)}
+                            className="w-full bg-blue-600 hover:bg-blue-500 text-white p-5 rounded-2xl font-black uppercase tracking-widest text-sm md:text-lg shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:shadow-[0_0_50px_rgba(37,99,235,0.6)] hover:scale-105 transition-all flex items-center justify-center gap-3"
+                         >
+                             <Play size={24} fill="currentColor" /> Play Model Loop
+                         </button>
+                     </div>
+                 </div>
+
+                 {/* Right Panel: Video Grid */}
+                 <div className="flex-1 h-full overflow-hidden flex flex-col bg-slate-800/30 rounded-3xl border border-white/5">
+                     <div className="p-4 border-b border-white/5 bg-black/20 flex items-center gap-2">
+                         <LayoutGrid size={16} className="text-blue-500" />
+                         <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Playlist Content</span>
+                     </div>
+                     <div className="flex-1 overflow-y-auto p-4 md:p-6 grid grid-cols-2 lg:grid-cols-3 gap-4">
+                         {viewingModel.videoUrls?.map((url, idx) => (
+                             <button
+                                key={idx}
+                                onClick={() => handlePlayModel(viewingModel, idx)}
+                                className="group relative aspect-video bg-black rounded-xl overflow-hidden border border-white/10 hover:border-blue-500 transition-colors shadow-lg flex flex-col"
+                             >
+                                 <div className="flex-1 relative w-full h-full flex items-center justify-center bg-slate-900">
+                                     <video src={url} className="w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity" preload="metadata" />
+                                     <div className="absolute inset-0 flex items-center justify-center">
+                                         <div className="w-12 h-12 rounded-full bg-white/10 group-hover:bg-blue-600 text-white flex items-center justify-center backdrop-blur-sm transition-all group-hover:scale-110">
+                                             <Play size={20} fill="currentColor" className="ml-1" />
+                                         </div>
+                                     </div>
+                                 </div>
+                                 <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/80 to-transparent">
+                                     <div className="text-white font-bold text-xs uppercase tracking-wide truncate text-left">Video {idx + 1}</div>
+                                 </div>
+                             </button>
+                         ))}
+                         {(!viewingModel.videoUrls || viewingModel.videoUrls.length === 0) && (
+                             <div className="col-span-full py-12 text-center text-slate-500 font-bold uppercase text-xs">No videos configured for this model.</div>
+                         )}
+                     </div>
+                 </div>
+
+             </main>
+        </div>
+      );
+  }
+
+  // --- RENDER: BRAND DETAIL VIEW (Select Model) ---
   if (viewingBrand) {
       return (
         <div className="h-screen w-screen bg-slate-900 text-white flex flex-col animate-fade-in relative overflow-hidden">
@@ -207,72 +317,56 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
                  </button>
                  <div className="text-right">
                      <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tight">{viewingBrand.name}</h1>
-                     <p className="text-blue-500 font-bold uppercase tracking-widest text-xs">Video Collection</p>
+                     <p className="text-blue-500 font-bold uppercase tracking-widest text-xs">Select TV Model</p>
                  </div>
              </header>
 
-             <main className="relative z-10 flex-1 overflow-hidden flex flex-col md:flex-row p-6 md:p-10 gap-8 md:gap-16">
-                 
-                 {/* Left Panel: Info & Play All */}
-                 <div className="w-full md:w-1/3 flex flex-col items-center md:items-start text-center md:text-left gap-8">
-                     <div className="w-48 h-48 md:w-64 md:h-64 bg-white rounded-3xl p-8 flex items-center justify-center shadow-2xl shadow-black/50 border border-white/10">
-                         {viewingBrand.logoUrl ? (
-                             <img src={viewingBrand.logoUrl} alt={viewingBrand.name} className="max-w-full max-h-full object-contain" />
-                         ) : (
-                             <Tv size={80} className="text-slate-300" />
-                         )}
-                     </div>
+             <main className="relative z-10 flex-1 overflow-y-auto p-6 md:p-10">
+                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                      
-                     <div className="space-y-4 w-full max-w-sm">
-                         <div className="bg-slate-800/50 rounded-xl p-4 border border-white/5">
-                             <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Total Videos</div>
-                             <div className="text-2xl font-black text-white">{viewingBrand.videoUrls?.length || 0}</div>
+                     {/* "Play All" Card */}
+                     <button
+                        onClick={() => handlePlayBrandLoop(viewingBrand)}
+                        className="bg-blue-600 rounded-3xl p-6 flex flex-col items-center justify-center text-center hover:scale-105 transition-transform shadow-lg shadow-blue-900/20 aspect-[4/3]"
+                     >
+                         <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4">
+                             <Play size={32} fill="currentColor" />
                          </div>
-                         
-                         <button 
-                            onClick={() => handlePlayBrand(viewingBrand, 0)}
-                            className="w-full bg-blue-600 hover:bg-blue-500 text-white p-5 rounded-2xl font-black uppercase tracking-widest text-sm md:text-lg shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:shadow-[0_0_50px_rgba(37,99,235,0.6)] hover:scale-105 transition-all flex items-center justify-center gap-3"
+                         <h3 className="text-xl font-black uppercase">Play Full Loop</h3>
+                         <p className="text-xs font-bold text-blue-200 mt-2">All {viewingBrand.name} Videos</p>
+                     </button>
+
+                     {/* Models List */}
+                     {(viewingBrand.models || []).map(model => (
+                         <button
+                            key={model.id}
+                            onClick={() => setViewingModel(model)}
+                            className="bg-slate-800/50 border border-white/10 rounded-3xl overflow-hidden hover:bg-slate-800 hover:border-blue-500/50 hover:shadow-[0_0_30px_rgba(37,99,235,0.2)] transition-all group aspect-[4/3] relative"
                          >
-                             <Play size={24} fill="currentColor" /> Play All Videos
+                             <div className="absolute inset-0 flex items-center justify-center p-8 opacity-50 group-hover:opacity-100 transition-opacity">
+                                 {model.imageUrl ? (
+                                     <img src={model.imageUrl} alt="" className="w-full h-full object-cover rounded-xl" />
+                                 ) : viewingBrand.logoUrl ? (
+                                     <img src={viewingBrand.logoUrl} alt="" className="w-full h-full object-contain opacity-20" />
+                                 ) : (
+                                     <Monitor size={64} className="text-slate-600" />
+                                 )}
+                             </div>
+                             
+                             {/* Overlay */}
+                             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent flex flex-col justify-end p-6 text-left">
+                                 <h3 className="text-lg md:text-xl font-black uppercase tracking-tight group-hover:text-blue-400 transition-colors">{model.name}</h3>
+                                 <p className="text-xs font-bold text-slate-400 uppercase mt-1">{model.videoUrls?.length || 0} Videos</p>
+                             </div>
                          </button>
-                         <p className="text-slate-500 text-xs text-center px-4 leading-relaxed">
-                            Clicking "Play All" will start a continuous loop of all videos in this brand's collection.
-                         </p>
-                     </div>
+                     ))}
                  </div>
-
-                 {/* Right Panel: Video Grid */}
-                 <div className="flex-1 h-full overflow-hidden flex flex-col bg-slate-800/30 rounded-3xl border border-white/5">
-                     <div className="p-4 border-b border-white/5 bg-black/20 flex items-center gap-2">
-                         <LayoutGrid size={16} className="text-blue-500" />
-                         <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Select a Video to Start</span>
+                 
+                 {(viewingBrand.models || []).length === 0 && (
+                     <div className="mt-12 text-center text-slate-500 font-bold uppercase tracking-widest border-2 border-dashed border-white/5 rounded-3xl p-12">
+                         No models configured for this brand.
                      </div>
-                     <div className="flex-1 overflow-y-auto p-4 md:p-6 grid grid-cols-2 lg:grid-cols-3 gap-4">
-                         {viewingBrand.videoUrls?.map((url, idx) => (
-                             <button
-                                key={idx}
-                                onClick={() => handlePlayBrand(viewingBrand, idx)}
-                                className="group relative aspect-video bg-black rounded-xl overflow-hidden border border-white/10 hover:border-blue-500 transition-colors shadow-lg flex flex-col"
-                             >
-                                 <div className="flex-1 relative w-full h-full flex items-center justify-center bg-slate-900">
-                                     <video src={url} className="w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity" preload="metadata" />
-                                     <div className="absolute inset-0 flex items-center justify-center">
-                                         <div className="w-12 h-12 rounded-full bg-white/10 group-hover:bg-blue-600 text-white flex items-center justify-center backdrop-blur-sm transition-all group-hover:scale-110">
-                                             <Play size={20} fill="currentColor" className="ml-1" />
-                                         </div>
-                                     </div>
-                                 </div>
-                                 <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/80 to-transparent">
-                                     <div className="text-white font-bold text-xs uppercase tracking-wide truncate text-left">Video {idx + 1}</div>
-                                 </div>
-                             </button>
-                         ))}
-                         {(!viewingBrand.videoUrls || viewingBrand.videoUrls.length === 0) && (
-                             <div className="col-span-full py-12 text-center text-slate-500 font-bold uppercase text-xs">No videos uploaded for this brand.</div>
-                         )}
-                     </div>
-                 </div>
-
+                 )}
              </main>
         </div>
       );
@@ -338,7 +432,7 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
                               <div className="text-left">
                                   <h3 className="text-white font-black uppercase tracking-wider text-sm md:text-base leading-none mb-1 group-hover:text-blue-400 transition-colors">{brand.name}</h3>
                                   <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-slate-400">
-                                      <Film size={10} /> {brand.videoUrls?.length || 0} Videos
+                                      <Monitor size={10} /> {brand.models?.length || 0} Models
                                   </div>
                               </div>
                               <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">

@@ -5,7 +5,7 @@ import {
   Monitor, Grid, Image as ImageIcon, ChevronRight, ChevronLeft, Wifi, WifiOff, 
   Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv
 } from 'lucide-react';
-import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig } from '../types';
+import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig, TVModel } from '../types';
 import { resetStoreData } from '../services/geminiService';
 import { uploadFileToStorage, supabase, checkCloudConnection } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
@@ -249,6 +249,8 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
         </div>
     );
 };
+
+// ... ProductEditor and KioskEditorModal components remain the same ...
 
 const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave: (p: Product) => void, onCancel: () => void }) => {
     // Migrate legacy data on init (single video -> multiple array, single manual -> multiple manuals)
@@ -534,6 +536,91 @@ const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, on
     );
 };
 
+// NEW: TV Model Editor Modal
+const TVModelEditor = ({ model, onSave, onClose }: { model: TVModel, onSave: (m: TVModel) => void, onClose: () => void }) => {
+    const [draft, setDraft] = useState<TVModel>({ ...model });
+
+    return (
+        <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]">
+                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+                    <h3 className="font-black text-slate-900 uppercase">Edit TV Model: {draft.name}</h3>
+                    <button onClick={onClose}><X size={20} className="text-slate-400" /></button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <InputField label="Model Name" val={draft.name} onChange={(e: any) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. OLED G3" />
+                        <FileUpload 
+                            label="Cover Image (Optional)" 
+                            currentUrl={draft.imageUrl} 
+                            onUpload={(url: any) => setDraft({ ...draft, imageUrl: url })} 
+                        />
+                    </div>
+
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div className="flex justify-between items-center mb-4">
+                            <h4 className="font-bold text-slate-900 uppercase text-xs">Videos for this Model</h4>
+                            <span className="text-[10px] font-bold bg-white text-slate-500 px-2 py-1 rounded border border-slate-200 uppercase">{draft.videoUrls.length} Videos</span>
+                        </div>
+                        
+                        <FileUpload 
+                            label="Upload Videos" 
+                            accept="video/*" 
+                            allowMultiple={true}
+                            icon={<Video />}
+                            currentUrl="" 
+                            onUpload={(urls: any) => {
+                                const newUrls = Array.isArray(urls) ? urls : [urls];
+                                setDraft(prev => ({ ...prev, videoUrls: [...prev.videoUrls, ...newUrls] }));
+                            }} 
+                        />
+                        
+                        <div className="grid grid-cols-1 gap-3 mt-4">
+                            {draft.videoUrls.map((url, idx) => (
+                                <div key={idx} className="flex items-center gap-4 bg-white p-3 rounded-lg border border-slate-200 group">
+                                    <div className="w-16 h-10 bg-slate-900 rounded flex items-center justify-center shrink-0">
+                                        <Video size={16} className="text-white opacity-50" />
+                                    </div>
+                                    <div className="flex-1 overflow-hidden">
+                                        <div className="text-[10px] font-bold text-slate-500 uppercase">Video {idx + 1}</div>
+                                        <div className="text-xs font-mono truncate text-slate-700">{url.split('/').pop()}</div>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        {idx > 0 && <button onClick={() => {
+                                            const newUrls = [...draft.videoUrls];
+                                            [newUrls[idx], newUrls[idx-1]] = [newUrls[idx-1], newUrls[idx]];
+                                            setDraft({ ...draft, videoUrls: newUrls });
+                                        }} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><ChevronDown size={14} className="rotate-180"/></button>}
+                                        
+                                        {idx < draft.videoUrls.length - 1 && <button onClick={() => {
+                                            const newUrls = [...draft.videoUrls];
+                                            [newUrls[idx], newUrls[idx+1]] = [newUrls[idx+1], newUrls[idx]];
+                                            setDraft({ ...draft, videoUrls: newUrls });
+                                        }} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><ChevronDown size={14} /></button>}
+                                        
+                                        <button onClick={() => {
+                                            setDraft({ ...draft, videoUrls: draft.videoUrls.filter((_, i) => i !== idx) });
+                                        }} className="p-1.5 bg-red-50 border border-red-100 text-red-500 hover:bg-red-100 rounded ml-2"><Trash2 size={14} /></button>
+                                    </div>
+                                </div>
+                            ))}
+                            {draft.videoUrls.length === 0 && (
+                                <div className="text-center py-6 text-slate-400 text-xs italic">No videos uploaded for this model yet.</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-white shrink-0">
+                    <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold uppercase text-xs">Cancel</button>
+                    <button onClick={() => onSave(draft)} className="px-4 py-2 bg-blue-600 text-white font-bold uppercase text-xs rounded-lg">Save Model</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh: () => void }) => {
   const [session, setSession] = useState(false);
   const [activeTab, setActiveTab] = useState<'inventory' | 'marketing' | 'tv' | 'screensaver' | 'fleet' | 'history' | 'settings'>('inventory');
@@ -546,6 +633,9 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   const [showGuide, setShowGuide] = useState(false);
   const [viewingSnapshot, setViewingSnapshot] = useState<string | null>(null);
   const [selectedTVBrand, setSelectedTVBrand] = useState<TVBrand | null>(null);
+  
+  // NEW: State for editing TV Model
+  const [editingTVModel, setEditingTVModel] = useState<TVModel | null>(null);
   
   // GLOBAL LOCAL STATE (BUFFER)
   const [localData, setLocalData] = useState<StoreData | null>(storeData);
@@ -819,7 +909,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                             <div>
                                 <h4 className="font-bold text-blue-900 uppercase text-xs mb-1">How to manage TV Content</h4>
                                 <p className="text-sm text-blue-800 leading-relaxed">
-                                    Create a TV Brand below, then click "Manage Videos" to upload content. You can add a Brand Logo, change the Brand Name, and upload multiple videos to create a playlist. These will appear on the TV Home Page.
+                                    Create a Brand, then click "Manage Models" to add specific TV models (e.g. "OLED 65"). Inside each model, you can upload a playlist of videos.
                                 </p>
                             </div>
                         </div>
@@ -829,7 +919,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                 onClick={() => { 
                                     const name = prompt("Brand Name:"); 
                                     if(name) {
-                                        const newBrand = { id: generateId('tvb'), name, videoUrls: [] };
+                                        const newBrand = { id: generateId('tvb'), name, models: [] };
                                         handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: [...(localData.tv?.brands || []), newBrand] } as TVConfig });
                                     }
                                 }} 
@@ -845,7 +935,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                     </div>
                                     <div className="p-4 bg-white border-t border-slate-100">
                                         <h3 className="font-black text-slate-900 text-sm uppercase truncate mb-1">{brand.name}</h3>
-                                        <p className="text-xs text-slate-500 font-bold">{brand.videoUrls?.length || 0} Videos</p>
+                                        <p className="text-xs text-slate-500 font-bold">{brand.models?.length || 0} Models</p>
                                     </div>
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); if(confirm("Delete TV Brand?")) { handleLocalUpdate({...localData, tv: { ...localData.tv, brands: tvBrands.filter(b => b.id !== brand.id) } as TVConfig }); } }} 
@@ -858,7 +948,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                         className="absolute inset-0 w-full h-full opacity-0 z-10"
                                     />
                                     <div className="absolute bottom-16 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                                        <span className="bg-slate-900 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">Manage Videos</span>
+                                        <span className="bg-slate-900 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">Manage Models</span>
                                     </div>
                                 </div>
                             ))}
@@ -898,58 +988,53 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                             
                             <div className="md:col-span-2">
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h4 className="font-bold text-slate-900 uppercase text-xs">Video Playlist</h4>
-                                        <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase">{selectedTVBrand.videoUrls?.length || 0} Videos</span>
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h4 className="font-bold text-slate-900 uppercase text-xs">TV Models</h4>
+                                        <button 
+                                            onClick={() => setEditingTVModel({ id: generateId('tvm'), name: '', videoUrls: [] })}
+                                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase flex items-center gap-1"
+                                        >
+                                            <Plus size={12} /> Add Model
+                                        </button>
                                     </div>
                                     
-                                    <FileUpload 
-                                        label="Add Videos to Playlist" 
-                                        accept="video/*" 
-                                        allowMultiple={true}
-                                        icon={<Video />}
-                                        currentUrl="" 
-                                        onUpload={(urls: any) => {
-                                            const newUrls = Array.isArray(urls) ? urls : [urls];
-                                            const updated = { ...selectedTVBrand, videoUrls: [...(selectedTVBrand.videoUrls || []), ...newUrls] };
-                                            handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
-                                        }} 
-                                    />
-                                    
-                                    <div className="grid grid-cols-1 gap-3 mt-4">
-                                        {(selectedTVBrand.videoUrls || []).map((url, idx) => (
-                                            <div key={idx} className="flex items-center gap-4 bg-slate-50 p-3 rounded-lg border border-slate-100 group">
-                                                <div className="w-16 h-10 bg-slate-900 rounded flex items-center justify-center shrink-0">
-                                                    <Video size={16} className="text-white opacity-50" />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {(selectedTVBrand.models || []).map((model) => (
+                                            <div key={model.id} className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden group">
+                                                <div className="p-4 flex items-center gap-4">
+                                                    <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shrink-0 border border-slate-200">
+                                                        {model.imageUrl ? <img src={model.imageUrl} className="w-full h-full object-cover rounded-lg" /> : <Monitor size={20} className="text-slate-300" />}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="font-bold text-slate-900 text-sm truncate">{model.name}</div>
+                                                        <div className="text-[10px] font-bold text-slate-500 uppercase">{model.videoUrls?.length || 0} Videos</div>
+                                                    </div>
                                                 </div>
-                                                <div className="flex-1 overflow-hidden">
-                                                    <div className="text-[10px] font-bold text-slate-500 uppercase">Video {idx + 1}</div>
-                                                    <div className="text-xs font-mono truncate text-slate-700">{url.split('/').pop()}</div>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    {idx > 0 && <button onClick={() => {
-                                                        const newUrls = [...selectedTVBrand.videoUrls];
-                                                        [newUrls[idx], newUrls[idx-1]] = [newUrls[idx-1], newUrls[idx]];
-                                                        const updated = { ...selectedTVBrand, videoUrls: newUrls };
-                                                        handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
-                                                    }} className="p-1 hover:bg-slate-200 rounded"><ChevronDown size={14} className="rotate-180"/></button>}
-                                                    
-                                                    {idx < selectedTVBrand.videoUrls.length - 1 && <button onClick={() => {
-                                                        const newUrls = [...selectedTVBrand.videoUrls];
-                                                        [newUrls[idx], newUrls[idx+1]] = [newUrls[idx+1], newUrls[idx]];
-                                                        const updated = { ...selectedTVBrand, videoUrls: newUrls };
-                                                        handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
-                                                    }} className="p-1 hover:bg-slate-200 rounded"><ChevronDown size={14} /></button>}
-                                                    
-                                                    <button onClick={() => {
-                                                        const updated = { ...selectedTVBrand, videoUrls: selectedTVBrand.videoUrls.filter((_, i) => i !== idx) };
-                                                        handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
-                                                    }} className="p-1.5 bg-white border border-slate-200 text-red-500 hover:bg-red-50 rounded ml-2"><Trash2 size={14} /></button>
+                                                <div className="flex border-t border-slate-200 divide-x divide-slate-200">
+                                                    <button 
+                                                        onClick={() => setEditingTVModel(model)}
+                                                        className="flex-1 py-2 text-[10px] font-bold uppercase text-blue-600 hover:bg-blue-50 transition-colors"
+                                                    >
+                                                        Edit / Videos
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => {
+                                                            if (confirm("Delete this model?")) {
+                                                                const updated = { ...selectedTVBrand, models: selectedTVBrand.models.filter(m => m.id !== model.id) };
+                                                                handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
+                                                            }
+                                                        }}
+                                                        className="flex-1 py-2 text-[10px] font-bold uppercase text-red-500 hover:bg-red-50 transition-colors"
+                                                    >
+                                                        Delete
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
-                                        {(!selectedTVBrand.videoUrls || selectedTVBrand.videoUrls.length === 0) && (
-                                            <div className="text-center py-8 text-slate-400 text-xs italic">No videos in playlist. Upload some above.</div>
+                                        {(!selectedTVBrand.models || selectedTVBrand.models.length === 0) && (
+                                            <div className="col-span-full py-8 text-center text-slate-400 text-xs italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                                No models yet. Click "Add Model" to create one.
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -959,6 +1044,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                 )
             )}
 
+            {/* ... Other Tabs (Marketing, Fleet, History, Settings) remain unchanged ... */}
             {activeTab === 'marketing' && (
                 <div className="max-w-5xl mx-auto">
                     {activeSubTab === 'catalogues' && <CatalogueManager catalogues={localData.catalogues || []} onSave={(c) => handleLocalUpdate({ ...localData, catalogues: c })} />}
@@ -1081,7 +1167,8 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                 </div>
             )}
 
-            {/* SCREEN SAVER SETTINGS */}
+            {/* SCREEN SAVER, HISTORY, SETTINGS TABS (Same as before, abbreviated for brevity in diff but assume included) */}
+            {/* ... (Screensaver, History, Settings Tabs Code from original AdminDashboard.tsx) ... */}
             {activeTab === 'screensaver' && (
                 <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1184,7 +1271,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                 </div>
             )}
             
-            {/* HISTORY & ARCHIVE TAB */}
             {activeTab === 'history' && (
                 <div className="max-w-4xl mx-auto p-4 md:p-8 animate-fade-in min-h-[50vh]">
                     <h2 className="text-2xl font-black uppercase mb-6 text-slate-900">Archive & History</h2>
@@ -1232,7 +1318,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                 </div>
             )}
             
-            {/* SYSTEM SETTINGS TAB */}
             {activeTab === 'settings' && (
                 <div className="max-w-4xl mx-auto p-4 md:p-8 animate-fade-in pb-20 min-h-[50vh]">
                      <h2 className="text-2xl font-black uppercase mb-6 text-slate-900">System Configuration</h2>
@@ -1311,6 +1396,26 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
         </div>}
 
         {editingKiosk && <KioskEditorModal kiosk={editingKiosk} onSave={(k) => { updateFleetMember(k); setEditingKiosk(null); }} onClose={() => setEditingKiosk(null)} />}
+        
+        {editingTVModel && selectedTVBrand && (
+            <TVModelEditor 
+                model={editingTVModel} 
+                onSave={(m) => {
+                     // Update model list
+                     const isNew = !selectedTVBrand.models?.some(existing => existing.id === m.id);
+                     let updatedModels = [...(selectedTVBrand.models || [])];
+                     if (isNew) {
+                         updatedModels.push(m);
+                     } else {
+                         updatedModels = updatedModels.map(existing => existing.id === m.id ? m : existing);
+                     }
+                     const updatedBrand = { ...selectedTVBrand, models: updatedModels };
+                     handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updatedBrand : b) } as TVConfig });
+                     setEditingTVModel(null);
+                }}
+                onClose={() => setEditingTVModel(null)}
+            />
+        )}
 
         {showGuide && <SetupGuide onClose={() => setShowGuide(false)} />}
         

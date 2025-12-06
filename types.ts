@@ -52,11 +52,20 @@ export interface Brand {
   categories: Category[];
 }
 
+export interface TVModel {
+  id: string;
+  name: string; // e.g. "OLED 65-inch G3"
+  imageUrl?: string; // Optional cover image for the model
+  videoUrls: string[];
+}
+
 export interface TVBrand {
   id: string;
   name: string;
   logoUrl?: string;
-  videoUrls: string[];
+  models: TVModel[];
+  // Legacy support (to be migrated)
+  videoUrls?: string[];
 }
 
 export interface TVConfig {

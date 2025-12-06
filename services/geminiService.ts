@@ -92,6 +92,28 @@ const migrateData = (data: any): StoreData => {
             });
         });
     }
+
+    // 4. Migrate TV Brands (Videos directly on Brand -> Videos in Models)
+    if (data.tv && data.tv.brands) {
+        data.tv.brands.forEach((tvb: any) => {
+            if (!tvb.models) tvb.models = [];
+            
+            // If legacy videoUrls exist on the brand, move them to a generic model
+            if (tvb.videoUrls && Array.isArray(tvb.videoUrls) && tvb.videoUrls.length > 0) {
+                // Only create if empty to avoid duplication on re-run
+                if (tvb.models.length === 0) {
+                    tvb.models.push({
+                        id: `migrated-model-${tvb.id}`,
+                        name: "General Showcase",
+                        imageUrl: tvb.logoUrl, // Fallback to logo
+                        videoUrls: [...tvb.videoUrls]
+                    });
+                }
+                // Clear legacy
+                tvb.videoUrls = undefined;
+            }
+        });
+    }
     
     // Ensure Catalogue Types
     if (data.catalogues) {
