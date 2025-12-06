@@ -358,7 +358,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                       className="group flex flex-col items-center justify-center gap-2 transition-transform duration-300 hover:scale-110 p-4 rounded-xl hover:bg-white/50 border border-transparent hover:border-slate-200/50"
                       title={brand.name}
                     >
-                      <div className="relative w-24 h-24 md:w-32 md:h-32 flex items-center justify-center">
+                      <div className="relative w-12 h-12 md:w-20 md:h-20 flex items-center justify-center">
                         {brand.logoUrl ? (
                           // REMOVED filters so logos appear naturally (dark logos visible on white bg)
                           <img 
@@ -367,7 +367,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                             className="w-full h-full object-contain transition-all duration-300 drop-shadow-sm group-hover:drop-shadow-lg"
                           />
                         ) : (
-                          <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-slate-200 text-slate-400 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center text-2xl font-black transition-colors duration-300">
+                          <div className="w-full h-full rounded-full bg-slate-200 text-slate-400 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center text-xl font-black transition-colors duration-300">
                             {brand.name.charAt(0)}
                           </div>
                         )}
