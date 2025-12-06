@@ -630,7 +630,7 @@ const TVModelEditor = ({ model, onSave, onClose }: { model: TVModel, onSave: (m:
 };
 
 // NEW: Admin Manager Component for Settings Tab
-const AdminManager = ({ admins, onUpdate }: { admins: AdminUser[], onUpdate: (admins: AdminUser[]) => void }) => {
+const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], onUpdate: (admins: AdminUser[]) => void, currentUser: AdminUser }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [newName, setNewName] = useState('');
     const [newPin, setNewPin] = useState('');
@@ -750,7 +750,7 @@ const AdminManager = ({ admins, onUpdate }: { admins: AdminUser[], onUpdate: (ad
                             </div>
                             <div className="flex items-center gap-2">
                                 <button onClick={() => startEdit(admin)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
-                                {!admin.isSuperAdmin && (
+                                {!admin.isSuperAdmin && currentUser.name === 'Admin' && currentUser.pin === '1723' && (
                                     <button onClick={() => handleDelete(admin.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
                                 )}
                             </div>
@@ -1528,6 +1528,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                  <AdminManager 
                                     admins={localData.admins || []} 
                                     onUpdate={(updatedAdmins) => handleLocalUpdate({ ...localData, admins: updatedAdmins })}
+                                    currentUser={currentUser!}
                                  />
                              </div>
 
