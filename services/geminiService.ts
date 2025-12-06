@@ -34,8 +34,8 @@ const DEFAULT_DATA: StoreData = {
   fleet: [],
   brands: [],
   about: {
-      title: "About Our Store",
-      text: "Welcome to our interactive kiosk experience.\n\nExplore our latest products, browse catalogues, and discover new brands. Our team is dedicated to providing you with the best service and information.\n\nUse this kiosk to find detailed specifications, view galleries, and compare models.",
+      title: "About Our Vision",
+      text: "Welcome to the Kiosk Pro Showcase.\n\nWe are a premier provider of digital retail solutions, dedicated to bridging the gap between physical stores and the digital world. Our mission is to empower customers with information.\n\nThis kiosk is designed to provide you with a comprehensive view of our product catalog, complete with high-definition visuals, detailed specifications, and instant access to stock availability. We believe in transparency and quality, ensuring that every product you see meets our rigorous standards.\n\nExplore our curated selection of top-tier brands, compare features side-by-side, and discover new arrivals daily. Whether you are a tech enthusiast, a fashion forward individual, or simply looking for the best deals, our platform is built for you.\n\nIf you require assistance, our knowledgeable staff is just a tap away. Thank you for choosing us for your shopping journey.",
       audioUrl: ""
   }
 };
