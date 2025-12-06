@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -93,7 +94,7 @@ const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <I
       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">{label}</label>
       <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
         {isProcessing && <div className="absolute bottom-0 left-0 h-1 bg-blue-500 transition-all" style={{ width: `${uploadProgress}%` }}></div>}
-        <div className="w-16 h-16 bg-slate-50 border border-slate-200 border-dashed rounded-lg flex items-center justify-center overflow-hidden shrink-0">
+        <div className="w-16 h-16 bg-slate-50 border border-slate-200 border-dashed rounded-lg flex items-center justify-center overflow-hidden shrink-0 text-slate-400">
            {isProcessing ? <Loader2 className="animate-spin text-blue-500" /> : currentUrl && !allowMultiple ? (accept.includes('video') ? <Video /> : accept.includes('pdf') ? <FileText /> : accept.includes('audio') ? <Music /> : <img src={currentUrl} className="w-full h-full object-cover" />) : icon}
         </div>
         <label className={`cursor-pointer bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-[10px] uppercase ${isProcessing ? 'opacity-50' : ''}`}>
@@ -139,43 +140,6 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
         handleUpdate(localList.map(c => c.id === id ? { ...c, ...updates } : c));
     };
 
-    // Updated to handle multiple image uploads strictly
-    const handleUpload = async (id: string, data: any, type?: string, base64Data?: any) => {
-        const cat = localList.find(c => c.id === id);
-        if(!cat) return;
-        let newPages = [...cat.pages];
-        
-        // Treat everything as images array since we removed complex PDF parsing
-        // If data is array (multiple files), spread it. If string, push it.
-        if (Array.isArray(data)) {
-            newPages = [...newPages, ...data];
-        } else if (typeof data === 'string') {
-            newPages.push(data);
-        }
-        
-        updateCatalogue(id, { pages: newPages });
-    };
-
-    // Reordering helper
-    const movePage = (catId: string, pageIndex: number, direction: 'left' | 'right') => {
-        const cat = localList.find(c => c.id === catId);
-        if(!cat) return;
-        const newPages = [...cat.pages];
-        const swapIndex = direction === 'left' ? pageIndex - 1 : pageIndex + 1;
-        
-        if (swapIndex >= 0 && swapIndex < newPages.length) {
-            [newPages[pageIndex], newPages[swapIndex]] = [newPages[swapIndex], newPages[pageIndex]];
-            updateCatalogue(catId, { pages: newPages });
-        }
-    };
-
-    const removePage = (catId: string, pageIndex: number) => {
-        const cat = localList.find(c => c.id === catId);
-        if(!cat) return;
-        const newPages = cat.pages.filter((_, i) => i !== pageIndex);
-        updateCatalogue(catId, { pages: newPages });
-    };
-
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center mb-4">
@@ -184,14 +148,18 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {localList.map((cat) => (
-                    <div key={cat.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div key={cat.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
                         <div className="h-40 bg-slate-100 relative group flex items-center justify-center overflow-hidden">
-                            {cat.pages[0] ? <img src={cat.pages[0]} className="w-full h-full object-cover" /> : <BookOpen size={32} className="text-slate-300" />}
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button onClick={() => updateCatalogue(cat.id, { pages: [] })} className="bg-red-50 text-white px-3 py-1 rounded text-xs font-bold uppercase">Clear All Pages</button>
-                            </div>
+                            {cat.thumbnailUrl || (cat.pages && cat.pages[0]) ? (
+                                <img src={cat.thumbnailUrl || cat.pages[0]} className="w-full h-full object-cover" /> 
+                            ) : (
+                                <BookOpen size={32} className="text-slate-300" />
+                            )}
+                            {cat.pdfUrl && (
+                                <div className="absolute top-2 right-2 bg-red-500 text-white text-[8px] font-bold px-2 py-1 rounded shadow-sm">PDF</div>
+                            )}
                         </div>
-                        <div className="p-4 space-y-3">
+                        <div className="p-4 space-y-3 flex-1 flex flex-col">
                             <input value={cat.title} onChange={(e) => updateCatalogue(cat.id, { title: e.target.value })} className="w-full font-black text-slate-900 border-b border-transparent focus:border-blue-500 outline-none text-sm" placeholder="Title" />
                             
                             {cat.type === 'catalogue' || brandId ? (
@@ -212,34 +180,23 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
                                 </div>
                             )}
                             
-                            <FileUpload 
-                                label="Upload Pages (JPG/PNG Only)" 
-                                accept="image/png, image/jpeg, image/jpg" 
-                                allowMultiple={true}
-                                currentUrl="" 
-                                onUpload={(d: any, t: any, b64: any) => handleUpload(cat.id, d, t, b64)} 
-                            />
-                            
-                            {/* Page Manager */}
-                            {cat.pages.length > 0 && (
-                                <div className="mt-2 border-t border-slate-100 pt-2">
-                                    <label className="text-[8px] font-bold text-slate-400 uppercase mb-2 block">Manage Pages ({cat.pages.length})</label>
-                                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-                                        {cat.pages.map((page, idx) => (
-                                            <div key={idx} className="w-12 h-16 shrink-0 relative group">
-                                                <img src={page} className="w-full h-full object-cover rounded border border-slate-200" />
-                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1">
-                                                    {idx > 0 && <button onClick={()=>movePage(cat.id, idx, 'left')} className="text-white hover:text-blue-300"><ChevronLeft size={8}/></button>}
-                                                    <button onClick={()=>removePage(cat.id, idx)} className="text-red-400 hover:text-red-600"><X size={8}/></button>
-                                                    {idx < cat.pages.length - 1 && <button onClick={()=>movePage(cat.id, idx, 'right')} className="text-white hover:text-blue-300"><ChevronRight size={8}/></button>}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                            <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
+                                <FileUpload 
+                                    label="Thumbnail (Image)" 
+                                    accept="image/*" 
+                                    currentUrl={cat.thumbnailUrl || (cat.pages?.[0])}
+                                    onUpload={(url: any) => updateCatalogue(cat.id, { thumbnailUrl: url })} 
+                                />
+                                <FileUpload 
+                                    label="Document (PDF)" 
+                                    accept="application/pdf" 
+                                    currentUrl={cat.pdfUrl}
+                                    icon={<FileText />}
+                                    onUpload={(url: any) => updateCatalogue(cat.id, { pdfUrl: url })} 
+                                />
+                            </div>
 
-                            <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                            <div className="flex justify-between items-center pt-2 border-t border-slate-100 mt-2">
                                 <button onClick={() => handleUpdate(localList.filter(c => c.id !== cat.id))} className="text-red-400 hover:text-red-600 flex items-center gap-1 text-[10px] font-bold uppercase"><Trash2 size={12} /> Delete Catalogue</button>
                             </div>
                         </div>

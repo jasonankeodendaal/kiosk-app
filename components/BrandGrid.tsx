@@ -1,3 +1,5 @@
+
+
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Brand, Catalogue, HeroConfig, AdConfig, AdItem } from '../types';
 import { BookOpen, Globe, ChevronRight, X, Grid } from 'lucide-react';
@@ -8,7 +10,7 @@ interface BrandGridProps {
   allCatalogs?: Catalogue[]; 
   ads?: AdConfig;
   onSelectBrand: (brand: Brand) => void;
-  onViewGlobalCatalog: (pages: string[], title?: string, startDate?: string, endDate?: string) => void; 
+  onViewGlobalCatalog: (catalogue: Catalogue) => void; 
   onExport: () => void; 
   screensaverEnabled: boolean;
   onToggleScreensaver: () => void;
@@ -175,9 +177,9 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                 </div>
 
                 <div className="flex flex-wrap gap-1 md:gap-3 justify-start pt-1 md:pt-3">
-                     {mainPamphlet && mainPamphlet.pages && mainPamphlet.pages.length > 0 && (
+                     {mainPamphlet && (
                         <button 
-                            onClick={() => onViewGlobalCatalog(mainPamphlet.pages, mainPamphlet.title, mainPamphlet.startDate, mainPamphlet.endDate)}
+                            onClick={() => onViewGlobalCatalog(mainPamphlet)}
                             className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 md:px-6 md:py-2.5 rounded-lg md:rounded-xl font-bold uppercase tracking-widest text-[8px] md:text-sm shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-1 md:gap-2"
                         >
                             <BookOpen size={10} className="md:size-auto" /> 
@@ -200,19 +202,23 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                 </div>
             </div>
 
-            {mainPamphlet && mainPamphlet.pages && mainPamphlet.pages.length > 0 && (
+            {mainPamphlet && (
                 <div className="perspective-1000 shrink-0 w-[40%] md:w-[280px] max-w-[140px] md:max-w-none flex items-center justify-center">
                     <div 
                         className="relative w-full aspect-[2/3] cursor-pointer animate-float"
-                        onClick={() => onViewGlobalCatalog(mainPamphlet.pages, mainPamphlet.title, mainPamphlet.startDate, mainPamphlet.endDate)}
+                        onClick={() => onViewGlobalCatalog(mainPamphlet)}
                         role="button"
                     >
                         <div className="book-container absolute inset-0 bg-white rounded-r-sm md:rounded-r-lg shadow-2xl">
-                             <img 
-                                src={mainPamphlet.pages[0]} 
-                                className="w-full h-full object-cover rounded-r-sm md:rounded-r-lg book-cover border-l-2 md:border-l-4 border-slate-200"
-                                alt={`${mainPamphlet.title} Cover`}
-                             />
+                             {mainPamphlet.thumbnailUrl || (mainPamphlet.pages && mainPamphlet.pages[0]) ? (
+                                <img 
+                                    src={mainPamphlet.thumbnailUrl || mainPamphlet.pages[0]} 
+                                    className="w-full h-full object-cover rounded-r-sm md:rounded-r-lg book-cover border-l-2 md:border-l-4 border-slate-200"
+                                    alt={`${mainPamphlet.title} Cover`}
+                                />
+                             ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400 font-bold uppercase text-[10px]">No Cover</div>
+                             )}
                              <div className="absolute top-0 bottom-0 left-0 w-0.5 md:w-1 bg-gradient-to-r from-slate-300 to-slate-100"></div>
                              <div className="absolute bottom-1 md:bottom-4 left-0 right-0 text-center bg-black/60 backdrop-blur-md text-white py-0.5 md:py-1.5">
                                 <span className="text-[6px] md:text-xs font-black uppercase tracking-widest block truncate px-1">{mainPamphlet.title}</span>
@@ -232,12 +238,12 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                         {globalPamphlets.map((catalog, idx) => (
                              <button 
                                  key={catalog.id} 
-                                 onClick={() => onViewGlobalCatalog(catalog.pages, catalog.title, catalog.startDate, catalog.endDate)}
+                                 onClick={() => onViewGlobalCatalog(catalog)}
                                  className="flex flex-col items-center group w-24 md:w-32 shrink-0 text-left"
                              >
                                  <div className="w-full aspect-[2/3] rounded-md overflow-hidden border border-slate-300 shadow-md group-hover:scale-105 transition-transform bg-white relative">
-                                    {catalog.pages[0] ? (
-                                        <img src={catalog.pages[0]} className="w-full h-full object-cover" alt={catalog.title} />
+                                    {catalog.thumbnailUrl || (catalog.pages && catalog.pages[0]) ? (
+                                        <img src={catalog.thumbnailUrl || catalog.pages[0]} className="w-full h-full object-cover" alt={catalog.title} />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center bg-slate-100 text-[8px] text-slate-400">No Cover</div>
                                     )}
@@ -358,7 +364,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                       className="group flex flex-col items-center justify-center gap-2 transition-transform duration-300 hover:scale-110 p-4 rounded-xl hover:bg-white/50 border border-transparent hover:border-slate-200/50"
                       title={brand.name}
                     >
-                      <div className="relative w-12 h-12 md:w-20 md:h-20 flex items-center justify-center">
+                      <div className="relative w-12 h-12 md:w-24 md:h-24 flex items-center justify-center">
                         {brand.logoUrl ? (
                           // REMOVED filters so logos appear naturally (dark logos visible on white bg)
                           <img 
@@ -372,7 +378,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                           </div>
                         )}
                       </div>
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wide group-hover:text-blue-600">{brand.name}</span>
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wide group-hover:text-blue-600 hidden">{brand.name}</span>
                     </button>
                   ))}
                </div>

@@ -1,5 +1,7 @@
+
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { StoreData, Brand, Category, Product, FlatProduct } from '../types';
+import { StoreData, Brand, Category, Product, FlatProduct, Catalogue } from '../types';
 import { 
   getKioskId, 
   provisionKioskId, 
@@ -20,6 +22,7 @@ import ProductList from './ProductList';
 import ProductDetail from './ProductDetail';
 import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
+import PdfViewer from './PdfViewer';
 import TVMode from './TVMode';
 import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv } from 'lucide-react';
 
@@ -179,11 +182,15 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   const [screensaverEnabled, setScreensaverEnabled] = useState(true);
 
   const [showCreator, setShowCreator] = useState(false);
+  
+  // Viewer State (PDF or Flipbook)
   const [showFlipbook, setShowFlipbook] = useState(false);
   const [flipbookPages, setFlipbookPages] = useState<string[]>([]);
   const [flipbookTitle, setFlipbookTitle] = useState<string | undefined>(undefined); 
   const [flipbookStartDate, setFlipbookStartDate] = useState<string | undefined>(undefined);
   const [flipbookEndDate, setFlipbookEndDate] = useState<string | undefined>(undefined);
+  
+  const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string } | null>(null);
   
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -209,6 +216,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
         setActiveCategory(null);
         setActiveBrand(null);
         setShowFlipbook(false);
+        setViewingPdf(null);
         setShowCreator(false);
       }, idleTimeout);
     }
@@ -398,12 +406,16 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
     setIsSetup(true);
   };
 
-  const handleViewCatalog = (pages: string[], title?: string, startDate?: string, endDate?: string) => {
-    setFlipbookPages(pages);
-    setFlipbookTitle(title);
-    setFlipbookStartDate(startDate);
-    setFlipbookEndDate(endDate);
-    setShowFlipbook(true);
+  const handleViewCatalog = (catalogue: Catalogue) => {
+      if (catalogue.pdfUrl) {
+          setViewingPdf({ url: catalogue.pdfUrl, title: catalogue.title });
+      } else if (catalogue.pages && catalogue.pages.length > 0) {
+          setFlipbookPages(catalogue.pages);
+          setFlipbookTitle(catalogue.title);
+          setFlipbookStartDate(catalogue.startDate);
+          setFlipbookEndDate(catalogue.endDate);
+          setShowFlipbook(true);
+      }
   };
   
   if (!isSetup && kioskId) {
@@ -534,7 +546,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                  storeCatalogs={filteredCatalogs}
                  onSelectProduct={setActiveProduct} 
                  onBack={() => setActiveCategory(null)}
-                 onViewCatalog={handleViewCatalog} 
+                 onViewCatalog={(pages) => {}} // Unused in ProductList, kept for compatibility
                  screensaverEnabled={screensaverEnabled}
                  onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
                />
@@ -588,6 +600,14 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
            startDate={flipbookStartDate}
            endDate={flipbookEndDate}
          />
+       )}
+       
+       {viewingPdf && (
+           <PdfViewer 
+               url={viewingPdf.url} 
+               title={viewingPdf.title} 
+               onClose={() => setViewingPdf(null)} 
+           />
        )}
     </div>
   );

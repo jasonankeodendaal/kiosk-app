@@ -89,7 +89,8 @@ export interface Catalogue {
   startDate?: string; // For Pamphlets
   endDate?: string;   // For Pamphlets (Auto-expiry)
   pdfUrl?: string; 
-  pages: string[]; 
+  thumbnailUrl?: string; // New Cover/Thumbnail Image
+  pages: string[]; // Legacy support for image-based flipbooks
 }
 
 export interface AdItem {

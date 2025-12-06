@@ -8,7 +8,7 @@ interface CategoryGridProps {
   brand: Brand;
   storeCatalogs?: Catalogue[]; 
   onSelectCategory: (category: Category) => void;
-  onViewCatalog?: (pages: string[]) => void; 
+  onViewCatalog?: (catalogue: Catalogue) => void; 
   onBack: () => void;
   screensaverEnabled: boolean;
   onToggleScreensaver: () => void;
@@ -120,12 +120,12 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSel
                         <div key={catalog.id} className="flex flex-col gap-2 group w-20 md:w-48 shrink-0">
                             {/* Thumbnail Container */}
                             <button 
-                                onClick={() => onViewCatalog(catalog.pages)} 
+                                onClick={() => onViewCatalog(catalog)} 
                                 className="w-full aspect-[2/3] bg-white shadow-md group-hover:shadow-xl rounded-lg border border-slate-200 transition-transform transform group-hover:-translate-y-1 overflow-hidden relative"
                             >
-                                {catalog.pages[0] ? (
+                                {catalog.thumbnailUrl || (catalog.pages && catalog.pages[0]) ? (
                                     <img 
-                                      src={catalog.pages[0]} 
+                                      src={catalog.thumbnailUrl || catalog.pages[0]} 
                                       className="w-full h-full object-cover" 
                                       alt={catalog.title} 
                                     />
@@ -138,6 +138,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSel
                                 <div className="absolute bottom-1 right-1 md:bottom-2 md:right-2 bg-black/60 text-white text-[6px] md:text-[8px] font-bold px-1.5 py-0.5 rounded backdrop-blur-sm">
                                    OPEN
                                 </div>
+                                {catalog.pdfUrl && <div className="absolute top-1 right-1 bg-red-500 text-white text-[6px] font-bold px-1 py-0.5 rounded">PDF</div>}
                             </button>
                             
                             {/* Info Section */}
