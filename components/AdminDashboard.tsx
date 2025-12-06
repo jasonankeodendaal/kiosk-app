@@ -139,7 +139,14 @@ const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <I
       <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
         {isProcessing && <div className="absolute bottom-0 left-0 h-1 bg-blue-500 transition-all" style={{ width: `${uploadProgress}%` }}></div>}
         <div className="w-16 h-16 bg-slate-50 border border-slate-200 border-dashed rounded-lg flex items-center justify-center overflow-hidden shrink-0 text-slate-400">
-           {isProcessing ? <Loader2 className="animate-spin text-blue-500" /> : currentUrl && !allowMultiple ? (accept.includes('video') ? <Video /> : accept.includes('pdf') ? <FileText /> : accept.includes('audio') ? <Music /> : <img src={currentUrl} className="w-full h-full object-cover" />) : icon}
+           {isProcessing ? (
+               <Loader2 className="animate-spin text-blue-500" /> 
+           ) : currentUrl && !allowMultiple ? (
+               accept.includes('video') ? <Video className="text-blue-500" /> : 
+               accept.includes('pdf') ? <FileText className="text-red-500" /> : 
+               accept.includes('audio') ? <Music className="text-green-500" /> : 
+               <img src={currentUrl} className="w-full h-full object-cover" />
+           ) : icon}
         </div>
         <label className={`cursor-pointer bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-[10px] uppercase ${isProcessing ? 'opacity-50' : ''}`}>
               <Upload size={12} className="inline mr-2" /> {isProcessing ? 'Uploading...' : 'Select File'}
@@ -1485,7 +1492,31 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                              <div className="space-y-4">
                                  <InputField label="Page Title" val={localData.about?.title || ''} onChange={(e:any) => handleLocalUpdate({...localData, about: {...localData.about, title: e.target.value}})} />
                                  <InputField label="Intro Text" isArea val={localData.about?.text || ''} onChange={(e:any) => handleLocalUpdate({...localData, about: {...localData.about, text: e.target.value}})} />
-                                 <FileUpload label="Audio Guide (MP3)" accept="audio/*" icon={<Volume2 />} currentUrl={localData.about?.audioUrl} onUpload={(url:any) => handleLocalUpdate({...localData, about: {...localData.about, audioUrl: url}})} />
+                                 
+                                 <div>
+                                    <FileUpload 
+                                        label="Audio Guide (MP3)" 
+                                        accept="audio/*" 
+                                        icon={<Volume2 />} 
+                                        currentUrl={localData.about?.audioUrl} 
+                                        onUpload={(url:any) => handleLocalUpdate({...localData, about: {...localData.about, audioUrl: url}})} 
+                                    />
+                                    {localData.about?.audioUrl && (
+                                        <div className="mt-2 bg-slate-50 border border-slate-200 p-3 rounded-lg flex flex-col gap-2">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase">Current Audio</span>
+                                                <button 
+                                                    onClick={() => handleLocalUpdate({...localData, about: {...localData.about, audioUrl: ''}})}
+                                                    className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50"
+                                                    title="Remove Audio"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                            <audio src={localData.about.audioUrl} controls className="w-full h-8" />
+                                        </div>
+                                    )}
+                                 </div>
                              </div>
                          </div>
                          
