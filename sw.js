@@ -2,13 +2,13 @@
 const CACHE_NAME = 'kiosk-pro-v3';
 
 // Assets to precache immediately
+// Note: We do not precache external images (like from ibb.co) here to avoid CORS issues during install.
+// They will be cached at runtime by the fetch handler below.
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/manifest-kiosk.json',
-  '/manifest-admin.json',
-  '/icon-kiosk.svg',
-  '/icon-admin.svg'
+  '/manifest-admin.json'
 ];
 
 self.addEventListener('install', (event) => {

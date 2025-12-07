@@ -13,9 +13,9 @@
   "categories": ["business", "utilities", "management"],
   "icons": [
     {
-      "src": "/icon-admin.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
+      "src": "https://i.ibb.co/RG6qW4Nw/maskable-icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],

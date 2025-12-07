@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist } from '../types';
 import { 
@@ -103,10 +104,26 @@ export const SetupScreen = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!shopName.trim()) return;
+    
+    setIsSubmitting(true);
+
+    // Request Camera Permission specifically for Kiosk Mode during setup
+    if (deviceType === 'kiosk') {
+        try {
+            // Request video stream to trigger permission prompt
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            // Immediately stop tracks as we just wanted the permission
+            stream.getTracks().forEach(track => track.stop());
+        } catch (err) {
+            console.warn("Camera permission not granted:", err);
+            // We continue anyway, as the app handles missing camera gracefully
+        }
+    }
+
     if(isRestoreMode && customId.trim()) {
        onRestoreId(customId.trim());
     }
-    setIsSubmitting(true);
+    
     await new Promise(r => setTimeout(r, 800));
     onComplete(shopName, deviceType);
     setIsSubmitting(false);

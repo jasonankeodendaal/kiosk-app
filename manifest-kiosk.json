@@ -13,9 +13,9 @@
   "categories": ["shopping", "retail", "productivity"],
   "icons": [
     {
-      "src": "/icon-kiosk.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
+      "src": "https://i.ibb.co/LDj74m2t/maskable-icon-1.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],

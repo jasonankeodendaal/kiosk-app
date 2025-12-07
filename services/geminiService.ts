@@ -59,8 +59,8 @@ const DEFAULT_DATA: StoreData = {
   },
   admins: [DEFAULT_ADMIN],
   appConfig: {
-      kioskIconUrl: "/icon-kiosk.svg",
-      adminIconUrl: "/icon-admin.svg"
+      kioskIconUrl: "https://i.ibb.co/LDj74m2t/maskable-icon-1.png",
+      adminIconUrl: "https://i.ibb.co/RG6qW4Nw/maskable-icon.png"
   }
 };
 
@@ -111,14 +111,13 @@ const migrateData = (data: any): StoreData => {
         });
     }
 
-    // App Icons Config & Migration from Old Default to New SVGs
+    // App Icons Config
     if (!data.appConfig) {
         data.appConfig = { ...DEFAULT_DATA.appConfig };
     } else {
-        // Migration: If pointing to old remote default png, swap to new local SVGs
-        const OLD_DEFAULT = "https://i.ibb.co/cS36Vp5w/maskable-icon.png";
-        if (data.appConfig.kioskIconUrl === OLD_DEFAULT) data.appConfig.kioskIconUrl = "/icon-kiosk.svg";
-        if (data.appConfig.adminIconUrl === OLD_DEFAULT) data.appConfig.adminIconUrl = "/icon-admin.svg";
+        // Fix for old local data pointing to missing SVGs or old defaults
+        if (data.appConfig.kioskIconUrl === "/icon-kiosk.svg") data.appConfig.kioskIconUrl = DEFAULT_DATA.appConfig!.kioskIconUrl;
+        if (data.appConfig.adminIconUrl === "/icon-admin.svg") data.appConfig.adminIconUrl = DEFAULT_DATA.appConfig!.adminIconUrl;
     }
     
     // TV Config
