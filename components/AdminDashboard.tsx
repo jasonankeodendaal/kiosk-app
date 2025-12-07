@@ -152,9 +152,9 @@ const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <I
                accept.includes('video') ? <Video className="text-blue-500" /> : 
                accept.includes('pdf') ? <FileText className="text-red-500" /> : 
                accept.includes('audio') ? (
-                  <div className="flex flex-col items-center justify-center text-green-500">
+                  <div className="flex flex-col items-center justify-center bg-green-50 w-full h-full text-green-600">
                       <Music size={24} />
-                      <span className="text-[8px] font-bold uppercase mt-1 text-slate-500">File Set</span>
+                      <span className="text-[8px] font-black uppercase mt-1">Audio Loaded</span>
                   </div>
                ) : 
                <img src={currentUrl} className="w-full h-full object-cover" />

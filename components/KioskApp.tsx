@@ -599,9 +599,9 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                         setShowPricelistModal(true);
                      }}
                      className="flex items-center gap-1.5 font-bold uppercase tracking-widest text-blue-600 hover:text-blue-800 transition-colors"
+                     title="View Pricelists"
                   >
                      <RIcon size={12} className="md:w-3.5 md:h-3.5" />
-                     <span>Pricelists</span>
                   </button>
               )}
 
@@ -637,20 +637,20 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                    
                    <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
                        {/* Left Sidebar: Brands List */}
-                       <div className="w-full md:w-1/3 border-r border-slate-200 bg-slate-50 overflow-y-auto max-h-[30vh] md:max-h-full">
+                       <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50 overflow-y-auto max-h-[25vh] md:max-h-full grid grid-cols-3 md:flex md:flex-col p-1 md:p-0 gap-1 md:gap-0">
                            {pricelistBrands.map(brand => (
                                <button 
                                    key={brand.id} 
                                    onClick={() => setSelectedBrandForPricelist(brand.id)}
-                                   className={`w-full text-left p-4 border-b border-slate-100 transition-colors flex items-center justify-between group ${selectedBrandForPricelist === brand.id ? 'bg-white border-l-4 border-l-green-500' : 'hover:bg-white'}`}
+                                   className={`w-full text-left md:p-4 p-2 transition-colors flex flex-col md:flex-row items-center justify-center md:justify-between group gap-2 md:gap-3 rounded-lg md:rounded-none border md:border-0 md:border-b border-slate-100 ${selectedBrandForPricelist === brand.id ? 'bg-white border-green-500 ring-2 ring-green-500 md:ring-0 md:border-l-4 md:border-l-green-500 shadow-sm md:shadow-none' : 'hover:bg-white bg-white/50 md:bg-transparent'}`}
                                >
-                                   <div className="flex items-center gap-3">
-                                       <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center p-1">
+                                   <div className="flex flex-col md:flex-row items-center gap-1 md:gap-3">
+                                       <div className="w-8 h-8 md:w-8 md:h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center p-1 shrink-0">
                                             {brand.logoUrl ? <img src={brand.logoUrl} className="w-full h-full object-contain" /> : <span className="font-black text-slate-300">{brand.name.charAt(0)}</span>}
                                        </div>
-                                       <span className={`font-bold text-sm uppercase ${selectedBrandForPricelist === brand.id ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-700'}`}>{brand.name}</span>
+                                       <span className={`font-bold text-[8px] md:text-sm uppercase text-center md:text-left leading-tight line-clamp-2 md:line-clamp-1 ${selectedBrandForPricelist === brand.id ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-700'}`}>{brand.name}</span>
                                    </div>
-                                   {selectedBrandForPricelist === brand.id && <div className="w-2 h-2 rounded-full bg-green-500"></div>}
+                                   {selectedBrandForPricelist === brand.id && <div className="hidden md:block w-2 h-2 rounded-full bg-green-500"></div>}
                                </button>
                            ))}
                        </div>

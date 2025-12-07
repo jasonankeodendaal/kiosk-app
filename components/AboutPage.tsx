@@ -156,12 +156,12 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
 
                {/* RIGHT COLUMN (Text Content) */}
                <div className="md:col-span-7 lg:col-span-8">
-                   <div className="bg-white rounded-3xl p-8 md:p-12 border border-slate-200 shadow-sm relative overflow-hidden h-full">
+                   <div className="bg-white rounded-3xl p-8 md:p-12 border border-slate-200 shadow-sm relative overflow-hidden h-full flex flex-col">
                         <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
                             <Info size={200} />
                         </div>
                         
-                        <div className="prose prose-lg prose-slate max-w-none relative z-10">
+                        <div className="prose prose-lg prose-slate max-w-none relative z-10 flex-1">
                             <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-6 flex items-center gap-2">
                                 <span className="w-8 h-1 bg-blue-600 rounded-full"></span>
                                 Our Story
@@ -182,20 +182,20 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
                                 </div>
                             )}
 
-                            {/* New Share Button Area */}
-                            <div className="mt-8 pt-8 border-t border-slate-100 flex justify-center md:justify-start">
+                            {/* New Share Button Area in Text Column */}
+                            <div className="mt-8 pt-6 border-t border-slate-100">
                                 <button 
                                     onClick={handleShare}
-                                    className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-widest transition-all border border-slate-200 group"
+                                    className="w-full md:w-auto flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-widest transition-all border border-slate-200 group"
                                 >
                                     <Share2 size={16} className="group-hover:scale-110 transition-transform" /> 
-                                    <span>{copied ? 'Link Copied' : 'Share this Page'}</span>
+                                    <span>{copied ? 'Link Copied' : 'Share About Page'}</span>
                                 </button>
                             </div>
                         </div>
                         
                         {/* Footer Signature */}
-                        <div className="mt-8 pt-8 border-t border-slate-100 flex items-center gap-4 opacity-60">
+                        <div className="mt-8 pt-8 border-t border-slate-100 flex items-center gap-4 opacity-60 shrink-0">
                              <img src={storeData.companyLogoUrl || "https://i.ibb.co/cS36Vp5w/maskable-icon.png"} className="h-8 object-contain grayscale" alt="Logo" />
                              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                                  &copy; {new Date().getFullYear()} Kiosk Pro Systems
