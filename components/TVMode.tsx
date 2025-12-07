@@ -113,37 +113,59 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
 
   // 3. Loop Logic
   const handleVideoEnded = () => {
-      // Always loop to next video in playlist
-      setCurrentVideoIndex((prev) => (prev + 1) % activePlaylist.length);
+      // Calculate next index
+      const nextIndex = (currentVideoIndex + 1) % activePlaylist.length;
+
+      // CRITICAL FIX: If playlist has only 1 video, nextIndex (0) === currentVideoIndex (0).
+      // React state update bail-out means component won't re-render, so useEffect won't run.
+      // We must manually replay in this specific case.
+      if (nextIndex === currentVideoIndex) {
+          if (videoRef.current) {
+              videoRef.current.currentTime = 0;
+              videoRef.current.play().catch(console.warn);
+          }
+      } else {
+          // Otherwise update index to trigger useEffect
+          setCurrentVideoIndex(nextIndex);
+      }
   };
 
   const handleNext = (e: React.MouseEvent) => {
       e.stopPropagation();
-      setCurrentVideoIndex((prev) => (prev + 1) % activePlaylist.length);
+      const nextIndex = (currentVideoIndex + 1) % activePlaylist.length;
+      if (nextIndex === currentVideoIndex && videoRef.current) {
+           videoRef.current.currentTime = 0;
+           videoRef.current.play().catch(console.warn);
+      } else {
+           setCurrentVideoIndex(nextIndex);
+      }
   };
 
   const handlePrev = (e: React.MouseEvent) => {
       e.stopPropagation();
-      setCurrentVideoIndex((prev) => (prev - 1 + activePlaylist.length) % activePlaylist.length);
+      const prevIndex = (currentVideoIndex - 1 + activePlaylist.length) % activePlaylist.length;
+      if (prevIndex === currentVideoIndex && videoRef.current) {
+           videoRef.current.currentTime = 0;
+           videoRef.current.play().catch(console.warn);
+      } else {
+           setCurrentVideoIndex(prevIndex);
+      }
   };
+  
+  const handleVideoError = () => {
+      console.warn("TV Video Error, skipping:", activePlaylist[currentVideoIndex]);
+      // Wait a moment then skip to avoid rapid loops on failure
+      if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
+      controlsTimeout.current = window.setTimeout(() => {
+          const nextIndex = (currentVideoIndex + 1) % activePlaylist.length;
+          setCurrentVideoIndex(nextIndex);
+      }, 2000);
+  }
 
   const exitPlayer = () => {
       setIsPlaying(false);
       setActivePlaylist([]);
   };
-
-  // Ensure playback continues when index changes (Robust Loop)
-  useEffect(() => {
-    if (isPlaying && videoRef.current) {
-        videoRef.current.load();
-        const playPromise = videoRef.current.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                console.warn("Auto-play prevented by browser policy:", error);
-            });
-        }
-    }
-  }, [currentVideoIndex, isPlaying]);
 
   // --- RENDER: FULL SCREEN PLAYER ---
   if (isPlaying && activePlaylist.length > 0) {
@@ -151,13 +173,14 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
       return (
           <div className="fixed inset-0 bg-black z-[200] flex flex-col items-center justify-center overflow-hidden group cursor-none">
               <video 
-                  key={`${currentUrl}-${currentVideoIndex}`} // Force remount ensuring clean state for each video in loop
+                  key={`${currentUrl}-${currentVideoIndex}`} // Force remount on change for robust autoplay
                   ref={videoRef}
                   src={currentUrl} 
                   className="w-full h-full object-contain"
                   autoPlay
                   playsInline
                   onEnded={handleVideoEnded}
+                  onError={handleVideoError}
                   onPlay={() => setIsPaused(false)}
                   onPause={() => setIsPaused(true)}
               />
