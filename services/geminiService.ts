@@ -60,7 +60,7 @@ const DEFAULT_DATA: StoreData = {
   admins: [DEFAULT_ADMIN],
   appConfig: {
       kioskIconUrl: "https://i.ibb.co/S7Nxv1dD/android-launchericon-512-512.png",
-      adminIconUrl: "https://i.ibb.co/RG6qW4Nw/maskable-icon.png"
+      adminIconUrl: "https://i.ibb.co/qYDggwHs/android-launchericon-512-512.png"
   }
 };
 
@@ -117,7 +117,7 @@ const migrateData = (data: any): StoreData => {
     } else {
         // Fix for old local data pointing to missing SVGs or old defaults
         if (data.appConfig.kioskIconUrl === "/icon-kiosk.svg") data.appConfig.kioskIconUrl = DEFAULT_DATA.appConfig!.kioskIconUrl;
-        if (data.appConfig.adminIconUrl === "/icon-admin.svg") data.appConfig.adminIconUrl = DEFAULT_DATA.appConfig!.adminIconUrl;
+        if (data.appConfig.adminIconUrl === "/icon-admin.svg" || data.appConfig.adminIconUrl === "https://i.ibb.co/RG6qW4Nw/maskable-icon.png") data.appConfig.adminIconUrl = DEFAULT_DATA.appConfig!.adminIconUrl;
     }
     
     // TV Config

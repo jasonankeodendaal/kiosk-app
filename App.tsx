@@ -12,10 +12,14 @@ import { Loader2, Cloud, Download, CheckCircle2 } from 'lucide-react';
 const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
     const isAdmin = window.location.pathname.startsWith('/admin');
     
+    // Default High-Res URLs (Used to check if we should use static manifest or dynamic override)
+    const DEFAULT_ADMIN_ICON = "https://i.ibb.co/qYDggwHs/android-launchericon-512-512.png";
+    const DEFAULT_KIOSK_ICON = "https://i.ibb.co/S7Nxv1dD/android-launchericon-512-512.png";
+
     // Memoize the target URL to prevent effect loops on general storeData updates
     const targetIconUrl = isAdmin 
-        ? (storeData.appConfig?.adminIconUrl || "https://i.ibb.co/RG6qW4Nw/maskable-icon.png")
-        : (storeData.appConfig?.kioskIconUrl || "https://i.ibb.co/S7Nxv1dD/android-launchericon-512-512.png");
+        ? (storeData.appConfig?.adminIconUrl || DEFAULT_ADMIN_ICON)
+        : (storeData.appConfig?.kioskIconUrl || DEFAULT_KIOSK_ICON);
 
     useEffect(() => {
         const updateAppIdentity = async () => {
@@ -27,20 +31,37 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
              if (appleLink && appleLink.href !== targetIconUrl) appleLink.href = targetIconUrl;
 
              // 2. Update Manifest (For Install Prompt & PWA Launches)
+             // Optimization: If the icon is the default, we do NOT want to overwrite the static manifest
+             // because the static manifest contains optimized multi-resolution icons (48, 72, 96, 144, 192, 512).
+             const isDefault = (targetIconUrl === DEFAULT_ADMIN_ICON) || (targetIconUrl === DEFAULT_KIOSK_ICON);
+             const baseManifest = isAdmin ? '/manifest-admin.json' : '/manifest-kiosk.json';
+             const manifestLink = document.getElementById('pwa-manifest') as HTMLLinkElement;
+
+             if (isDefault) {
+                 // Ensure we are pointing to the static file and not a stale blob
+                 if (manifestLink && manifestLink.getAttribute('href') !== baseManifest) {
+                     if (manifestLink.href.startsWith('blob:')) {
+                         URL.revokeObjectURL(manifestLink.href);
+                     }
+                     manifestLink.href = baseManifest;
+                 }
+                 return;
+             }
+
+             // If Custom Icon: We must dynamically generate the manifest to show the user's custom choice.
+             // Note: This results in a "Single Source" manifest (one image for all sizes) because we can't resize on the fly easily.
              try {
-                const manifestLink = document.getElementById('pwa-manifest') as HTMLLinkElement;
                 if (manifestLink) {
-                    const baseManifest = isAdmin ? '/manifest-admin.json' : '/manifest-kiosk.json';
                     const response = await fetch(baseManifest);
                     const manifest = await response.json();
                     
                     // Determine Type (SVG vs PNG) for robustness
                     const isSvg = targetIconUrl.endsWith('.svg');
                     const iconType = isSvg ? "image/svg+xml" : "image/png";
-                    const sizes = isSvg ? "512x512" : "192x192";
-                    const largeSizes = isSvg ? "512x512" : "512x512";
+                    const sizes = "192x192"; 
+                    const largeSizes = "512x512";
 
-                    // Force update icons array with comprehensive definitions
+                    // Force update icons array with comprehensive definitions based on the single source
                     manifest.icons = [
                         { src: targetIconUrl, sizes: sizes, type: iconType, purpose: "any" },
                         { src: targetIconUrl, sizes: sizes, type: iconType, purpose: "maskable" },
@@ -55,9 +76,8 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
                     const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
                     const blobUrl = URL.createObjectURL(blob);
                     
-                    // Only update if Blob URL needs regeneration (conceptually, we just do it on URL change)
                     manifestLink.href = blobUrl;
-                    console.log("App Identity Updated:", targetIconUrl);
+                    console.log("App Identity Updated (Custom):", targetIconUrl);
                 }
              } catch (e) {
                  console.error("Manifest update failed:", e);
@@ -67,7 +87,7 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
         if (targetIconUrl) {
             updateAppIdentity();
         }
-    }, [targetIconUrl, isAdmin]); // Only re-run if the specific icon URL changes
+    }, [targetIconUrl, isAdmin]);
 
     return null;
 };
