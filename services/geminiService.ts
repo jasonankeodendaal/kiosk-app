@@ -148,12 +148,25 @@ const migrateData = (data: any): StoreData => {
                             images: p.manualImages || [],
                             pdfUrl: p.manualUrl
                         });
-                        // Clean legacy to avoid duplication on logic later
-                        // p.manualUrl = undefined;
-                        // p.manualImages = undefined;
+                    }
+
+                    // Ensure dateAdded exists for aging logic (Default to now if missing so it shows up)
+                    if (!p.dateAdded) {
+                        p.dateAdded = new Date().toISOString();
                     }
                 });
             });
+        });
+    }
+
+    // Ensure Ads have dateAdded
+    if (data.ads) {
+        Object.keys(data.ads).forEach(key => {
+            if (Array.isArray(data.ads[key])) {
+                data.ads[key].forEach((ad: any) => {
+                    if (!ad.dateAdded) ad.dateAdded = new Date().toISOString();
+                });
+            }
         });
     }
 

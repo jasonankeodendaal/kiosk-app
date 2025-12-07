@@ -36,6 +36,7 @@ export interface Product {
   // Legacy support fields (will be migrated)
   manualUrl?: string; 
   manualImages?: string[]; 
+  dateAdded?: string; // New: For aging logic
 }
 
 export interface Category {
@@ -108,6 +109,7 @@ export interface AdItem {
   id: string;
   type: 'image' | 'video';
   url: string;
+  dateAdded?: string; // New: For aging logic
 }
 
 export interface AdConfig {

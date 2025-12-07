@@ -19,6 +19,7 @@ interface PlaylistItem {
   subtitle?: string;
   startDate?: string;
   endDate?: string;
+  dateAdded?: string;
 }
 
 const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = [], onWake, settings }) => {
@@ -77,6 +78,27 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
       return () => clearInterval(interval);
   }, [config.activeHoursStart, config.activeHoursEnd, config.enableSleepMode]);
 
+  // Helper to determine if item should be included based on age
+  const shouldIncludeItem = (dateString?: string): boolean => {
+      // If no date, treat as new/important
+      if (!dateString) return true;
+      
+      const addedDate = new Date(dateString);
+      const now = new Date();
+      
+      // Calculate age in months
+      const monthsOld = (now.getFullYear() - addedDate.getFullYear()) * 12 + (now.getMonth() - addedDate.getMonth());
+      
+      // Aging Logic: If older than 6 months, apply probabilistic filtering
+      if (monthsOld >= 6) {
+          // 25% chance to show up in any given playlist generation cycle if > 6 months old
+          // This naturally makes them appear less frequently over multiple screensaver sessions
+          return Math.random() < 0.25; 
+      }
+      
+      return true;
+  };
+
   // 1. Build & Shuffle Playlist
   useEffect(() => {
     const list: PlaylistItem[] = [];
@@ -84,42 +106,53 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
     // Add Custom Ads
     if (config.showCustomAds) {
         ads.forEach((ad, i) => {
-          list.push({
-            id: `ad-${ad.id}-${i}`,
-            type: ad.type,
-            url: ad.url,
-            title: "Sponsored",
-            subtitle: ""
-          });
+          if (shouldIncludeItem(ad.dateAdded)) {
+            list.push({
+                id: `ad-${ad.id}-${i}`,
+                type: ad.type,
+                url: ad.url,
+                title: "Sponsored",
+                subtitle: "",
+                dateAdded: ad.dateAdded
+            });
+          }
         });
     }
 
-    // Add Pamphlets
+    // Add Pamphlets (Treat based on start date if available, else always show active ones)
     if (config.showPamphlets) {
         pamphlets.forEach((pamphlet) => {
            if (pamphlet.pages && pamphlet.pages.length > 0) {
-              list.push({
-                id: `pamphlet-${pamphlet.id}`,
-                type: 'image',
-                url: pamphlet.pages[0],
-                title: pamphlet.title,
-                subtitle: "Showcase Catalogue",
-                startDate: pamphlet.startDate,
-                endDate: pamphlet.endDate
-             });
+               // Pamphlets are usually time-sensitive anyway, so we respect their explicit dates 
+               // rather than the 6-month rule, but we can apply it to generic catalogs.
+               if (!pamphlet.endDate || shouldIncludeItem(pamphlet.startDate)) {
+                  list.push({
+                    id: `pamphlet-${pamphlet.id}`,
+                    type: 'image',
+                    url: pamphlet.pages[0],
+                    title: pamphlet.title,
+                    subtitle: "Showcase Catalogue",
+                    startDate: pamphlet.startDate,
+                    endDate: pamphlet.endDate
+                 });
+               }
            }
         });
     }
 
     // Add Products
     products.forEach((p) => {
+        // Skip if aged out
+        if (!shouldIncludeItem(p.dateAdded)) return;
+
         if (config.showProductImages && p.imageUrl) {
             list.push({
                 id: `prod-img-${p.id}`,
                 type: 'image',
                 url: p.imageUrl,
                 title: p.brandName,
-                subtitle: p.name
+                subtitle: p.name,
+                dateAdded: p.dateAdded
             });
         }
         if (config.showProductVideos) {
@@ -130,7 +163,8 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
                     type: 'video',
                     url: p.videoUrl,
                     title: p.brandName,
-                    subtitle: `${p.name} - Official Video`
+                    subtitle: `${p.name} - Official Video`,
+                    dateAdded: p.dateAdded
                  });
             }
             // Support multiple videos
@@ -142,7 +176,8 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
                             type: 'video',
                             url: url,
                             title: p.brandName,
-                            subtitle: `${p.name} - Video Showcase`
+                            subtitle: `${p.name} - Video Showcase`,
+                            dateAdded: p.dateAdded
                         });
                     }
                 });

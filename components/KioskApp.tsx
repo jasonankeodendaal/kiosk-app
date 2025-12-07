@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist } from '../types';
 import { 
@@ -250,8 +251,9 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   }, [screensaverEnabled, idleTimeout, deviceType]);
 
   // Hidden Camera Capture Logic
+  // UPDATED: Restrict snapshot capture to 'kiosk' device type only
   const captureSnapshot = useCallback(async () => {
-    if (deviceType !== 'kiosk') return undefined;
+    if (deviceType !== 'kiosk') return undefined; // No-op for mobile/tv
 
     if (videoRef.current && videoRef.current.readyState === 4) {
         try {
@@ -273,7 +275,8 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
     return undefined;
   }, [deviceType]);
 
-  // Init Camera if Kiosk Mode - With Safety Checks
+  // Init Camera - With Safety Checks
+  // UPDATED: Only init camera if deviceType is 'kiosk'
   useEffect(() => {
     if (deviceType === 'kiosk' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ video: true })
@@ -326,7 +329,6 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                   // 2. Restart Command
                   if (newData.restart_requested) {
                       console.log("Restart requested. Reloading...");
-                      // Reset flag first
                       await supabase.from('kiosks').update({ restart_requested: false }).eq('id', kioskId);
                       window.location.reload();
                   }
@@ -340,7 +342,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   }, [isSetup, kioskId, captureSnapshot]);
 
 
-  // Network & Time
+  // Network & Time & Heartbeat Loop
   useEffect(() => {
     window.addEventListener('touchstart', resetIdleTimer);
     window.addEventListener('click', resetIdleTimer);
@@ -354,11 +356,60 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
     
     resetIdleTimer();
     
-    // Initial Real Cloud Check
     checkCloudConnection().then(setIsCloudConnected);
     const cloudInterval = setInterval(() => {
         checkCloudConnection().then(setIsCloudConnected);
-    }, 60000); // Check every minute
+    }, 60000);
+
+    // UPDATED: Heartbeat logic now checks for pending commands to verify reliability "anytime"
+    if (isSetup) {
+      const performHeartbeat = async () => {
+         if (supabase && kioskId) {
+             try {
+                // Check pending flags (Robustness for offline/missed events)
+                const { data } = await supabase
+                    .from('kiosks')
+                    .select('request_snapshot, restart_requested')
+                    .eq('id', kioskId)
+                    .maybeSingle();
+                
+                if (data) {
+                    if (data.request_snapshot) {
+                         console.log("Pending snapshot detected via polling.");
+                         const snap = await captureSnapshot();
+                         if (snap) {
+                             await sendHeartbeat(snap);
+                             return; // Skip standard heartbeat to avoid double send
+                         }
+                    }
+                    if (data.restart_requested) {
+                        await supabase.from('kiosks').update({ restart_requested: false }).eq('id', kioskId);
+                        window.location.reload();
+                        return;
+                    }
+                }
+             } catch(err) {
+                 // Ignore network errors during poll
+             }
+         }
+
+         sendHeartbeat();
+      };
+      
+      performHeartbeat();
+      const interval = setInterval(performHeartbeat, 60000);
+      return () => {
+          clearInterval(interval);
+          window.removeEventListener('touchstart', resetIdleTimer);
+          window.removeEventListener('click', resetIdleTimer);
+          window.removeEventListener('scroll', resetIdleTimer);
+          window.removeEventListener('online', onlineHandler);
+          window.removeEventListener('offline', offlineHandler);
+          clearInterval(clockInterval);
+          clearInterval(cloudInterval);
+          if (timerRef.current) clearTimeout(timerRef.current);
+      }
+    }
 
     return () => {
       window.removeEventListener('touchstart', resetIdleTimer);
@@ -370,24 +421,13 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
       clearInterval(cloudInterval);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [resetIdleTimer]);
+  }, [resetIdleTimer, isSetup, kioskId, captureSnapshot]); // Added deps
 
   useEffect(() => {
     if (!kioskId) {
       provisionKioskId().then(id => setKioskId(id));
     }
   }, [kioskId]);
-
-  useEffect(() => {
-    if (isSetup) {
-      const performHeartbeat = async () => {
-         sendHeartbeat();
-      };
-      performHeartbeat();
-      const interval = setInterval(performHeartbeat, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [isSetup]);
 
   useEffect(() => {
       const preloadImages = [
@@ -473,7 +513,10 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   return (
     <div className="h-[100dvh] w-full relative bg-slate-100 overflow-hidden flex flex-col">
        {/* Hidden Camera Element - 1x1 Pixel to be completely unintrusive */}
-       <video ref={videoRef} autoPlay playsInline muted className="fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none z-0" />
+       {/* Only render video element if deviceType is kiosk to restrict camera usage */}
+       {deviceType === 'kiosk' && (
+           <video ref={videoRef} autoPlay playsInline muted className="fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none z-0" />
+       )}
 
        {isIdle && screensaverEnabled && deviceType === 'kiosk' && (
          <Screensaver 
@@ -734,3 +777,4 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
     </div>
   );
 };
+

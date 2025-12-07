@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -518,7 +519,8 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
             title: "User Manual",
             images: product.manualImages || [],
             pdfUrl: product.manualUrl
-        }] : [])
+        }] : []),
+        dateAdded: product.dateAdded || new Date().toISOString() // Ensure date added exists
     });
     const [newFeature, setNewFeature] = useState('');
     const [newBoxItem, setNewBoxItem] = useState('');
@@ -750,6 +752,7 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
     );
 };
 
+// ... existing KioskEditorModal, TVModelEditor, AdminManager ...
 const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, onSave: (k: KioskRegistry) => void, onClose: () => void }) => {
     const [draft, setDraft] = useState({ ...kiosk });
     return (
@@ -787,7 +790,6 @@ const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, on
     );
 };
 
-// NEW: TV Model Editor Modal
 const TVModelEditor = ({ model, onSave, onClose }: { model: TVModel, onSave: (m: TVModel) => void, onClose: () => void }) => {
     const [draft, setDraft] = useState<TVModel>({ ...model });
 
@@ -872,7 +874,6 @@ const TVModelEditor = ({ model, onSave, onClose }: { model: TVModel, onSave: (m:
     );
 };
 
-// NEW: Admin Manager Component for Settings Tab
 const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], onUpdate: (admins: AdminUser[]) => void, currentUser: AdminUser }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [newName, setNewName] = useState('');
@@ -1042,6 +1043,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       { id: 'settings', label: 'Settings', icon: Settings },
   ].filter(tab => currentUser?.permissions[tab.id as keyof AdminPermissions]);
 
+  // ... (existing effects for tabs/network/unsaved changes) ...
   useEffect(() => {
       if (currentUser && availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
           setActiveTab(availableTabs[0].id);
@@ -1358,7 +1360,8 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                     onSave={(p) => handleLocalUpdate({ ...localData, pricelists: p })}
                 />
             )}
-
+            
+            {/* Rest of the AdminDashboard code (marketing, tv, fleet, screensaver, history, settings) remains identical */}
             {activeTab === 'tv' && (
                 !selectedTVBrand ? (
                     <div className="animate-fade-in max-w-6xl mx-auto">
@@ -1548,7 +1551,8 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                         accept="image/*,video/*" 
                                         allowMultiple 
                                         onUpload={(urls:any, type:any) => { 
-                                            const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ad'), type, url:u})); 
+                                            // Add dateAdded to new ads
+                                            const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ad'), type, url:u, dateAdded: new Date().toISOString()})); 
                                             handleLocalUpdate({...localData, ads: {...localData.ads, [zone]: [...(localData.ads as any)[zone], ...newAds]} as any}); 
                                         }} 
                                     />
@@ -1583,7 +1587,8 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                     )}
                 </div>
             )}
-
+            
+            {/* Same components for other tabs */}
             {activeTab === 'fleet' && (
                 <div className="animate-fade-in max-w-6xl mx-auto">
                    <h2 className="text-2xl font-black text-slate-900 uppercase mb-6">Device Fleet</h2>
@@ -1625,7 +1630,15 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                    </div>
 
                                    <div className="p-1 md:p-4 flex gap-1 md:gap-2 mt-auto">
-                                       <button onClick={() => requestSnapshot(kiosk.id)} title="Request Camera Snapshot" className="flex-1 py-1 md:py-2 bg-blue-50 text-blue-600 rounded md:rounded-lg hover:bg-blue-100 flex items-center justify-center gap-1 md:gap-2 text-[8px] md:text-[10px] font-bold uppercase border border-blue-100"><Camera size={10} className="md:w-3 md:h-3"/> <span className="hidden md:inline">Snap</span></button>
+                                       {/* Only enable snapshot button if device type is Kiosk (technically backend ignores it, but UI feedback helps) */}
+                                       <button 
+                                          onClick={() => requestSnapshot(kiosk.id)} 
+                                          title={kiosk.deviceType === 'kiosk' ? "Request Camera Snapshot" : "Snapshots only available on Kiosk devices"} 
+                                          disabled={kiosk.deviceType !== 'kiosk'}
+                                          className={`flex-1 py-1 md:py-2 rounded md:rounded-lg flex items-center justify-center gap-1 md:gap-2 text-[8px] md:text-[10px] font-bold uppercase border ${kiosk.deviceType === 'kiosk' ? 'bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-100' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed opacity-50'}`}
+                                       >
+                                           <Camera size={10} className="md:w-3 md:h-3"/> <span className="hidden md:inline">Snap</span>
+                                       </button>
                                        <button onClick={() => setEditingKiosk(kiosk)} className="p-1 md:p-2 bg-slate-100 text-slate-600 rounded md:rounded-lg hover:bg-slate-200 border border-slate-200 flex items-center justify-center"><Edit2 size={10} className="md:w-3 md:h-3"/></button>
                                        {supabase && <button onClick={async () => { if(confirm("Restart Device?")) await supabase.from('kiosks').update({restart_requested: true}).eq('id', kiosk.id); }} className="p-1 md:p-2 bg-orange-50 text-orange-600 rounded md:rounded-lg hover:bg-orange-100 border border-orange-100 flex items-center justify-center" title="Remote Restart"><Power size={10} className="md:w-3 md:h-3"/></button>}
                                        <button onClick={() => removeFleetMember(kiosk.id)} className="p-1 md:p-2 bg-red-50 text-red-600 rounded md:rounded-lg hover:bg-red-100 border border-red-100 flex items-center justify-center"><Trash2 size={10} className="md:w-3 md:h-3"/></button>
@@ -1637,7 +1650,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                    {localData.fleet?.length === 0 && <div className="p-12 text-center text-slate-400 font-bold uppercase text-xs border-2 border-dashed border-slate-200 rounded-2xl">No devices registered in fleet</div>}
                 </div>
             )}
-
+            
             {activeTab === 'screensaver' && (
                 <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
