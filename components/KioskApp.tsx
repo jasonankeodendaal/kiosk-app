@@ -22,9 +22,18 @@ import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
 import PdfViewer from './PdfViewer';
 import TVMode from './TVMode';
-import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv, DollarSign, FileText } from 'lucide-react';
+import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv, FileText } from 'lucide-react';
 
 const DEFAULT_IDLE_TIMEOUT = 60000;
+
+// Custom R Icon for Pricelists
+const RIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M7 5v14" />
+    <path d="M7 5h5.5a4.5 4.5 0 0 1 0 9H7" />
+    <path d="M11.5 14L17 19" />
+  </svg>
+);
 
 export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => (
   <div 
@@ -590,7 +599,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                      }}
                      className="flex items-center gap-1.5 font-bold uppercase tracking-widest text-blue-600 hover:text-blue-800 transition-colors"
                   >
-                     <DollarSign size={10} className="md:w-3 md:h-3" />
+                     <RIcon size={12} className="md:w-3.5 md:h-3.5" />
                      <span>Pricelists</span>
                   </button>
               )}
@@ -620,7 +629,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                <div className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                    <div className="p-4 md:p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-center shrink-0">
                        <h2 className="text-xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-2">
-                           <DollarSign size={24} className="text-green-600" /> Official Pricelists
+                           <RIcon size={28} className="text-green-600" /> Official Pricelists
                        </h2>
                        <button onClick={() => setShowPricelistModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X size={24} className="text-slate-500" /></button>
                    </div>
@@ -678,7 +687,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                                </div>
                            ) : (
                                <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                                   <DollarSign size={48} className="mb-4 opacity-20" />
+                                   <RIcon size={64} className="mb-4 opacity-20" />
                                    <p className="uppercase font-bold text-xs tracking-widest">Select a brand to view pricelists</p>
                                </div>
                            )}

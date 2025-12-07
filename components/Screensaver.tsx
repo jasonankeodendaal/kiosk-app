@@ -1,5 +1,3 @@
-
-
 import React, { useEffect, useState, useRef } from 'react';
 import { FlatProduct, AdItem, Catalogue, ScreensaverSettings } from '../types';
 import { Moon } from 'lucide-react';
@@ -61,11 +59,6 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
           const startMinutes = startH * 60 + startM;
           const endMinutes = endH * 60 + endM;
 
-          // Simple logic: If start < end (e.g. 08:00 to 20:00), active inside range.
-          // If start > end (e.g. 20:00 to 08:00), active outside range? usually shops open day.
-          // Let's assume standard day shift for active hours. 
-          // If current is NOT between start and end, it is Sleep Mode.
-          
           let isActive = false;
           if (startMinutes < endMinutes) {
               isActive = currentMinutes >= startMinutes && currentMinutes < endMinutes;
@@ -239,12 +232,47 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
       onClick={onWake}
       className="fixed inset-0 z-[100] bg-black cursor-pointer flex items-center justify-center overflow-hidden"
     >
-      <div key={currentItem.id} className="w-full h-full relative animate-fade-in flex items-center justify-center">
+      <style>{`
+        .ken-burns {
+          animation: kenBurns 20s ease-out forwards;
+        }
+        @keyframes kenBurns {
+          0% { transform: scale(1); }
+          100% { transform: scale(1.15); }
+        }
+        .slide-up {
+          animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes slideUp {
+          0% { transform: translateY(40px); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+        .blur-in {
+          animation: blurIn 1.5s ease-out forwards;
+        }
+        @keyframes blurIn {
+          0% { opacity: 0; filter: blur(20px); }
+          100% { opacity: 1; filter: blur(0); }
+        }
+      `}</style>
+
+      {/* Background Ambience Layer - Improved Look for "Contain" style */}
+      <div 
+        key={`bg-${currentItem.id}`} 
+        className="absolute inset-0 z-0 bg-cover bg-center opacity-40 blur-3xl scale-125 transition-all duration-1000"
+        style={{ backgroundImage: `url(${currentItem.url})` }}
+      />
+      
+      {/* Dark Overlay to make text readable */}
+      <div className="absolute inset-0 bg-black/30 z-10" />
+
+      {/* Main Content Layer */}
+      <div key={currentItem.id} className="w-full h-full relative z-20 flex items-center justify-center p-8 md:p-16">
          
          {currentItem.type === 'video' ? (
              <video 
                src={currentItem.url} 
-               className={`w-full h-full ${objectFitClass}`}
+               className={`w-full h-full max-w-full max-h-full ${objectFitClass} shadow-2xl rounded-sm animate-fade-in`}
                muted={config.muteVideos} 
                autoPlay
                playsInline
@@ -252,42 +280,47 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
                onError={handleMediaError} 
              />
          ) : (
-             <img 
-               src={currentItem.url} 
-               alt="Screensaver" 
-               className={`w-full h-full ${objectFitClass}`}
-               onError={handleMediaError}
-             />
+             <div className="w-full h-full flex items-center justify-center overflow-hidden rounded-sm shadow-2xl relative">
+                <img 
+                  src={currentItem.url} 
+                  alt="Screensaver" 
+                  className={`w-full h-full max-w-full max-h-full ${objectFitClass} ken-burns blur-in`}
+                  onError={handleMediaError}
+                />
+             </div>
          )}
 
-         {/* Overlay Info (Conditional) */}
-         {config.showInfoOverlay && (
-             <div className="absolute bottom-12 right-12 flex flex-col items-end max-w-[80%] pointer-events-none z-20">
+         {/* Enhanced Overlay Info */}
+         {config.showInfoOverlay && (currentItem.title || currentItem.subtitle) && (
+             <div className="absolute bottom-16 left-16 max-w-[80%] pointer-events-none z-30 slide-up">
                 {currentItem.title && (
-                    <h1 className="text-4xl md:text-7xl font-black text-white uppercase tracking-tighter drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] text-right mb-2 leading-none">
+                    <h1 className="text-5xl md:text-8xl font-black text-white uppercase tracking-tighter drop-shadow-2xl mb-4 leading-none opacity-90">
                         {currentItem.title}
                     </h1>
                 )}
-                {currentItem.subtitle && (
-                    <h2 className="text-xl md:text-3xl font-bold text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] text-right bg-black/50 px-4 py-1 rounded">
-                        {currentItem.subtitle}
-                    </h2>
-                )}
-                {(currentItem.startDate || currentItem.endDate) && (
-                    <p className="mt-4 text-lg md:text-xl text-slate-200 font-mono bg-blue-900/80 px-4 py-2 rounded-lg backdrop-blur-md border border-white/10 shadow-lg">
-                        {currentItem.startDate && formatDate(currentItem.startDate)}
-                        {currentItem.startDate && currentItem.endDate && ` - `}
-                        {currentItem.endDate && formatDate(currentItem.endDate)}
-                    </p>
-                )}
+                
+                <div className="flex flex-wrap gap-4 items-center">
+                    {currentItem.subtitle && (
+                        <div className="backdrop-blur-xl bg-white/10 border border-white/20 px-6 py-3 rounded-2xl shadow-xl">
+                            <h2 className="text-xl md:text-3xl font-bold text-white tracking-wide">
+                                {currentItem.subtitle}
+                            </h2>
+                        </div>
+                    )}
+                    
+                    {(currentItem.startDate || currentItem.endDate) && (
+                        <div className="backdrop-blur-xl bg-blue-600/80 border border-blue-400/30 px-6 py-3 rounded-2xl shadow-xl">
+                            <p className="text-lg md:text-xl text-white font-mono font-bold uppercase tracking-widest">
+                                {currentItem.startDate && formatDate(currentItem.startDate)}
+                                {currentItem.startDate && currentItem.endDate && ` — `}
+                                {currentItem.endDate && formatDate(currentItem.endDate)}
+                            </p>
+                        </div>
+                    )}
+                </div>
              </div>
          )}
       </div>
-      
-      <style>{`
-        .animate-fade-in { animation: fadeIn 1.2s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-      `}</style>
     </div>
   );
 };
