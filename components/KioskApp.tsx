@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { StoreData, Brand, Category, Product, FlatProduct, Catalogue } from '../types';
+import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist } from '../types';
 import { 
   getKioskId, 
   provisionKioskId, 
@@ -22,7 +22,7 @@ import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
 import PdfViewer from './PdfViewer';
 import TVMode from './TVMode';
-import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv } from 'lucide-react';
+import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv, DollarSign, FileText } from 'lucide-react';
 
 const DEFAULT_IDLE_TIMEOUT = 60000;
 
@@ -180,6 +180,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   const [screensaverEnabled, setScreensaverEnabled] = useState(true);
 
   const [showCreator, setShowCreator] = useState(false);
+  const [showPricelistModal, setShowPricelistModal] = useState(false);
   
   // Viewer State (PDF or Flipbook)
   const [showFlipbook, setShowFlipbook] = useState(false);
@@ -196,6 +197,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   
   // ZOOM CONTROL
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [selectedBrandForPricelist, setSelectedBrandForPricelist] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<number | null>(null);
@@ -216,6 +218,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
         setShowFlipbook(false);
         setViewingPdf(null);
         setShowCreator(false);
+        setShowPricelistModal(false);
       }, idleTimeout);
     }
   }, [screensaverEnabled, idleTimeout, deviceType]);
@@ -388,6 +391,13 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
           (c.products || []).map(p => ({...p, brandName: b.name, categoryName: c.name} as FlatProduct))
         )
       );
+  }, [storeData]);
+  
+  // Memoized Pricelist Brands (Only brands that have pricelists)
+  const pricelistBrands = useMemo(() => {
+      if (!storeData?.pricelists || storeData.pricelists.length === 0) return [];
+      const brandIds = Array.from(new Set(storeData.pricelists.map(p => p.brandId)));
+      return brandIds.map(id => storeData.brands.find(b => b.id === id)).filter(Boolean) as Brand[];
   }, [storeData]);
 
   const handleSetupComplete = (name: string, type: 'kiosk' | 'mobile' | 'tv') => {
@@ -570,7 +580,21 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
               </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-6">
+          <div className="flex items-center gap-4 md:gap-6">
+              {/* NEW PRICELIST BUTTON */}
+              {pricelistBrands.length > 0 && (
+                  <button 
+                     onClick={() => {
+                        setSelectedBrandForPricelist(null);
+                        setShowPricelistModal(true);
+                     }}
+                     className="flex items-center gap-1.5 font-bold uppercase tracking-widest text-blue-600 hover:text-blue-800 transition-colors"
+                  >
+                     <DollarSign size={10} className="md:w-3 md:h-3" />
+                     <span>Pricelists</span>
+                  </button>
+              )}
+
               {lastSyncTime && (
                   <div className="flex items-center gap-1 md:gap-1.5 font-bold">
                       <RefreshCw size={8} className="md:w-[10px] md:h-[10px]" />
@@ -590,6 +614,79 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
        </footer>
 
        <CreatorPopup isOpen={showCreator} onClose={() => setShowCreator(false)} />
+
+       {showPricelistModal && (
+           <div className="fixed inset-0 z-[60] bg-slate-900/95 backdrop-blur-md flex flex-col items-center justify-center p-4 md:p-12 animate-fade-in" onClick={() => setShowPricelistModal(false)}>
+               <div className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                   <div className="p-4 md:p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-center shrink-0">
+                       <h2 className="text-xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-2">
+                           <DollarSign size={24} className="text-green-600" /> Official Pricelists
+                       </h2>
+                       <button onClick={() => setShowPricelistModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X size={24} className="text-slate-500" /></button>
+                   </div>
+                   
+                   <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+                       {/* Left Sidebar: Brands List */}
+                       <div className="w-full md:w-1/3 border-r border-slate-200 bg-slate-50 overflow-y-auto">
+                           {pricelistBrands.map(brand => (
+                               <button 
+                                   key={brand.id} 
+                                   onClick={() => setSelectedBrandForPricelist(brand.id)}
+                                   className={`w-full text-left p-4 border-b border-slate-100 transition-colors flex items-center justify-between group ${selectedBrandForPricelist === brand.id ? 'bg-white border-l-4 border-l-green-500' : 'hover:bg-white'}`}
+                               >
+                                   <div className="flex items-center gap-3">
+                                       <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center p-1">
+                                            {brand.logoUrl ? <img src={brand.logoUrl} className="w-full h-full object-contain" /> : <span className="font-black text-slate-300">{brand.name.charAt(0)}</span>}
+                                       </div>
+                                       <span className={`font-bold text-sm uppercase ${selectedBrandForPricelist === brand.id ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-700'}`}>{brand.name}</span>
+                                   </div>
+                                   {selectedBrandForPricelist === brand.id && <div className="w-2 h-2 rounded-full bg-green-500"></div>}
+                               </button>
+                           ))}
+                       </div>
+                       
+                       {/* Right Content: Pricelist Grid */}
+                       <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-100/50">
+                           {selectedBrandForPricelist ? (
+                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                   {storeData.pricelists?.filter(p => p.brandId === selectedBrandForPricelist).map(pl => (
+                                       <button 
+                                          key={pl.id}
+                                          onClick={() => setViewingPdf({ url: pl.url, title: pl.title })}
+                                          className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg border border-slate-200 hover:border-green-400 transition-all group text-left flex flex-col h-full"
+                                       >
+                                           <div className="aspect-[3/4] bg-slate-200 relative overflow-hidden border-b border-slate-100">
+                                               {pl.thumbnailUrl ? (
+                                                   <img src={pl.thumbnailUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={pl.title} />
+                                               ) : (
+                                                   <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                                                       <FileText size={32} />
+                                                       <span className="text-[10px] font-bold uppercase">PDF Document</span>
+                                                   </div>
+                                               )}
+                                               <div className="absolute top-2 right-2 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">PDF</div>
+                                           </div>
+                                           <div className="p-4 flex flex-col flex-1">
+                                               <h3 className="font-bold text-slate-900 text-xs md:text-sm uppercase mb-1 leading-tight">{pl.title}</h3>
+                                               <div className="mt-auto pt-2 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
+                                                   <span>{pl.month} {pl.year}</span>
+                                                   <span className="text-green-600 group-hover:underline">View</span>
+                                               </div>
+                                           </div>
+                                       </button>
+                                   ))}
+                               </div>
+                           ) : (
+                               <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                                   <DollarSign size={48} className="mb-4 opacity-20" />
+                                   <p className="uppercase font-bold text-xs tracking-widest">Select a brand to view pricelists</p>
+                               </div>
+                           )}
+                       </div>
+                   </div>
+               </div>
+           </div>
+       )}
 
        {showFlipbook && (
          <Flipbook 

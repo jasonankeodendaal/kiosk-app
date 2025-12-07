@@ -455,7 +455,13 @@ const PricelistManager = ({
                                  </div>
                              </div>
 
-                             <div className="mt-2">
+                             <div className="mt-2 grid grid-cols-2 gap-2">
+                                <FileUpload 
+                                    label="Thumbnail (Image)" 
+                                    accept="image/*"
+                                    currentUrl={item.thumbnailUrl}
+                                    onUpload={(url: any) => updatePricelist(item.id, { thumbnailUrl: url })} 
+                                />
                                 <FileUpload 
                                     label="Upload PDF" 
                                     accept="application/pdf" 

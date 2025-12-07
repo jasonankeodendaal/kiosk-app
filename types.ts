@@ -99,6 +99,7 @@ export interface Pricelist {
   brandId: string;
   title: string;
   url: string; // PDF URL
+  thumbnailUrl?: string; // New: Cover Image
   month: string;
   year: string;
 }
