@@ -37,13 +37,20 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
                     // Determine Type (SVG vs PNG) for robustness
                     const isSvg = targetIconUrl.endsWith('.svg');
                     const iconType = isSvg ? "image/svg+xml" : "image/png";
-                    const sizes = isSvg ? "512x512" : "192x192 512x512";
+                    const sizes = isSvg ? "512x512" : "192x192";
+                    const largeSizes = isSvg ? "512x512" : "512x512";
 
-                    // Force update icons array
+                    // Force update icons array with comprehensive definitions
                     manifest.icons = [
-                        { src: targetIconUrl, sizes: sizes, type: iconType, purpose: "any maskable" },
-                        { src: targetIconUrl, sizes: "512x512", type: iconType, purpose: "any maskable" }
+                        { src: targetIconUrl, sizes: sizes, type: iconType, purpose: "any" },
+                        { src: targetIconUrl, sizes: sizes, type: iconType, purpose: "maskable" },
+                        { src: targetIconUrl, sizes: largeSizes, type: iconType, purpose: "any" },
+                        { src: targetIconUrl, sizes: largeSizes, type: iconType, purpose: "maskable" }
                     ];
+
+                    // Ensure crucial PWA fields are present
+                    if (!manifest.lang) manifest.lang = "en";
+                    if (typeof manifest.prefer_related_applications === 'undefined') manifest.prefer_related_applications = false;
                     
                     const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
                     const blobUrl = URL.createObjectURL(blob);
