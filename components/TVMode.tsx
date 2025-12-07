@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { StoreData, TVBrand, TVModel } from '../types';
 import { Play, Tv, ArrowLeft, ChevronLeft, ChevronRight, Pause, RotateCcw, MonitorPlay, MonitorStop, Film, LayoutGrid, SkipForward, Monitor } from 'lucide-react';
@@ -131,16 +132,31 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
       setActivePlaylist([]);
   };
 
+  // Ensure playback continues when index changes (Robust Loop)
+  useEffect(() => {
+    if (isPlaying && videoRef.current) {
+        videoRef.current.load();
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.warn("Auto-play prevented by browser policy:", error);
+            });
+        }
+    }
+  }, [currentVideoIndex, isPlaying]);
+
   // --- RENDER: FULL SCREEN PLAYER ---
   if (isPlaying && activePlaylist.length > 0) {
       const currentUrl = activePlaylist[currentVideoIndex];
       return (
           <div className="fixed inset-0 bg-black z-[200] flex flex-col items-center justify-center overflow-hidden group cursor-none">
               <video 
+                  key={currentUrl} // Key forces remount ensuring clean state for each video in loop
                   ref={videoRef}
                   src={currentUrl} 
                   className="w-full h-full object-contain"
                   autoPlay
+                  playsInline
                   onEnded={handleVideoEnded}
                   onPlay={() => setIsPaused(false)}
                   onPause={() => setIsPaused(true)}

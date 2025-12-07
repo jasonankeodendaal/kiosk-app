@@ -231,6 +231,16 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
 
   const idleTimeout = (storeData?.screensaverSettings?.idleTimeout || 60) * 1000;
 
+  // TV Mode Landscape Support
+  useEffect(() => {
+    if (deviceType === 'tv') {
+      document.body.classList.add('allow-landscape');
+    } else {
+      document.body.classList.remove('allow-landscape');
+    }
+    return () => document.body.classList.remove('allow-landscape');
+  }, [deviceType]);
+
   const resetIdleTimer = useCallback(() => {
     setIsIdle(false);
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -522,7 +532,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
          <Screensaver 
            products={allProducts} 
            ads={storeData.ads?.screensaver || []} 
-           pamphlets={filteredCatalogs}
+           pamphlets={filteredCatalogs} 
            onWake={resetIdleTimer}
            settings={storeData.screensaverSettings}
          />
@@ -777,4 +787,3 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
     </div>
   );
 };
-

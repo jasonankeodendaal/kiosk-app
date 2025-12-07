@@ -126,8 +126,9 @@
         display: none;
       }
 
+      /* Modified to allow landscape mode if body has .allow-landscape class */
       @media screen and (orientation: landscape) and (hover: none) and (pointer: coarse) {
-        #rotate-overlay {
+        body:not(.allow-landscape) #rotate-overlay {
           display: flex !important;
           position: fixed;
           top: 0;
@@ -144,7 +145,7 @@
           padding: 2rem;
         }
         
-        #root {
+        body:not(.allow-landscape) #root {
           display: none !important;
         }
       }
