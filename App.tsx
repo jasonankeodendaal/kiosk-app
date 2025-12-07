@@ -8,75 +8,56 @@ import { initSupabase, supabase } from './services/kioskService';
 import { StoreData } from './types';
 import { Loader2, Cloud, Download, CheckCircle2 } from 'lucide-react';
 
-// === NEW: AUTO APP ICON UPDATER COMPONENT ===
+// === NEW: OPTIMIZED APP ICON UPDATER ===
 const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
-    // Determines context (Admin vs Kiosk)
     const isAdmin = window.location.pathname.startsWith('/admin');
     
-    // Default Fallback
-    const DEFAULT_ICON = "https://i.ibb.co/cS36Vp5w/maskable-icon.png";
+    // Memoize the target URL to prevent effect loops on general storeData updates
+    const targetIconUrl = isAdmin 
+        ? (storeData.appConfig?.adminIconUrl || "https://i.ibb.co/cS36Vp5w/maskable-icon.png")
+        : (storeData.appConfig?.kioskIconUrl || "https://i.ibb.co/cS36Vp5w/maskable-icon.png");
 
     useEffect(() => {
-        if (!storeData?.appConfig) return;
+        const updateAppIdentity = async () => {
+             // 1. Update Tab Icons (Immediate Visual Feedback)
+             const iconLink = document.getElementById('pwa-icon') as HTMLLinkElement;
+             const appleLink = document.getElementById('pwa-apple-icon') as HTMLLinkElement;
+             
+             if (iconLink && iconLink.href !== targetIconUrl) iconLink.href = targetIconUrl;
+             if (appleLink && appleLink.href !== targetIconUrl) appleLink.href = targetIconUrl;
 
-        const performUpdate = async () => {
-            // Get the target icon URL from Cloud Config
-            const cloudIcon = isAdmin 
-                ? (storeData.appConfig.adminIconUrl || DEFAULT_ICON) 
-                : (storeData.appConfig.kioskIconUrl || DEFAULT_ICON);
-
-            // We apply the update EVERY time the component mounts or storeData changes
-            // This ensures that even after a refresh, the Blob manifest is recreated and applied
-            // since the static manifest on the server is likely stale.
-            
-            try {
-                // 1. Update <link rel="icon"> tags immediately for the tab
-                const linkIcon = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
-                const linkApple = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement;
-                
-                if (linkIcon && linkIcon.href !== cloudIcon) linkIcon.href = cloudIcon;
-                if (linkApple && linkApple.href !== cloudIcon) linkApple.href = cloudIcon;
-
-                // 2. Update Manifest Dynamically (For PWA Install / Home Screen)
-                // We fetch the static manifest, modify it, blob it, and replace the link tag
-                const manifestLink = document.querySelector("link[rel='manifest']") as HTMLLinkElement;
+             // 2. Update Manifest (For Install Prompt & PWA Launches)
+             try {
+                const manifestLink = document.getElementById('pwa-manifest') as HTMLLinkElement;
                 if (manifestLink) {
-                    const originalManifestUrl = isAdmin ? '/manifest-admin.json' : '/manifest-kiosk.json';
-                    
-                    // Fetch the base manifest
-                    const response = await fetch(originalManifestUrl);
+                    const baseManifest = isAdmin ? '/manifest-admin.json' : '/manifest-kiosk.json';
+                    const response = await fetch(baseManifest);
                     const manifest = await response.json();
-
-                    // Check if update is actually needed in the manifest object to avoid unnecessary blob creation
-                    // (Though for blob persistence across reloads we practically always need to do this if strictly client-side)
-                    const currentSrc = manifest.icons?.[0]?.src;
                     
-                    // We simply overwrite the icons array with the new URL
-                    if (manifest.icons) {
-                        manifest.icons = manifest.icons.map((icon: any) => ({
-                            ...icon,
-                            src: cloudIcon
-                        }));
-                    }
-
-                    const stringManifest = JSON.stringify(manifest);
-                    const blob = new Blob([stringManifest], {type: 'application/json'});
-                    const manifestURL = URL.createObjectURL(blob);
+                    // Force update icons array
+                    manifest.icons = [
+                        { src: targetIconUrl, sizes: "192x192", type: "image/png", purpose: "any maskable" },
+                        { src: targetIconUrl, sizes: "512x512", type: "image/png", purpose: "any maskable" }
+                    ];
                     
-                    // Update the DOM
-                    manifestLink.href = manifestURL;
-                    console.log("App Icon & Manifest updated automatically to:", cloudIcon);
+                    const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+                    const blobUrl = URL.createObjectURL(blob);
+                    
+                    // Only update if Blob URL needs regeneration (conceptually, we just do it on URL change)
+                    manifestLink.href = blobUrl;
+                    console.log("App Identity Updated:", targetIconUrl);
                 }
-
-            } catch (e) {
-                console.error("Failed to auto-update app icon", e);
-            }
+             } catch (e) {
+                 console.error("Manifest update failed:", e);
+             }
         };
 
-        performUpdate();
-    }, [storeData, isAdmin]);
+        if (targetIconUrl) {
+            updateAppIdentity();
+        }
+    }, [targetIconUrl, isAdmin]); // Only re-run if the specific icon URL changes
 
-    return null; // No UI needed, it runs in background
+    return null;
 };
 
 
