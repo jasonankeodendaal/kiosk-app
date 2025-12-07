@@ -533,6 +533,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                <CategoryGrid 
                  brand={activeBrand} 
                  storeCatalogs={filteredCatalogs}
+                 pricelists={storeData.pricelists || []}
                  onSelectCategory={setActiveCategory}
                  onViewCatalog={handleViewCatalog} 
                  onBack={() => setActiveBrand(null)} 

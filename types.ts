@@ -93,6 +93,15 @@ export interface Catalogue {
   pages: string[]; // Legacy support for image-based flipbooks
 }
 
+export interface Pricelist {
+  id: string;
+  brandId: string;
+  title: string;
+  url: string; // PDF URL
+  month: string;
+  year: string;
+}
+
 export interface AdItem {
   id: string;
   type: 'image' | 'video';
@@ -160,6 +169,7 @@ export interface AdminPermissions {
     fleet: boolean;
     history: boolean;
     settings: boolean;
+    pricelists: boolean;
 }
 
 export interface AdminUser {
@@ -174,6 +184,7 @@ export interface StoreData {
   companyLogoUrl?: string; 
   hero: HeroConfig;
   catalogues?: Catalogue[]; 
+  pricelists?: Pricelist[];
   brands: Brand[];
   tv?: TVConfig; // New TV Configuration
   ads?: AdConfig;
