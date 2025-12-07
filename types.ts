@@ -13,6 +13,7 @@ export interface Manual {
   title: string;
   images: string[]; // Converted pages
   pdfUrl?: string;  // Optional backing PDF
+  thumbnailUrl?: string; // New field for cover image
 }
 
 export interface Product {

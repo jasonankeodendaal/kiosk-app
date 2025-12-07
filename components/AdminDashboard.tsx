@@ -76,7 +76,6 @@ const Auth = ({ admins, onLogin }: { admins: AdminUser[], onLogin: (user: AdminU
   );
 };
 
-// ... FileUpload, InputField, CatalogueManager ...
 // Updated FileUpload to always return Base64 for local processing if needed
 const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <ImageIcon />, allowMultiple = false }: any) => {
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -485,8 +484,6 @@ const PricelistManager = ({
     );
 };
 
-// ... ProductEditor, KioskEditorModal, TVModelEditor ... 
-
 const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave: (p: Product) => void, onCancel: () => void }) => {
     // Migrate legacy data on init (single video -> multiple array, single manual -> multiple manuals)
     const [draft, setDraft] = useState<Product>({ 
@@ -527,12 +524,13 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
         setDraft({ ...draft, dimensions: newDims });
     };
 
-    const addManual = (images: string[], pdfUrl?: string) => {
+    const addManual = () => {
         const newManual: Manual = {
             id: generateId('man'),
             title: "New Manual",
-            images,
-            pdfUrl
+            images: [],
+            pdfUrl: '',
+            thumbnailUrl: ''
         };
         setDraft({ ...draft, manuals: [...(draft.manuals || []), newManual] });
     };
@@ -541,10 +539,10 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
         setDraft({ ...draft, manuals: (draft.manuals || []).filter(m => m.id !== id) });
     };
 
-    const updateManualTitle = (id: string, title: string) => {
+    const updateManual = (id: string, updates: Partial<Manual>) => {
         setDraft({ 
             ...draft, 
-            manuals: (draft.manuals || []).map(m => m.id === id ? { ...m, title } : m) 
+            manuals: (draft.manuals || []).map(m => m.id === id ? { ...m, ...updates } : m) 
         });
     };
 
@@ -669,51 +667,48 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
                         <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
                              <div className="flex justify-between items-center mb-4">
                                 <h5 className="text-xs font-black text-slate-500 uppercase tracking-wider">Product Manuals</h5>
+                                <button onClick={addManual} className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded font-bold uppercase flex items-center gap-1"><Plus size={10}/> Add Manual</button>
                              </div>
                              
-                             <div className="mb-4 bg-white p-3 rounded-lg border border-slate-200">
-                                <FileUpload 
-                                    label="Upload Manual Pages (Images)" 
-                                    accept="image/*"
-                                    allowMultiple={true}
-                                    icon={<FileText />} 
-                                    currentUrl="" 
-                                    onUpload={async (urls: any) => { 
-                                        const pages = Array.isArray(urls) ? urls : [urls];
-                                        addManual(pages);
-                                    }} 
-                                />
-                             </div>
-
-                             <div className="space-y-3">
+                             <div className="space-y-4">
                                 {(draft.manuals || []).map((manual, idx) => (
-                                    <div key={manual.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-2">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <div className="bg-red-50 text-red-600 p-2 rounded">
-                                                    <FileText size={16} />
-                                                </div>
-                                                <div>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase block">{manual.images.length} Pages</span>
-                                                </div>
-                                            </div>
-                                            <button onClick={() => removeManual(manual.id)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={16}/></button>
-                                        </div>
+                                    <div key={manual.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3 relative group">
+                                        <button onClick={() => removeManual(manual.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 p-1"><Trash2 size={16}/></button>
+                                        
                                         <input 
                                             value={manual.title} 
-                                            onChange={(e) => updateManualTitle(manual.id, e.target.value)} 
-                                            placeholder="Manual Title" 
-                                            className="w-full text-sm font-bold border-b border-slate-100 pb-1 focus:border-blue-500 outline-none" 
+                                            onChange={(e) => updateManual(manual.id, { title: e.target.value })} 
+                                            placeholder="Manual Title (e.g. User Guide)" 
+                                            className="w-full font-bold text-slate-900 border-b border-slate-100 pb-1 focus:border-blue-500 outline-none pr-8 text-sm" 
                                         />
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <FileUpload 
+                                                label="Thumbnail (Image)" 
+                                                accept="image/*"
+                                                currentUrl={manual.thumbnailUrl} 
+                                                onUpload={(url: any) => updateManual(manual.id, { thumbnailUrl: url })} 
+                                            />
+                                            <FileUpload 
+                                                label="Document (PDF)" 
+                                                accept="application/pdf"
+                                                icon={<FileText />}
+                                                currentUrl={manual.pdfUrl} 
+                                                onUpload={(url: any) => updateManual(manual.id, { pdfUrl: url })} 
+                                            />
+                                        </div>
                                     </div>
                                 ))}
                                 {(draft.manuals || []).length === 0 && (
-                                    <div className="text-center text-slate-400 text-xs italic py-4">No manuals uploaded.</div>
+                                    <div className="text-center text-slate-400 text-xs italic py-4 border-2 border-dashed border-slate-200 rounded-xl">
+                                        No manuals added. Click "Add Manual" above.
+                                    </div>
                                 )}
                              </div>
                         </div>
 
                         <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                             <h5 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-4">Technical Specs</h5>
                              <div className="flex gap-4 mb-4 items-end">
                                 <input value={newSpecKey} onChange={(e) => setNewSpecKey(e.target.value)} placeholder="Spec Name" className="flex-1 p-2 border border-slate-300 rounded-lg text-sm font-bold" />
                                 <input value={newSpecValue} onChange={(e) => setNewSpecValue(e.target.value)} placeholder="Value" className="flex-1 p-2 border border-slate-300 rounded-lg text-sm font-bold" onKeyDown={(e) => e.key === 'Enter' && addSpec()} />
@@ -1492,7 +1487,17 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
 
             {activeTab === 'marketing' && (
                 <div className="max-w-5xl mx-auto">
-                    {activeSubTab === 'catalogues' && <CatalogueManager catalogues={localData.catalogues || []} onSave={(c) => handleLocalUpdate({ ...localData, catalogues: c })} />}
+                    {/* ONLY SHOW GLOBAL PAMPHLETS HERE (No Brand Catalogues) */}
+                    {activeSubTab === 'catalogues' && (
+                        <CatalogueManager 
+                            catalogues={(localData.catalogues || []).filter(c => !c.brandId)} 
+                            onSave={(c) => {
+                                // Merge global updates back with existing brand catalogues
+                                const brandCatalogues = (localData.catalogues || []).filter(c => c.brandId);
+                                handleLocalUpdate({ ...localData, catalogues: [...brandCatalogues, ...c] });
+                            }} 
+                        />
+                    )}
                     
                     {activeSubTab === 'hero' && (
                         <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">

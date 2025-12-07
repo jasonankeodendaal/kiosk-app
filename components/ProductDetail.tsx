@@ -1,8 +1,7 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 import Flipbook from './Flipbook';
+import PdfViewer from './PdfViewer';
 import { ChevronLeft, Info, Maximize2, Share2, PlayCircle, FileText, Check, Box as BoxIcon, ChevronRight as RightArrow, ChevronLeft as LeftArrow, X, Image as ImageIcon, MonitorPlay, MonitorStop, Tag, Layers, Ruler, FileText as FileIcon, Package, LayoutGrid, Settings, BookOpen } from 'lucide-react';
 
 interface ProductDetailProps {
@@ -17,6 +16,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
   const [showEnlargedMedia, setShowEnlargedMedia] = useState(false);
   const [enlargedMediaIndex, setEnlargedMediaIndex] = useState(0);
   const [flipbookData, setFlipbookData] = useState<{ isOpen: boolean, pages: string[], title: string }>({ isOpen: false, pages: [], title: '' });
+  const [viewingPdf, setViewingPdf] = useState<{ url: string; title: string } | null>(null);
   const [showGalleryModal, setShowGalleryModal] = useState(false);
 
   // Helper to ensure dimensions is always an array
@@ -59,7 +59,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
               id: 'legacy',
               title: 'User Manual',
               images: product.manualImages || [],
-              pdfUrl: product.manualUrl
+              pdfUrl: product.manualUrl,
+              thumbnailUrl: product.manualImages?.[0] || undefined
           }];
       }
       return mans;
@@ -91,11 +92,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
     setShowEnlargedMedia(true);
   };
 
-  const openManual = (images: string[], title: string, pdfUrl?: string) => {
-      if (images && images.length > 0) {
-          setFlipbookData({ isOpen: true, pages: images, title });
-      } else if(pdfUrl) {
-          window.open(pdfUrl, '_blank');
+  const openManual = (manual: any) => {
+      if (manual.pdfUrl) {
+          setViewingPdf({ url: manual.pdfUrl, title: manual.title });
+      } else if (manual.images && manual.images.length > 0) {
+          setFlipbookData({ isOpen: true, pages: manual.images, title: manual.title });
       }
   };
 
@@ -231,27 +232,32 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
 
                  <div className="flex flex-col gap-8">
                      
-                     {/* MANUALS SECTION (NEW) */}
+                     {/* MANUALS SECTION (IMPROVED) */}
                      {allManuals.length > 0 && (
                         <div className="bg-blue-50/50 rounded-2xl p-6 border border-blue-100">
                              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2"><BookOpen size={16} className="text-blue-500" /> Documentation</h3>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                  {allManuals.map((manual) => (
                                      <button 
                                         key={manual.id} 
-                                        onClick={() => openManual(manual.images, manual.title, manual.pdfUrl)}
-                                        className="flex items-center justify-between bg-white hover:bg-blue-50 border border-blue-100 hover:border-blue-200 p-3 rounded-xl transition-all group text-left"
+                                        onClick={() => openManual(manual)}
+                                        className="bg-white border border-blue-100 hover:border-blue-300 hover:shadow-lg rounded-xl overflow-hidden transition-all group flex flex-col text-left h-full"
                                      >
-                                         <div className="flex items-center gap-3">
-                                             <div className="bg-blue-100 text-blue-600 p-2 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                                 <FileIcon size={18} />
-                                             </div>
-                                             <div>
-                                                 <span className="block text-xs font-black text-slate-800 uppercase">{manual.title}</span>
-                                                 <span className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider">{manual.images?.length || 0} Pages</span>
-                                             </div>
+                                         <div className="aspect-[3/4] bg-slate-100 relative w-full border-b border-slate-100">
+                                            {manual.thumbnailUrl ? (
+                                                <img src={manual.thumbnailUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={manual.title} />
+                                            ) : (
+                                                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                                                    <FileText size={32} />
+                                                    <span className="text-[8px] font-bold uppercase">No Preview</span>
+                                                </div>
+                                            )}
+                                            {manual.pdfUrl && <div className="absolute top-2 right-2 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">PDF</div>}
                                          </div>
-                                         <ChevronLeft size={16} className="rotate-180 text-slate-300 group-hover:text-blue-400" />
+                                         <div className="p-3">
+                                             <span className="block text-xs font-black text-slate-800 uppercase line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors mb-1">{manual.title}</span>
+                                             {!manual.pdfUrl && <span className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider">{manual.images?.length || 0} Pages</span>}
+                                         </div>
                                      </button>
                                  ))}
                              </div>
@@ -475,18 +481,23 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                     {allManuals.length > 0 && (
                         <div>
                             <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2"><BookOpen size={14} className="text-blue-500" /> Manuals</h3>
-                            <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
                                 {allManuals.map(manual => (
                                     <button 
                                         key={manual.id}
-                                        onClick={() => openManual(manual.images, manual.title, manual.pdfUrl)} 
-                                        className="w-full flex items-center justify-between bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors border border-slate-200"
+                                        onClick={() => openManual(manual)} 
+                                        className="w-full flex flex-col items-center bg-slate-50 hover:bg-slate-100 text-slate-600 p-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors border border-slate-200"
                                     >
-                                        <div className="flex items-center gap-2">
-                                            <FileIcon size={14} className="text-blue-500" /> 
-                                            <span>{manual.title}</span>
+                                        <div className="w-full aspect-[3/4] bg-white rounded-lg mb-2 overflow-hidden border border-slate-100">
+                                            {manual.thumbnailUrl ? (
+                                                <img src={manual.thumbnailUrl} className="w-full h-full object-cover" alt="" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                    <FileText size={24} />
+                                                </div>
+                                            )}
                                         </div>
-                                        <ChevronLeft size={14} className="rotate-180 text-slate-400" />
+                                        <span className="text-[10px] text-center">{manual.title}</span>
                                     </button>
                                 ))}
                             </div>
@@ -602,6 +613,14 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
       {flipbookData.isOpen && (
           <Flipbook pages={flipbookData.pages || []} onClose={() => setFlipbookData({...flipbookData, isOpen: false})} catalogueTitle={flipbookData.title}/>
       )}
+
+      {viewingPdf && (
+           <PdfViewer 
+               url={viewingPdf.url} 
+               title={viewingPdf.title} 
+               onClose={() => setViewingPdf(null)} 
+           />
+       )}
     </div>
   );
 };
