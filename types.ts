@@ -163,6 +163,11 @@ export interface AboutConfig {
     audioUrl?: string;
 }
 
+export interface AppConfig {
+    kioskIconUrl?: string;
+    adminIconUrl?: string;
+}
+
 export interface AdminPermissions {
     inventory: boolean;
     marketing: boolean;
@@ -195,6 +200,7 @@ export interface StoreData {
   archive?: ArchiveData; 
   about?: AboutConfig;
   admins: AdminUser[]; // New Admin Management
+  appConfig?: AppConfig; // New App Icon Configuration
 }
 
 export interface FlatProduct extends Product {

@@ -7,7 +7,117 @@ import AboutPage from './components/AboutPage';
 import { generateStoreData, saveStoreData } from './services/geminiService';
 import { initSupabase, supabase } from './services/kioskService';
 import { StoreData } from './types';
-import { Loader2, Cloud } from 'lucide-react';
+import { Loader2, Cloud, Download } from 'lucide-react';
+
+// === NEW: APP ICON UPDATER COMPONENT ===
+const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
+    const [showUpdatePopup, setShowUpdatePopup] = useState(false);
+    const [newIconUrl, setNewIconUrl] = useState('');
+    const [isUpdating, setIsUpdating] = useState(false);
+
+    // Determines context (Admin vs Kiosk)
+    const isAdmin = window.location.pathname.startsWith('/admin');
+    const storageKey = isAdmin ? 'current_admin_icon' : 'current_kiosk_icon';
+    
+    // Default Fallback
+    const DEFAULT_ICON = "https://i.ibb.co/cS36Vp5w/maskable-icon.png";
+
+    useEffect(() => {
+        if (!storeData?.appConfig) return;
+
+        // Get the target icon URL from Cloud Config
+        const cloudIcon = isAdmin 
+            ? (storeData.appConfig.adminIconUrl || DEFAULT_ICON) 
+            : (storeData.appConfig.kioskIconUrl || DEFAULT_ICON);
+
+        // Get local cached icon
+        const localIcon = localStorage.getItem(storageKey);
+
+        // If local is missing, set it silently to default/cloud without prompting
+        if (!localIcon) {
+            localStorage.setItem(storageKey, cloudIcon);
+            return;
+        }
+
+        // Detect Mismatch
+        if (cloudIcon !== localIcon) {
+            console.log("New App Icon Detected:", cloudIcon);
+            setNewIconUrl(cloudIcon);
+            setShowUpdatePopup(true);
+        }
+    }, [storeData, isAdmin]);
+
+    const handleUpdateIcon = async () => {
+        setIsUpdating(true);
+        try {
+            // 1. Update <link rel="icon"> tags for current session
+            const linkIcon = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+            const linkApple = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement;
+            
+            if (linkIcon) linkIcon.href = newIconUrl;
+            if (linkApple) linkApple.href = newIconUrl;
+
+            // 2. Update Manifest Dynamically (For A2HS / Install)
+            // We fetch the static manifest, modify it, blob it, and replace the link tag
+            const manifestLink = document.querySelector("link[rel='manifest']") as HTMLLinkElement;
+            if (manifestLink) {
+                const originalManifestUrl = isAdmin ? '/manifest-admin.json' : '/manifest-kiosk.json';
+                const response = await fetch(originalManifestUrl);
+                const manifest = await response.json();
+
+                // Replace icons
+                if (manifest.icons) {
+                    manifest.icons = manifest.icons.map((icon: any) => ({
+                        ...icon,
+                        src: newIconUrl
+                    }));
+                }
+
+                const stringManifest = JSON.stringify(manifest);
+                const blob = new Blob([stringManifest], {type: 'application/json'});
+                const manifestURL = URL.createObjectURL(blob);
+                
+                manifestLink.href = manifestURL;
+                console.log("Manifest updated dynamically.");
+            }
+
+            // 3. Save to Local Storage to prevent re-prompting
+            localStorage.setItem(storageKey, newIconUrl);
+            
+            // 4. Close Popup
+            setShowUpdatePopup(false);
+
+        } catch (e) {
+            console.error("Failed to update app icon", e);
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    if (!showUpdatePopup) return null;
+
+    return (
+        <div className="fixed bottom-6 right-6 z-[200] animate-fade-in flex flex-col items-end">
+            <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-slate-700 max-w-xs flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-xl overflow-hidden shrink-0 border border-slate-600">
+                    <img src={newIconUrl} className="w-full h-full object-cover" alt="New Icon" />
+                </div>
+                <div className="flex-1">
+                    <h4 className="font-bold uppercase text-xs text-blue-400 mb-1 tracking-wide">Update Available</h4>
+                    <p className="text-xs text-slate-300 leading-tight">A new app icon has been published.</p>
+                </div>
+                <button 
+                    onClick={handleUpdateIcon}
+                    disabled={isUpdating}
+                    className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl transition-all shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50"
+                >
+                    {isUpdating ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} />}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 
 export default function App() {
   const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
@@ -133,16 +243,19 @@ export default function App() {
   // --- ROUTE: ADMIN HUB ---
   if (normalizedRoute === '/admin') {
     return (
-      <AdminDashboard 
-        storeData={storeData}
-        onUpdateData={handleUpdateData}
-        onRefresh={() => {
-            setIsSyncing(true);
-            fetchData().then(() => {
-                setIsSyncing(false);
-            });
-        }}
-      />
+      <>
+        {storeData && <AppIconUpdater storeData={storeData} />}
+        <AdminDashboard 
+            storeData={storeData}
+            onUpdateData={handleUpdateData}
+            onRefresh={() => {
+                setIsSyncing(true);
+                fetchData().then(() => {
+                    setIsSyncing(false);
+                });
+            }}
+        />
+      </>
     );
   }
 
@@ -162,6 +275,7 @@ export default function App() {
   // --- ROUTE: KIOSK FRONT PAGE ---
   return (
     <>
+      {storeData && <AppIconUpdater storeData={storeData} />}
       {isSyncing && (
          <div className="fixed bottom-4 right-4 z-[200] bg-slate-900/90 text-white px-4 py-2 rounded-lg shadow-xl flex items-center gap-3 backdrop-blur-md border border-white/10 animate-fade-in transition-all">
             <Loader2 className="animate-spin text-blue-400" size={16} />

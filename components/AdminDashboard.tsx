@@ -1735,6 +1735,41 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
 
             {activeTab === 'settings' && (
                <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-20">
+                   {/* NEW: APP IDENTITY (PWA ICONS) */}
+                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                       <h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2">
+                           <Smartphone size={20} className="text-blue-500"/> App Identity
+                       </h3>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                           <div className="space-y-4">
+                               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-xs leading-relaxed">
+                                   <strong>Kiosk Icon:</strong> Upload a square image (PNG). This icon will appear on the device home screen when installed as a PWA, and in the browser tab.
+                               </div>
+                               <FileUpload 
+                                    label="Kiosk App Icon" 
+                                    currentUrl={localData.appConfig?.kioskIconUrl} 
+                                    onUpload={(url: any) => handleLocalUpdate({
+                                        ...localData, 
+                                        appConfig: { ...localData.appConfig, kioskIconUrl: url }
+                                    })} 
+                               />
+                           </div>
+                           <div className="space-y-4">
+                               <div className="bg-slate-100 p-4 rounded-xl border border-slate-200 text-slate-600 text-xs leading-relaxed">
+                                   <strong>Admin Icon:</strong> Upload a square image (PNG). This allows you to distinguish the Admin Hub when saved to your personal device.
+                               </div>
+                               <FileUpload 
+                                    label="Admin App Icon" 
+                                    currentUrl={localData.appConfig?.adminIconUrl} 
+                                    onUpload={(url: any) => handleLocalUpdate({
+                                        ...localData, 
+                                        appConfig: { ...localData.appConfig, adminIconUrl: url }
+                                    })} 
+                               />
+                           </div>
+                       </div>
+                   </div>
+
                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                        <h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2">
                            <UserCog size={20} className="text-blue-500"/> Admin Access Control

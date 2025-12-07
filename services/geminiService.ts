@@ -59,7 +59,11 @@ const DEFAULT_DATA: StoreData = {
       text: "Welcome to the Kiosk Pro Showcase.\n\nWe are a premier provider of digital retail solutions, dedicated to bridging the gap between physical stores and the digital world. Our mission is to empower customers with information.\n\nThis kiosk is designed to provide you with a comprehensive view of our product catalog, complete with high-definition visuals, detailed specifications, and instant access to stock availability. We believe in transparency and quality, ensuring that every product you see meets our rigorous standards.\n\nExplore our curated selection of top-tier brands, compare features side-by-side, and discover new arrivals daily. Whether you are a tech enthusiast, a fashion forward individual, or simply looking for the best deals, our platform is built for you.\n\nIf you require assistance, our knowledgeable staff is just a tap away. Thank you for choosing us for your shopping journey.",
       audioUrl: ""
   },
-  admins: [DEFAULT_ADMIN]
+  admins: [DEFAULT_ADMIN],
+  appConfig: {
+      kioskIconUrl: "https://i.ibb.co/cS36Vp5w/maskable-icon.png",
+      adminIconUrl: "https://i.ibb.co/cS36Vp5w/maskable-icon.png"
+  }
 };
 
 // Helper to migrate legacy data structures and Hydrate empty DB responses
@@ -79,6 +83,11 @@ const migrateData = (data: any): StoreData => {
     // Admin Config
     if (!data.admins || !Array.isArray(data.admins) || data.admins.length === 0) {
         data.admins = [DEFAULT_ADMIN];
+    }
+
+    // App Icons Config
+    if (!data.appConfig) {
+        data.appConfig = { ...DEFAULT_DATA.appConfig };
     }
     
     // TV Config
