@@ -14,8 +14,8 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
     
     // Memoize the target URL to prevent effect loops on general storeData updates
     const targetIconUrl = isAdmin 
-        ? (storeData.appConfig?.adminIconUrl || "https://i.ibb.co/cS36Vp5w/maskable-icon.png")
-        : (storeData.appConfig?.kioskIconUrl || "https://i.ibb.co/cS36Vp5w/maskable-icon.png");
+        ? (storeData.appConfig?.adminIconUrl || "/icon-admin.svg")
+        : (storeData.appConfig?.kioskIconUrl || "/icon-kiosk.svg");
 
     useEffect(() => {
         const updateAppIdentity = async () => {
@@ -34,10 +34,15 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
                     const response = await fetch(baseManifest);
                     const manifest = await response.json();
                     
+                    // Determine Type (SVG vs PNG) for robustness
+                    const isSvg = targetIconUrl.endsWith('.svg');
+                    const iconType = isSvg ? "image/svg+xml" : "image/png";
+                    const sizes = isSvg ? "512x512" : "192x192";
+
                     // Force update icons array
                     manifest.icons = [
-                        { src: targetIconUrl, sizes: "192x192", type: "image/png", purpose: "any maskable" },
-                        { src: targetIconUrl, sizes: "512x512", type: "image/png", purpose: "any maskable" }
+                        { src: targetIconUrl, sizes: sizes, type: iconType, purpose: "any maskable" },
+                        { src: targetIconUrl, sizes: "512x512", type: iconType, purpose: "any maskable" }
                     ];
                     
                     const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});

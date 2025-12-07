@@ -59,8 +59,8 @@ const DEFAULT_DATA: StoreData = {
   },
   admins: [DEFAULT_ADMIN],
   appConfig: {
-      kioskIconUrl: "https://i.ibb.co/cS36Vp5w/maskable-icon.png",
-      adminIconUrl: "https://i.ibb.co/cS36Vp5w/maskable-icon.png"
+      kioskIconUrl: "/icon-kiosk.svg",
+      adminIconUrl: "/icon-admin.svg"
   }
 };
 
@@ -111,9 +111,14 @@ const migrateData = (data: any): StoreData => {
         });
     }
 
-    // App Icons Config
+    // App Icons Config & Migration from Old Default to New SVGs
     if (!data.appConfig) {
         data.appConfig = { ...DEFAULT_DATA.appConfig };
+    } else {
+        // Migration: If pointing to old remote default png, swap to new local SVGs
+        const OLD_DEFAULT = "https://i.ibb.co/cS36Vp5w/maskable-icon.png";
+        if (data.appConfig.kioskIconUrl === OLD_DEFAULT) data.appConfig.kioskIconUrl = "/icon-kiosk.svg";
+        if (data.appConfig.adminIconUrl === OLD_DEFAULT) data.appConfig.adminIconUrl = "/icon-admin.svg";
     }
     
     // TV Config
