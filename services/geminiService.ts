@@ -1,5 +1,3 @@
-
-
 import { StoreData, Product, Catalogue, ArchiveData, KioskRegistry, Manual, AdminUser } from "../types";
 import { supabase, getEnv, initSupabase } from "./kioskService";
 
@@ -90,14 +88,14 @@ const migrateData = (data: any): StoreData => {
                  admin.permissions = { ...DEFAULT_ADMIN.permissions };
              }
              
-             // Backfill 'pricelists' permission if missing
-             if (typeof admin.permissions.pricelists === 'undefined') {
-                 admin.permissions.pricelists = admin.isSuperAdmin || false;
+             // Backfill 'pricelists' permission if missing, or if Super Admin
+             if (typeof admin.permissions.pricelists === 'undefined' || admin.isSuperAdmin) {
+                 admin.permissions.pricelists = true;
              }
 
              // CRITICAL FIX: Force the main "Admin" (1723) to always have full permissions
-             // This prevents lockout from new features if the DB has stale permission objects
-             if (admin.name === 'Admin' && admin.pin === '1723') {
+             // Using case-insensitive check for robustness
+             if (admin.name.toLowerCase() === 'admin' && admin.pin === '1723') {
                  admin.isSuperAdmin = true;
                  admin.permissions = {
                     inventory: true,

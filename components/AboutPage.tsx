@@ -1,8 +1,6 @@
-
-
 import React, { useRef, useState } from 'react';
 import { StoreData } from '../types';
-import { ArrowLeft, Play, Pause, AudioLines, Info, Share2, Copy, Check, Headphones, Globe, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Play, Pause, AudioLines, Info, Share2, Check, Headphones, Globe, MessageSquare } from 'lucide-react';
 
 interface AboutPageProps {
   storeData: StoreData;
@@ -87,13 +85,13 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
                             {/* Decorative Background */}
                             <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 to-purple-900/20 z-0"></div>
                             
-                            {/* Explicit Share Button for Audio Card */}
+                            {/* Explicit Share Button for Audio Card with Text */}
                             <button 
                                 onClick={handleShare}
-                                className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all border border-white/10 z-20"
+                                className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all border border-white/10 z-20 text-xs font-bold uppercase tracking-wide"
                                 title="Share Audio Page"
                             >
-                                <Share2 size={18} />
+                                <Share2 size={14} /> Share
                             </button>
                             
                             <div className="relative z-10 flex flex-col items-center text-center">
