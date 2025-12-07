@@ -19,11 +19,16 @@
     <link rel="preload" as="image" href="https://i.ibb.co/r2HkbjLj/image-removebg-preview-2.png" />
 
     <script>
+      // Feature detection and basic polyfills
+      if (!window.Promise) {
+        console.warn('Promises not supported on this device. Some features may not work.');
+      }
+      
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
             .then(registration => {
-              console.log('SW Registered: ', registration);
+              console.log('SW Registered');
             })
             .catch(registrationError => {
               console.log('SW Registration Failed: ', registrationError);
@@ -37,19 +42,23 @@
     <style>
       body {
         font-family: 'Inter', sans-serif;
-        /* Allow scroll but prevent bounce on main body */
         overscroll-behavior-y: none;
         background-color: #f1f5f9;
         -webkit-tap-highlight-color: transparent;
+        /* Ensure height logic works on old devices */
+        min-height: 100vh; 
+        min-height: -webkit-fill-available;
       }
       
-      /* Smooth scrolling for touch devices */
+      html {
+        height: -webkit-fill-available;
+      }
+
       .overflow-y-auto {
         -webkit-overflow-scrolling: touch;
         overscroll-behavior-y: auto;
       }
 
-      /* Hide scrollbar for cleaner kiosk look */
       ::-webkit-scrollbar {
         width: 0px;
         background: transparent;
@@ -64,9 +73,16 @@
         to { opacity: 1; transform: translateY(0); }
       }
 
+      /* Fallback for glass panels on devices without backdrop-filter */
       .glass-panel {
         background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
+      }
+      @supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
+        .glass-panel {
+          background: rgba(255, 255, 255, 0.8);
+          -webkit-backdrop-filter: blur(10px);
+          backdrop-filter: blur(10px);
+        }
       }
 
       .depth-shadow {
@@ -106,21 +122,18 @@
         animation: float 6s ease-in-out infinite;
       }
 
-      /* Portrait Enforcement Styles */
       #rotate-overlay {
         display: none;
       }
 
-      /* Detect touch devices in landscape orientation */
-      /* hover: none and pointer: coarse target touch devices specifically */
       @media screen and (orientation: landscape) and (hover: none) and (pointer: coarse) {
         #rotate-overlay {
           display: flex !important;
           position: fixed;
           top: 0;
           left: 0;
-          width: 100vw;
-          height: 100vh;
+          width: 100%;
+          height: 100%;
           background-color: #0f172a;
           color: white;
           z-index: 99999;
@@ -131,7 +144,6 @@
           padding: 2rem;
         }
         
-        /* Hide the main app to prevent interaction */
         #root {
           display: none !important;
         }
@@ -192,11 +204,10 @@
 </script>
 </head>
   <body class="bg-slate-200 text-slate-900 h-screen w-screen overflow-hidden">
-    <!-- Orientation Guard Overlay -->
     <div id="rotate-overlay">
       <div class="phone-icon"></div>
-      <h2 class="text-2xl font-bold uppercase tracking-widest mb-4">Portrait Mode Only</h2>
-      <p class="text-slate-400 max-w-md">Please rotate your device to portrait orientation for the best experience.</p>
+      <h2 style="font-size: 1.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem;">Portrait Mode Only</h2>
+      <p style="color: #94a3b8; max-width: 20rem;">Please rotate your device to portrait orientation for the best experience.</p>
     </div>
 
     <div id="root" class="h-full w-full"></div>

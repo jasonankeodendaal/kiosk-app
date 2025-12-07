@@ -18,7 +18,7 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        audioRef.current.play();
+        audioRef.current.play().catch(e => console.warn("Audio auto-play failed", e));
       }
       setIsPlaying(!isPlaying);
     }
@@ -89,7 +89,7 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
                             {/* Explicit Share Button for Audio Card with Text */}
                             <button 
                                 onClick={handleShare}
-                                className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all border border-white/10 z-20 text-xs font-bold uppercase tracking-wide"
+                                className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/10 z-20 text-xs font-bold uppercase tracking-wide"
                                 title="Share Audio Page"
                             >
                                 <Share2 size={14} /> Share

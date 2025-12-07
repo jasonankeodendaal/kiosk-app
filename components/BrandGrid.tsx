@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Brand, Catalogue, HeroConfig, AdConfig, AdItem } from '../types';
 import { BookOpen, Globe, ChevronRight, X, Grid } from 'lucide-react';
@@ -41,7 +40,11 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
                 setCurrentIndex(prev => (prev + 1) % items!.length);
             }, 6000);
         } else {
-            // For Video, we rely on onEnded (see JSX), but add a safety timeout
+            // For Video, we rely on onEnded, but add a safety timeout
+            // Try to play
+            if(videoRef.current) {
+                videoRef.current.play().catch(e => console.warn("Ad auto-play failed", e));
+            }
             timeoutRef.current = window.setTimeout(() => {
                 setCurrentIndex(prev => (prev + 1) % items!.length);
             }, 120000); // 2 min safety
@@ -62,20 +65,19 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
         } else if (videoRef.current) {
             // Loop single video
             videoRef.current.currentTime = 0;
-            videoRef.current.play();
+            videoRef.current.play().catch(e => {});
         }
     };
 
     return (
         <div className={`relative overflow-hidden rounded-xl shadow-sm border border-slate-200 bg-white group ${className}`}>
-            <div className="absolute top-2 right-2 z-10 bg-black/10 text-black/50 px-1 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest backdrop-blur-sm">Ad</div>
+            <div className="absolute top-2 right-2 z-10 bg-black/30 text-white px-1 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Ad</div>
             
             <div key={`${activeItem!.id}-${currentIndex}`} className="w-full h-full animate-fade-in bg-slate-50">
                 {activeItem!.type === 'video' ? (
                     <video 
                         ref={videoRef}
                         src={activeItem!.url} 
-                        autoPlay 
                         muted 
                         playsInline
                         className="w-full h-full object-cover"
@@ -192,7 +194,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                             href={heroConfig.websiteUrl}
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="bg-white/10 hover:bg-white/20 text-white px-2 py-1 md:px-6 md:py-2.5 rounded-lg md:rounded-xl font-bold uppercase tracking-widest text-[8px] md:text-sm backdrop-blur-sm border border-white/20 hover:-translate-y-0.5 transition-all flex items-center gap-1 md:gap-2"
+                            className="bg-white/10 hover:bg-white/20 text-white px-2 py-1 md:px-6 md:py-2.5 rounded-lg md:rounded-xl font-bold uppercase tracking-widest text-[8px] md:text-sm border border-white/20 hover:-translate-y-0.5 transition-all flex items-center gap-1 md:gap-2"
                          >
                             <Globe size={10} className="md:size-auto" /> 
                             <span className="hidden md:block">Website</span>
@@ -220,7 +222,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                                 <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400 font-bold uppercase text-[10px]">No Cover</div>
                              )}
                              <div className="absolute top-0 bottom-0 left-0 w-0.5 md:w-1 bg-gradient-to-r from-slate-300 to-slate-100"></div>
-                             <div className="absolute bottom-1 md:bottom-4 left-0 right-0 text-center bg-black/60 backdrop-blur-md text-white py-0.5 md:py-1.5">
+                             <div className="absolute bottom-1 md:bottom-4 left-0 right-0 text-center bg-black/80 text-white py-0.5 md:py-1.5">
                                 <span className="text-[6px] md:text-xs font-black uppercase tracking-widest block truncate px-1">{mainPamphlet.title}</span>
                              </div>
                         </div>
@@ -230,11 +232,11 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
         </div>
       </div>
 
-      {/* Pamphlet Strip */}
+      {/* Pamphlet Strip - Fixed flex gap issues by using space-x-3 for margin injection */}
       {globalPamphlets.length > 0 && (
             <div className="bg-slate-100 border-b border-slate-200 p-2 md:p-4">
                  <div className="max-w-7xl mx-auto">
-                     <div className="flex gap-3 md:gap-6 overflow-x-auto no-scrollbar items-start py-2">
+                     <div className="flex space-x-3 md:space-x-6 overflow-x-auto no-scrollbar items-start py-2">
                         {globalPamphlets.map((catalog, idx) => (
                              <button 
                                  key={catalog.id} 
@@ -337,9 +339,9 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
         </div>
       </div>
 
-      {/* ALL BRANDS MODAL - UPDATED: WHITE BLURRY BACKGROUND */}
+      {/* ALL BRANDS MODAL - Removed Backdrop Blur */}
       {showAllBrands && (
-        <div className="fixed inset-0 z-[60] bg-white/90 backdrop-blur-md p-4 md:p-12 animate-fade-in flex flex-col">
+        <div className="fixed inset-0 z-[60] bg-white/95 p-4 md:p-12 animate-fade-in flex flex-col">
             <div className="flex justify-between items-center mb-8 shrink-0">
                 <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-3">
                    <Grid className="text-blue-600" /> All Brands

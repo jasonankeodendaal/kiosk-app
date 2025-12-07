@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { FlatProduct, AdItem, Catalogue, ScreensaverSettings } from '../types';
 import { Moon } from 'lucide-react';
@@ -25,6 +26,7 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSleepMode, setIsSleepMode] = useState(false);
   const timerRef = useRef<number | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Default config
   const config: ScreensaverSettings = {
@@ -185,6 +187,18 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
             nextSlide();
         }, duration);
     } else {
+        // Safe Playback check for older browsers
+        if (videoRef.current) {
+            const playPromise = videoRef.current.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.warn("Autoplay prevented:", error);
+                    // Fallback: Skip video if it can't play automatically
+                    nextSlide();
+                });
+            }
+        }
+        // Safety timeout for video in case 'ended' event doesn't fire
         timerRef.current = window.setTimeout(() => {
             console.warn("Video timeout reached, skipping.");
             nextSlide();
@@ -233,6 +247,7 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
       className="fixed inset-0 z-[100] bg-black cursor-pointer flex items-center justify-center overflow-hidden"
     >
       <style>{`
+        /* Simpler animations for older devices */
         .ken-burns {
           animation: kenBurns 20s ease-out forwards;
         }
@@ -241,38 +256,39 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
           100% { transform: scale(1.15); }
         }
         .slide-up {
-          animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: slideUp 0.8s ease-out forwards;
         }
         @keyframes slideUp {
-          0% { transform: translateY(40px); opacity: 0; }
+          0% { transform: translateY(20px); opacity: 0; }
           100% { transform: translateY(0); opacity: 1; }
         }
-        .blur-in {
-          animation: blurIn 1.5s ease-out forwards;
+        .fade-in-simple {
+            animation: fadeInSimple 1s ease-out forwards;
         }
-        @keyframes blurIn {
-          0% { opacity: 0; filter: blur(20px); }
-          100% { opacity: 1; filter: blur(0); }
+        @keyframes fadeInSimple {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
         }
       `}</style>
 
-      {/* Background Ambience Layer - Improved Look for "Contain" style */}
+      {/* Background Ambience Layer - No Blur for performance on old devices */}
       <div 
         key={`bg-${currentItem.id}`} 
-        className="absolute inset-0 z-0 bg-cover bg-center opacity-40 blur-3xl scale-125 transition-all duration-1000"
+        className="absolute inset-0 z-0 bg-cover bg-center opacity-30 transition-all duration-1000"
         style={{ backgroundImage: `url(${currentItem.url})` }}
       />
       
       {/* Dark Overlay to make text readable */}
-      <div className="absolute inset-0 bg-black/30 z-10" />
+      <div className="absolute inset-0 bg-black/50 z-10" />
 
       {/* Main Content Layer */}
       <div key={currentItem.id} className="w-full h-full relative z-20 flex items-center justify-center p-8 md:p-16">
          
          {currentItem.type === 'video' ? (
              <video 
+               ref={videoRef}
                src={currentItem.url} 
-               className={`w-full h-full max-w-full max-h-full ${objectFitClass} shadow-2xl rounded-sm animate-fade-in`}
+               className={`w-full h-full max-w-full max-h-full ${objectFitClass} shadow-2xl rounded-sm fade-in-simple`}
                muted={config.muteVideos} 
                autoPlay
                playsInline
@@ -284,24 +300,24 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
                 <img 
                   src={currentItem.url} 
                   alt="Screensaver" 
-                  className={`w-full h-full max-w-full max-h-full ${objectFitClass} ken-burns blur-in`}
+                  className={`w-full h-full max-w-full max-h-full ${objectFitClass} ken-burns fade-in-simple`}
                   onError={handleMediaError}
                 />
              </div>
          )}
 
-         {/* Enhanced Overlay Info */}
+         {/* Enhanced Overlay Info - Removed Backdrop Blur for Compatibility */}
          {config.showInfoOverlay && (currentItem.title || currentItem.subtitle) && (
              <div className="absolute bottom-16 left-16 max-w-[80%] pointer-events-none z-30 slide-up">
                 {currentItem.title && (
-                    <h1 className="text-5xl md:text-8xl font-black text-white uppercase tracking-tighter drop-shadow-2xl mb-4 leading-none opacity-90">
+                    <h1 className="text-5xl md:text-8xl font-black text-white uppercase tracking-tighter drop-shadow-lg mb-4 leading-none opacity-90">
                         {currentItem.title}
                     </h1>
                 )}
                 
                 <div className="flex flex-wrap gap-4 items-center">
                     {currentItem.subtitle && (
-                        <div className="backdrop-blur-xl bg-white/10 border border-white/20 px-6 py-3 rounded-2xl shadow-xl">
+                        <div className="bg-black/70 border border-white/20 px-6 py-3 rounded-2xl shadow-xl">
                             <h2 className="text-xl md:text-3xl font-bold text-white tracking-wide">
                                 {currentItem.subtitle}
                             </h2>
@@ -309,7 +325,7 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
                     )}
                     
                     {(currentItem.startDate || currentItem.endDate) && (
-                        <div className="backdrop-blur-xl bg-blue-600/80 border border-blue-400/30 px-6 py-3 rounded-2xl shadow-xl">
+                        <div className="bg-blue-900/80 border border-blue-400/30 px-6 py-3 rounded-2xl shadow-xl">
                             <p className="text-lg md:text-xl text-white font-mono font-bold uppercase tracking-widest">
                                 {currentItem.startDate && formatDate(currentItem.startDate)}
                                 {currentItem.startDate && currentItem.endDate && ` — `}

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 import Flipbook from './Flipbook';
@@ -114,7 +115,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
           <div className="absolute top-6 left-6 z-20 flex items-center gap-2">
              <button 
               onClick={onBack}
-              className="flex items-center text-white/80 hover:text-white font-bold transition-colors uppercase text-[10px] tracking-widest bg-black/30 backdrop-blur-md px-4 py-2 rounded-full border border-white/10"
+              className="flex items-center text-white/80 hover:text-white font-bold transition-colors uppercase text-[10px] tracking-widest bg-black/60 px-4 py-2 rounded-full border border-white/10"
             >
               <LeftArrow size={14} className="mr-1" /> Back
             </button>
@@ -123,7 +124,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
           <div className="absolute top-6 right-6 z-20">
              <button 
                 onClick={onToggleScreensaver}
-                className={`flex items-center justify-center w-8 h-8 rounded-full border shadow-sm backdrop-blur-md transition-colors ${screensaverEnabled ? 'bg-green-500/20 text-green-400 border-green-500/50' : 'bg-black/20 text-slate-400 border-white/10'}`}
+                className={`flex items-center justify-center w-8 h-8 rounded-full border shadow-sm transition-colors ${screensaverEnabled ? 'bg-green-500/20 text-green-400 border-green-500/50' : 'bg-black/40 text-slate-400 border-white/10'}`}
                 title="Toggle Screensaver"
             >
                 {screensaverEnabled ? <MonitorPlay size={14} /> : <MonitorStop size={14} />}
@@ -160,8 +161,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
 
                   {allMedia.length > 1 && (
                      <>
-                        <button onClick={handlePrevMedia} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/50 text-white p-3 rounded-full backdrop-blur-sm z-30 transition-all border border-white/10"><LeftArrow size={24} /></button>
-                        <button onClick={handleNextMedia} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/50 text-white p-3 rounded-full backdrop-blur-sm z-30 transition-all border border-white/10"><RightArrow size={24} /></button>
+                        <button onClick={handlePrevMedia} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-3 rounded-full z-30 transition-all border border-white/10"><LeftArrow size={24} /></button>
+                        <button onClick={handleNextMedia} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-3 rounded-full z-30 transition-all border border-white/10"><RightArrow size={24} /></button>
                      </>
                   )}
 
@@ -169,7 +170,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                   {allMedia.length > 0 && (
                       <button 
                           onClick={(e) => { e.stopPropagation(); setShowGalleryModal(true); }}
-                          className="absolute bottom-4 right-4 z-30 bg-black/50 hover:bg-black/70 text-white px-3 py-1.5 rounded-lg backdrop-blur-md border border-white/10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                          className="absolute bottom-4 right-4 z-30 bg-black/60 hover:bg-black/80 text-white px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
                       >
                           <LayoutGrid size={14} /> View Gallery ({allMedia.length})
                       </button>
@@ -185,7 +186,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
           
           {/* Thumbnails */}
           {allMedia.length > 1 && (
-              <div className="p-4 bg-black/20 border-t border-white/5 backdrop-blur-sm">
+              <div className="p-4 bg-black/40 border-t border-white/5">
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide justify-center">
                 {allMedia.map((media, idx) => (
                    <button 
@@ -328,7 +329,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                  </div>
              </div>
           </div>
-          <div className="p-4 border-t border-slate-200 bg-slate-50/80 backdrop-blur shrink-0 flex justify-between items-center">
+          <div className="p-4 border-t border-slate-200 bg-slate-50/95 shrink-0 flex justify-between items-center">
               <span className="text-xs font-bold text-slate-400 uppercase">Consult Staff for Availability</span>
               <button onClick={onBack} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-slate-800 transition-colors">Close View</button>
           </div>
@@ -338,10 +339,10 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
       {/* MOBILE LAYOUT (App-like) */}
       <div className="lg:hidden flex flex-col h-full bg-slate-100 relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-30 pointer-events-none">
-           <button onClick={onBack} className="pointer-events-auto w-10 h-10 bg-white/90 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center text-slate-900 hover:bg-white active:scale-95 transition-all">
+           <button onClick={onBack} className="pointer-events-auto w-10 h-10 bg-white/95 rounded-full shadow-lg flex items-center justify-center text-slate-900 hover:bg-white active:scale-95 transition-all">
              <LeftArrow size={24} />
            </button>
-           <button onClick={onToggleScreensaver} className={`pointer-events-auto w-10 h-10 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center transition-all ${screensaverEnabled ? 'bg-green-500/90 text-white' : 'bg-black/50 text-white/80'}`}>
+           <button onClick={onToggleScreensaver} className={`pointer-events-auto w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all ${screensaverEnabled ? 'bg-green-500/90 text-white' : 'bg-black/50 text-white/80'}`}>
              {screensaverEnabled ? <MonitorPlay size={20} /> : <MonitorStop size={20} />}
            </button>
         </div>
@@ -373,7 +374,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
            {allMedia.length > 0 && (
                <button 
                   onClick={(e) => { e.stopPropagation(); setShowGalleryModal(true); }}
-                  className="absolute bottom-4 right-4 z-30 bg-black/50 text-white px-3 py-1.5 rounded-full backdrop-blur-md text-[10px] font-bold uppercase flex items-center gap-1.5 shadow-sm border border-white/10"
+                  className="absolute bottom-4 right-4 z-30 bg-black/60 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase flex items-center gap-1.5 shadow-sm border border-white/10"
                >
                    <LayoutGrid size={12} /> Gallery
                </button>
@@ -382,10 +383,10 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
            {/* Mobile Arrows */}
            {allMedia.length > 1 && (
              <>
-                 <button onClick={handlePrevMedia} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 text-slate-900 p-2 rounded-full shadow-lg z-30 active:scale-95 transition-transform border border-slate-100">
+                 <button onClick={handlePrevMedia} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 text-slate-900 p-2 rounded-full shadow-lg z-30 active:scale-95 transition-transform border border-slate-100">
                      <LeftArrow size={20} />
                  </button>
-                 <button onClick={handleNextMedia} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 text-slate-900 p-2 rounded-full shadow-lg z-30 active:scale-95 transition-transform border border-slate-100">
+                 <button onClick={handleNextMedia} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 text-slate-900 p-2 rounded-full shadow-lg z-30 active:scale-95 transition-transform border border-slate-100">
                      <RightArrow size={20} />
                  </button>
                  
@@ -517,8 +518,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
       </div>
 
       {showEnlargedMedia && enlargedMedia && (
-        <div className="fixed inset-0 z-[110] bg-black/98 flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowEnlargedMedia(false)}>
-          <button onClick={() => setShowEnlargedMedia(false)} className="absolute top-6 right-6 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors z-50 backdrop-blur-md"><X size={32} /></button>
+        <div className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowEnlargedMedia(false)}>
+          <button onClick={() => setShowEnlargedMedia(false)} className="absolute top-6 right-6 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-colors z-50"><X size={32} /></button>
           
           {/* Navigation Arrows for Enlarged View */}
           {allMedia.length > 1 && (
@@ -542,7 +543,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
             
             {/* Counter & Exit Button */}
             <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-4 z-50 pointer-events-none">
-               <div className="bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-md text-xs font-bold uppercase tracking-widest border border-white/10">
+               <div className="bg-black/70 text-white px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest border border-white/10">
                   {enlargedMediaIndex + 1} / {allMedia.length}
                </div>
                <button 
@@ -558,14 +559,14 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
 
       {/* GALLERY GRID MODAL - FOR VIEWING ALL MEDIA AT ONCE */}
       {showGalleryModal && (
-        <div className="fixed inset-0 z-[105] bg-slate-900/95 backdrop-blur-md p-4 md:p-12 animate-fade-in flex flex-col">
+        <div className="fixed inset-0 z-[105] bg-slate-900/95 p-4 md:p-12 animate-fade-in flex flex-col">
             <div className="flex justify-between items-center mb-8 shrink-0">
                 <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
                    <LayoutGrid className="text-blue-500" /> Media Gallery
                 </h2>
                 <button 
                   onClick={() => setShowGalleryModal(false)}
-                  className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors backdrop-blur-sm"
+                  className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors"
                 >
                    <X size={24} />
                 </button>
@@ -600,7 +601,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                       )}
                       
                       {/* Number Badge */}
-                      <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-md">
+                      <div className="absolute top-2 left-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded">
                           {idx + 1}
                       </div>
                     </button>

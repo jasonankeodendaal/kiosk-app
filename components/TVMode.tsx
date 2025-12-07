@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { StoreData, TVBrand, TVModel } from '../types';
 import { Play, Tv, ArrowLeft, ChevronLeft, ChevronRight, Pause, RotateCcw, MonitorPlay, MonitorStop, Film, LayoutGrid, SkipForward, Monitor } from 'lucide-react';
@@ -151,10 +150,10 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
               <div className={`absolute inset-0 flex flex-col justify-between p-4 md:p-8 transition-opacity duration-300 bg-gradient-to-b from-black/60 via-transparent to-black/60 ${showControls ? 'opacity-100 pointer-events-auto cursor-auto' : 'opacity-0 pointer-events-none'}`}>
                   {/* Top Bar */}
                   <div className="flex justify-between items-start">
-                      <button onClick={exitPlayer} className="bg-white/10 hover:bg-white/20 text-white p-3 md:p-4 rounded-full backdrop-blur-md transition-transform hover:scale-105 border border-white/10">
+                      <button onClick={exitPlayer} className="bg-white/10 hover:bg-white/20 text-white p-3 md:p-4 rounded-full transition-transform hover:scale-105 border border-white/10">
                           <ArrowLeft size={24} className="md:w-8 md:h-8" />
                       </button>
-                      <div className="bg-black/40 px-6 py-2 rounded-xl backdrop-blur-md border border-white/10 text-center">
+                      <div className="bg-black/60 px-6 py-2 rounded-xl border border-white/10 text-center">
                           <h2 className="text-white font-black uppercase tracking-widest text-sm md:text-lg">{playerTitle}</h2>
                           <div className="text-blue-400 text-[10px] md:text-xs font-bold uppercase mt-1 flex items-center justify-center gap-2">
                               <Film size={12} /> Video {currentVideoIndex + 1} of {activePlaylist.length}
@@ -164,14 +163,14 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
 
                   {/* Center Controls */}
                   <div className="flex items-center justify-center gap-8 md:gap-16">
-                      <button onClick={handlePrev} className="p-4 md:p-6 bg-white/5 hover:bg-white/20 rounded-full text-white backdrop-blur-sm transition-transform active:scale-95 border border-white/10 group">
+                      <button onClick={handlePrev} className="p-4 md:p-6 bg-white/10 hover:bg-white/20 rounded-full text-white transition-transform active:scale-95 border border-white/10 group">
                           <ChevronLeft size={32} className="md:w-12 md:h-12 group-hover:-translate-x-1 transition-transform" />
                       </button>
                       
                       <button 
                         onClick={() => {
                             if (videoRef.current) {
-                                if (isPaused) videoRef.current.play();
+                                if (isPaused) videoRef.current.play().catch(() => {});
                                 else videoRef.current.pause();
                                 setIsPaused(!isPaused);
                             }
@@ -181,7 +180,7 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
                           {isPaused ? <Play size={40} fill="currentColor" className="ml-2 md:w-12 md:h-12" /> : <Pause size={40} fill="currentColor" className="md:w-12 md:h-12" />}
                       </button>
                       
-                      <button onClick={handleNext} className="p-4 md:p-6 bg-white/5 hover:bg-white/20 rounded-full text-white backdrop-blur-sm transition-transform active:scale-95 border border-white/10 group">
+                      <button onClick={handleNext} className="p-4 md:p-6 bg-white/10 hover:bg-white/20 rounded-full text-white transition-transform active:scale-95 border border-white/10 group">
                           <ChevronRight size={32} className="md:w-12 md:h-12 group-hover:translate-x-1 transition-transform" />
                       </button>
                   </div>
@@ -191,7 +190,7 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
                       <div className="text-white text-xs font-mono font-bold">
                            {currentVideoIndex + 1} / {activePlaylist.length}
                       </div>
-                      <div className="flex-1 bg-white/10 h-1.5 rounded-full overflow-hidden backdrop-blur-sm">
+                      <div className="flex-1 bg-white/10 h-1.5 rounded-full overflow-hidden">
                            <div 
                                 className="h-full bg-blue-500 transition-all duration-300"
                                 style={{ width: `${((currentVideoIndex + 1) / activePlaylist.length) * 100}%` }}
@@ -274,7 +273,7 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
                                  <div className="flex-1 relative w-full h-full flex items-center justify-center bg-slate-900">
                                      <video src={url} className="w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity" preload="metadata" />
                                      <div className="absolute inset-0 flex items-center justify-center">
-                                         <div className="w-12 h-12 rounded-full bg-white/10 group-hover:bg-blue-600 text-white flex items-center justify-center backdrop-blur-sm transition-all group-hover:scale-110">
+                                         <div className="w-12 h-12 rounded-full bg-white/10 group-hover:bg-blue-600 text-white flex items-center justify-center transition-all group-hover:scale-110">
                                              <Play size={20} fill="currentColor" className="ml-1" />
                                          </div>
                                      </div>

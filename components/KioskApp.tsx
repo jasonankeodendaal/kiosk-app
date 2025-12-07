@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist } from '../types';
 import { 
@@ -39,7 +38,7 @@ const RIcon = ({ size = 24, className = "" }: { size?: number, className?: strin
 
 export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => (
   <div 
-    className={`fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300 ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`} 
+    className={`fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 transition-all duration-300 ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`} 
     onClick={onClose}
   >
     <div 
@@ -54,7 +53,7 @@ export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
       aria-modal="true"
       aria-labelledby="creator-popup-title"
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+      <div className="absolute inset-0 bg-black/60"></div>
       
       <div className="relative z-10 flex flex-col items-center w-full h-full justify-center">
         <div className="w-32 h-32 mb-2 hover:scale-105 transition-transform duration-500">
@@ -64,7 +63,7 @@ export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
         <h2 id="creator-popup-title" className="text-white font-black text-3xl mb-1 drop-shadow-lg tracking-tight">JSTYP.me</h2>
         <p className="text-white/90 text-sm font-bold mb-4 drop-shadow-md italic max-w-[90%]">"Jason's Solution To Your Problems, Yes me!"</p>
         
-        <p className="text-white text-xs font-bold mb-8 drop-shadow-md text-center px-4 leading-relaxed uppercase tracking-wide bg-black/20 rounded-lg py-2 backdrop-blur-sm border border-white/10">
+        <p className="text-white text-xs font-bold mb-8 drop-shadow-md text-center px-4 leading-relaxed uppercase tracking-wide bg-black/40 rounded-lg py-2 border border-white/10">
             Need a website/ APP or a special tool, get in touch today!
         </p>
         
@@ -79,7 +78,7 @@ export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
         </div>
       </div>
 
-      <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white z-20 bg-black/20 p-1 rounded-full backdrop-blur-sm transition-colors" aria-label="Close creator information">
+      <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white z-20 bg-black/40 p-1 rounded-full transition-colors" aria-label="Close creator information">
          <X size={20} />
       </button>
     </div>
@@ -108,7 +107,7 @@ export const SetupScreen = ({
     setIsSubmitting(true);
 
     // Request Camera Permission specifically for Kiosk Mode during setup
-    if (deviceType === 'kiosk') {
+    if (deviceType === 'kiosk' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
             // Request video stream to trigger permission prompt
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -274,7 +273,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
     return undefined;
   }, [deviceType]);
 
-  // Init Camera if Kiosk Mode
+  // Init Camera if Kiosk Mode - With Safety Checks
   useEffect(() => {
     if (deviceType === 'kiosk' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ video: true })
