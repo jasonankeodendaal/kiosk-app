@@ -1,3 +1,5 @@
+
+
 import React, { useRef, useState } from 'react';
 import { StoreData } from '../types';
 import { ArrowLeft, Play, Pause, AudioLines, Info, Share2, Copy, Check, Headphones, Globe, MessageSquare } from 'lucide-react';
@@ -69,7 +71,7 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
                   className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 md:px-6 md:py-3 rounded-xl font-bold uppercase text-xs tracking-widest transition-all shadow-lg hover:shadow-blue-900/50"
                >
                    {copied ? <Check size={16} /> : <Share2 size={16} />}
-                   <span className="hidden md:inline">{copied ? 'Link Copied' : 'Share Page'}</span>
+                   <span>{copied ? 'Link Copied' : 'Share'}</span>
                </button>
            </div>
        </header>
@@ -84,6 +86,15 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
                        <div className="bg-slate-900 text-white rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden group border border-slate-800">
                             {/* Decorative Background */}
                             <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 to-purple-900/20 z-0"></div>
+                            
+                            {/* Explicit Share Button for Audio Card */}
+                            <button 
+                                onClick={handleShare}
+                                className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all border border-white/10 z-20"
+                                title="Share Audio Page"
+                            >
+                                <Share2 size={18} />
+                            </button>
                             
                             <div className="relative z-10 flex flex-col items-center text-center">
                                 <button 

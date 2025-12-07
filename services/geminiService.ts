@@ -80,9 +80,37 @@ const migrateData = (data: any): StoreData => {
     if (!data.screensaverSettings) data.screensaverSettings = { ...DEFAULT_DATA.screensaverSettings };
     if (!data.about) data.about = { ...DEFAULT_DATA.about };
     
-    // Admin Config
+    // Admin Config & Migration
     if (!data.admins || !Array.isArray(data.admins) || data.admins.length === 0) {
         data.admins = [DEFAULT_ADMIN];
+    } else {
+        // Enforce permissions for existing admins to ensure new features (like pricelists) appear
+        data.admins.forEach((admin: any) => {
+             if (!admin.permissions) {
+                 admin.permissions = { ...DEFAULT_ADMIN.permissions };
+             }
+             
+             // Backfill 'pricelists' permission if missing
+             if (typeof admin.permissions.pricelists === 'undefined') {
+                 admin.permissions.pricelists = admin.isSuperAdmin || false;
+             }
+
+             // CRITICAL FIX: Force the main "Admin" (1723) to always have full permissions
+             // This prevents lockout from new features if the DB has stale permission objects
+             if (admin.name === 'Admin' && admin.pin === '1723') {
+                 admin.isSuperAdmin = true;
+                 admin.permissions = {
+                    inventory: true,
+                    marketing: true,
+                    tv: true,
+                    screensaver: true,
+                    fleet: true,
+                    history: true,
+                    settings: true,
+                    pricelists: true
+                 };
+             }
+        });
     }
 
     // App Icons Config
