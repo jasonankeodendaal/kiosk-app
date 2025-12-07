@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Kiosk Pro Showcase</title>
     
-    <link rel="manifest" href="/manifest-kiosk.json" id="pwa-manifest" />
+    <link rel="manifest" href="manifest-kiosk.json" id="pwa-manifest" />
     <link rel="icon" href="https://i.ibb.co/HT0wsB3y/android-launchericon-192-192.png" id="pwa-icon" />
     <link rel="apple-touch-icon" href="https://i.ibb.co/HT0wsB3y/android-launchericon-192-192.png" id="pwa-apple-icon" />
 
@@ -18,21 +18,6 @@
     <link rel="preload" as="image" href="https://i.ibb.co/Z1YHvjgT/image-removebg-preview-1.png" />
     <link rel="preload" as="image" href="https://i.ibb.co/r2HkbjLj/image-removebg-preview-2.png" />
 
-    <script>
-      (function() {
-        if (window.location.pathname.startsWith('/admin')) {
-          const adminIcon = 'https://i.ibb.co/9kfRh63d/android-launchericon-192-192.png';
-          const adminManifest = '/manifest-admin.json';
-          const manifest = document.getElementById('pwa-manifest');
-          if (manifest) manifest.href = adminManifest;
-          const icon = document.getElementById('pwa-icon');
-          const appleIcon = document.getElementById('pwa-apple-icon');
-          if (icon) icon.href = adminIcon;
-          if (appleIcon) appleIcon.href = adminIcon;
-        }
-      })();
-    </script>
-    
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

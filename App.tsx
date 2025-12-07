@@ -36,16 +36,21 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
              const defaultForMode = isAdmin ? DEFAULT_ADMIN_ICON : DEFAULT_KIOSK_ICON;
              const isDefault = (targetIconUrl === defaultForMode);
              
+             // Use absolute paths for the base manifests to avoid relative path confusion in sub-routes
              const baseManifest = isAdmin ? '/manifest-admin.json' : '/manifest-kiosk.json';
              const manifestLink = document.getElementById('pwa-manifest') as HTMLLinkElement;
 
              if (isDefault) {
                  // Ensure we are pointing to the static file and not a stale blob
-                 if (manifestLink && manifestLink.getAttribute('href') !== baseManifest) {
-                     if (manifestLink.href.startsWith('blob:')) {
-                         URL.revokeObjectURL(manifestLink.href);
+                 if (manifestLink) {
+                     // Check if current href ends with the base manifest filename to avoid unnecessary updates
+                     const currentHref = manifestLink.getAttribute('href') || '';
+                     if (!currentHref.endsWith(baseManifest.substring(1)) && currentHref !== baseManifest) {
+                         if (manifestLink.href.startsWith('blob:')) {
+                             URL.revokeObjectURL(manifestLink.href);
+                         }
+                         manifestLink.href = baseManifest;
                      }
-                     manifestLink.href = baseManifest;
                  }
                  return;
              }
@@ -55,6 +60,7 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
              try {
                 if (manifestLink) {
                     const response = await fetch(baseManifest);
+                    if (!response.ok) throw new Error("Manifest fetch failed");
                     const manifest = await response.json();
                     
                     // Determine Type (SVG vs PNG) for robustness
