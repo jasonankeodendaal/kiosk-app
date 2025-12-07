@@ -31,9 +31,11 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
              if (appleLink && appleLink.href !== targetIconUrl) appleLink.href = targetIconUrl;
 
              // 2. Update Manifest (For Install Prompt & PWA Launches)
-             // Optimization: If the icon is the default, we do NOT want to overwrite the static manifest
-             // because the static manifest contains optimized multi-resolution icons (48, 72, 96, 144, 192, 512).
-             const isDefault = (targetIconUrl === DEFAULT_ADMIN_ICON) || (targetIconUrl === DEFAULT_KIOSK_ICON);
+             // Optimization: If the icon is the default FOR THIS MODE, we use the static manifest
+             // This ensures we get all the nice multi-size icons (48, 72, ... 512).
+             const defaultForMode = isAdmin ? DEFAULT_ADMIN_ICON : DEFAULT_KIOSK_ICON;
+             const isDefault = (targetIconUrl === defaultForMode);
+             
              const baseManifest = isAdmin ? '/manifest-admin.json' : '/manifest-kiosk.json';
              const manifestLink = document.getElementById('pwa-manifest') as HTMLLinkElement;
 
@@ -48,7 +50,7 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
                  return;
              }
 
-             // If Custom Icon: We must dynamically generate the manifest to show the user's custom choice.
+             // If Custom Icon (or swapped default): We must dynamically generate the manifest to show the user's custom choice.
              // Note: This results in a "Single Source" manifest (one image for all sizes) because we can't resize on the fly easily.
              try {
                 if (manifestLink) {
