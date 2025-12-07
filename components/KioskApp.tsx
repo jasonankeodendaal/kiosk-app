@@ -101,6 +101,12 @@ export const SetupScreen = ({
   const [isRestoreMode, setIsRestoreMode] = useState(false);
   const [customId, setCustomId] = useState('');
 
+  // Allow landscape during setup for easier typing/TV setup
+  useEffect(() => {
+    document.body.classList.add('allow-landscape');
+    return () => document.body.classList.remove('allow-landscape');
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!shopName.trim()) return;

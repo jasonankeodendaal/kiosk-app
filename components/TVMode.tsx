@@ -151,7 +151,7 @@ const TVMode: React.FC<TVModeProps> = ({ storeData, onRefresh, screensaverEnable
       return (
           <div className="fixed inset-0 bg-black z-[200] flex flex-col items-center justify-center overflow-hidden group cursor-none">
               <video 
-                  key={currentUrl} // Key forces remount ensuring clean state for each video in loop
+                  key={`${currentUrl}-${currentVideoIndex}`} // Force remount ensuring clean state for each video in loop
                   ref={videoRef}
                   src={currentUrl} 
                   className="w-full h-full object-contain"

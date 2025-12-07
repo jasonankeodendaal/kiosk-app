@@ -7,7 +7,7 @@
   "start_url": "/admin",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "prefer_related_applications": false,
