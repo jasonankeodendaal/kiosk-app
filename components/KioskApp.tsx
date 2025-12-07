@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist } from '../types';
 import { 
@@ -636,7 +637,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                    
                    <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
                        {/* Left Sidebar: Brands List */}
-                       <div className="w-full md:w-1/3 border-r border-slate-200 bg-slate-50 overflow-y-auto">
+                       <div className="w-full md:w-1/3 border-r border-slate-200 bg-slate-50 overflow-y-auto max-h-[30vh] md:max-h-full">
                            {pricelistBrands.map(brand => (
                                <button 
                                    key={brand.id} 
@@ -655,31 +656,31 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                        </div>
                        
                        {/* Right Content: Pricelist Grid */}
-                       <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-100/50">
+                       <div className="flex-1 overflow-y-auto p-2 md:p-8 bg-slate-100/50">
                            {selectedBrandForPricelist ? (
-                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                               <div className="grid grid-cols-3 gap-2 md:gap-4">
                                    {storeData.pricelists?.filter(p => p.brandId === selectedBrandForPricelist).map(pl => (
                                        <button 
                                           key={pl.id}
                                           onClick={() => setViewingPdf({ url: pl.url, title: pl.title })}
-                                          className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg border border-slate-200 hover:border-green-400 transition-all group text-left flex flex-col h-full"
+                                          className="bg-white rounded-lg md:rounded-xl overflow-hidden shadow-sm hover:shadow-lg border border-slate-200 hover:border-green-400 transition-all group text-left flex flex-col h-full"
                                        >
                                            <div className="aspect-[3/4] bg-slate-200 relative overflow-hidden border-b border-slate-100">
                                                {pl.thumbnailUrl ? (
                                                    <img src={pl.thumbnailUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={pl.title} />
                                                ) : (
                                                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
-                                                       <FileText size={32} />
-                                                       <span className="text-[10px] font-bold uppercase">PDF Document</span>
+                                                       <FileText size={24} className="md:w-8 md:h-8" />
+                                                       <span className="text-[8px] md:text-[10px] font-bold uppercase">PDF Doc</span>
                                                    </div>
                                                )}
-                                               <div className="absolute top-2 right-2 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">PDF</div>
+                                               <div className="absolute top-1 right-1 md:top-2 md:right-2 bg-red-500 text-white text-[6px] md:text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">PDF</div>
                                            </div>
-                                           <div className="p-4 flex flex-col flex-1">
-                                               <h3 className="font-bold text-slate-900 text-xs md:text-sm uppercase mb-1 leading-tight">{pl.title}</h3>
-                                               <div className="mt-auto pt-2 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
+                                           <div className="p-2 md:p-4 flex flex-col flex-1">
+                                               <h3 className="font-bold text-slate-900 text-[9px] md:text-sm uppercase mb-1 leading-tight line-clamp-2">{pl.title}</h3>
+                                               <div className="mt-auto pt-1 md:pt-2 flex flex-col md:flex-row md:items-center justify-between text-[8px] md:text-[10px] font-bold text-slate-400 uppercase">
                                                    <span>{pl.month} {pl.year}</span>
-                                                   <span className="text-green-600 group-hover:underline">View</span>
+                                                   <span className="text-green-600 group-hover:underline hidden md:inline">View</span>
                                                </div>
                                            </div>
                                        </button>
@@ -687,8 +688,8 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                                </div>
                            ) : (
                                <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                                   <RIcon size={64} className="mb-4 opacity-20" />
-                                   <p className="uppercase font-bold text-xs tracking-widest">Select a brand to view pricelists</p>
+                                   <RIcon size={48} className="mb-4 opacity-20 md:w-16 md:h-16" />
+                                   <p className="uppercase font-bold text-xs tracking-widest text-center">Select a brand to view pricelists</p>
                                </div>
                            )}
                        </div>

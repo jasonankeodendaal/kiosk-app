@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { StoreData } from '../types';
 import { ArrowLeft, Play, Pause, AudioLines, Info, Share2, Check, Headphones, Globe, MessageSquare } from 'lucide-react';
@@ -180,10 +181,21 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
                                      <p className="uppercase font-bold text-xs tracking-widest">No description available.</p>
                                 </div>
                             )}
+
+                            {/* New Share Button Area */}
+                            <div className="mt-8 pt-8 border-t border-slate-100 flex justify-center md:justify-start">
+                                <button 
+                                    onClick={handleShare}
+                                    className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-widest transition-all border border-slate-200 group"
+                                >
+                                    <Share2 size={16} className="group-hover:scale-110 transition-transform" /> 
+                                    <span>{copied ? 'Link Copied' : 'Share this Page'}</span>
+                                </button>
+                            </div>
                         </div>
                         
                         {/* Footer Signature */}
-                        <div className="mt-12 pt-8 border-t border-slate-100 flex items-center gap-4 opacity-60">
+                        <div className="mt-8 pt-8 border-t border-slate-100 flex items-center gap-4 opacity-60">
                              <img src={storeData.companyLogoUrl || "https://i.ibb.co/cS36Vp5w/maskable-icon.png"} className="h-8 object-contain grayscale" alt="Logo" />
                              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                                  &copy; {new Date().getFullYear()} Kiosk Pro Systems

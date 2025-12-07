@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -150,7 +151,12 @@ const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <I
            ) : currentUrl && !allowMultiple ? (
                accept.includes('video') ? <Video className="text-blue-500" /> : 
                accept.includes('pdf') ? <FileText className="text-red-500" /> : 
-               accept.includes('audio') ? <Music className="text-green-500" /> : 
+               accept.includes('audio') ? (
+                  <div className="flex flex-col items-center justify-center text-green-500">
+                      <Music size={24} />
+                      <span className="text-[8px] font-bold uppercase mt-1 text-slate-500">File Set</span>
+                  </div>
+               ) : 
                <img src={currentUrl} className="w-full h-full object-cover" />
            ) : icon}
         </div>
@@ -162,7 +168,7 @@ const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <I
     </div>
   );
 };
-
+// ... rest of AdminDashboard code (InputField, CatalogueManager, etc.) is the same
 const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false, type = 'text' }: any) => (
     <div className={`mb-4 ${half ? 'w-full' : ''}`}>
       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">{label}</label>
