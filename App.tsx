@@ -15,7 +15,7 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
     // Memoize the target URL to prevent effect loops on general storeData updates
     const targetIconUrl = isAdmin 
         ? (storeData.appConfig?.adminIconUrl || "https://i.ibb.co/RG6qW4Nw/maskable-icon.png")
-        : (storeData.appConfig?.kioskIconUrl || "https://i.ibb.co/LDj74m2t/maskable-icon-1.png");
+        : (storeData.appConfig?.kioskIconUrl || "https://i.ibb.co/S7Nxv1dD/android-launchericon-512-512.png");
 
     useEffect(() => {
         const updateAppIdentity = async () => {

@@ -59,7 +59,7 @@ const DEFAULT_DATA: StoreData = {
   },
   admins: [DEFAULT_ADMIN],
   appConfig: {
-      kioskIconUrl: "https://i.ibb.co/LDj74m2t/maskable-icon-1.png",
+      kioskIconUrl: "https://i.ibb.co/S7Nxv1dD/android-launchericon-512-512.png",
       adminIconUrl: "https://i.ibb.co/RG6qW4Nw/maskable-icon.png"
   }
 };
