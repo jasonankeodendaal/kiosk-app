@@ -1723,10 +1723,11 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                        <button 
                                           onClick={() => requestSnapshot(kiosk.id)} 
                                           title={kiosk.deviceType === 'kiosk' ? "Request Camera Snapshot" : "Snapshots only available on Kiosk devices"} 
-                                          disabled={kiosk.deviceType !== 'kiosk'}
-                                          className={`flex-1 py-1 md:py-2 rounded md:rounded-lg flex items-center justify-center gap-1 md:gap-2 text-[8px] md:text-[10px] font-bold uppercase border ${kiosk.deviceType === 'kiosk' ? 'bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-100' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed opacity-50'}`}
+                                          disabled={kiosk.deviceType !== 'kiosk' || kiosk.requestSnapshot}
+                                          className={`flex-1 py-1 md:py-2 rounded md:rounded-lg flex items-center justify-center gap-1 md:gap-2 text-[8px] md:text-[10px] font-bold uppercase border ${kiosk.requestSnapshot ? 'bg-yellow-50 text-yellow-600 border-yellow-200' : kiosk.deviceType === 'kiosk' ? 'bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-100' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed opacity-50'}`}
                                        >
-                                           <Camera size={10} className="md:w-3 md:h-3"/> <span className="hidden md:inline">Snap</span>
+                                           {kiosk.requestSnapshot ? <Loader2 size={10} className="animate-spin md:w-3 md:h-3"/> : <Camera size={10} className="md:w-3 md:h-3"/>} 
+                                           <span className="hidden md:inline">{kiosk.requestSnapshot ? 'Pending...' : 'Snap'}</span>
                                        </button>
                                        <button onClick={() => setEditingKiosk(kiosk)} className="p-1 md:p-2 bg-slate-100 text-slate-600 rounded md:rounded-lg hover:bg-slate-200 border border-slate-200 flex items-center justify-center"><Edit2 size={10} className="md:w-3 md:h-3"/></button>
                                        {supabase && <button onClick={async () => { if(confirm("Restart Device?")) await supabase.from('kiosks').update({restart_requested: true}).eq('id', kiosk.id); }} className="p-1 md:p-2 bg-orange-50 text-orange-600 rounded md:rounded-lg hover:bg-orange-100 border border-orange-100 flex items-center justify-center" title="Remote Restart"><Power size={10} className="md:w-3 md:h-3"/></button>}

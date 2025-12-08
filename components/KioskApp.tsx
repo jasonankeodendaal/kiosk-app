@@ -270,15 +270,28 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   const captureSnapshot = useCallback(async () => {
     if (deviceType !== 'kiosk') return undefined; // No-op for mobile/tv
 
-    if (videoRef.current && videoRef.current.readyState === 4) {
+    if (videoRef.current && videoRef.current.readyState === 4) { // readyState 4 means HAVE_ENOUGH_DATA
         try {
             const canvas = document.createElement('canvas');
-            canvas.width = videoRef.current.videoWidth;
-            canvas.height = videoRef.current.videoHeight;
+            const MAX_WIDTH = 640; // Resize to max 640px to keep Base64 size manageable (approx 50-80KB)
+            
+            let width = videoRef.current.videoWidth;
+            let height = videoRef.current.videoHeight;
+            
+            // Calculate Aspect Ratio
+            if (width > MAX_WIDTH) {
+                height = height * (MAX_WIDTH / width);
+                width = MAX_WIDTH;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            
             const ctx = canvas.getContext('2d');
             if (ctx) {
-                ctx.drawImage(videoRef.current, 0, 0);
-                const base64Data = canvas.toDataURL('image/jpeg', 0.5); 
+                ctx.drawImage(videoRef.current, 0, 0, width, height);
+                // Compress to JPEG 0.6 to further reduce size for network transmission
+                const base64Data = canvas.toDataURL('image/jpeg', 0.6); 
                 return base64Data;
             }
         } catch (e) {
@@ -529,10 +542,15 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
 
   return (
     <div className="relative bg-slate-100 overflow-hidden flex flex-col h-[100dvh] w-full" style={{ zoom: zoomLevel }}>
-       {/* Hidden Camera Element - 1x1 Pixel to be completely unintrusive */}
-       {/* Only render video element if deviceType is kiosk to restrict camera usage */}
+       {/* Hidden Camera Element - Using standard size but hiding via opacity/z-index to ensure renderer works */}
        {deviceType === 'kiosk' && (
-           <video ref={videoRef} autoPlay playsInline muted className="fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none z-0" />
+           <video 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              muted 
+              className="fixed top-0 left-0 w-64 h-64 opacity-0 pointer-events-none z-[-100]" 
+           />
        )}
 
        {isIdle && screensaverEnabled && deviceType === 'kiosk' && (
