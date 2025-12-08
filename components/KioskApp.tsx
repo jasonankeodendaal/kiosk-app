@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist, PricelistBrand } from '../types';
 import { 
@@ -211,9 +210,6 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   
   const [isIdle, setIsIdle] = useState(false);
   const [screensaverEnabled, setScreensaverEnabled] = useState(true);
-
-  // New State: Orientation Toggle
-  const [isRotated, setIsRotated] = useState(false);
 
   const [showCreator, setShowCreator] = useState(false);
   const [showPricelistModal, setShowPricelistModal] = useState(false);
@@ -532,18 +528,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   }
 
   return (
-    <div 
-        className={`relative bg-slate-100 overflow-hidden flex flex-col ${isRotated ? '' : 'h-[100dvh] w-full'}`}
-        style={isRotated ? {
-            width: '100vh',
-            height: '100vw',
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%) rotate(90deg)',
-            zIndex: 9999
-        } : {}}
-    >
+    <div className="relative bg-slate-100 overflow-hidden flex flex-col h-[100dvh] w-full" style={{ zoom: zoomLevel }}>
        {/* Hidden Camera Element - 1x1 Pixel to be completely unintrusive */}
        {/* Only render video element if deviceType is kiosk to restrict camera usage */}
        {deviceType === 'kiosk' && (
@@ -621,69 +606,53 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
        </header>
 
        {/* MAIN CONTENT WRAPPER WITH ZOOM */}
-       <div 
-         className="flex-1 relative flex flex-col transition-transform duration-300 origin-top overflow-hidden"
-         style={{ zoom: zoomLevel }}
-       >
-          <div className="flex-1 relative flex flex-col min-h-0">
-             {!activeBrand ? (
-               <BrandGrid 
-                 brands={storeData.brands || []} 
-                 heroConfig={storeData.hero}
-                 allCatalogs={filteredCatalogs} 
-                 ads={storeData.ads}
-                 onSelectBrand={setActiveBrand}
-                 onViewGlobalCatalog={handleViewCatalog} 
-                 onExport={() => {}} 
-                 screensaverEnabled={screensaverEnabled}
-                 onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
-               />
-             ) : !activeCategory ? (
-               <CategoryGrid 
-                 brand={activeBrand} 
-                 storeCatalogs={filteredCatalogs}
-                 pricelists={storeData.pricelists || []}
-                 onSelectCategory={setActiveCategory}
-                 onViewCatalog={handleViewCatalog} 
-                 onBack={() => setActiveBrand(null)} 
-                 screensaverEnabled={screensaverEnabled}
-                 onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
-               />
-             ) : !activeProduct ? (
-               <ProductList 
-                 category={activeCategory} 
-                 brand={activeBrand}
-                 storeCatalogs={filteredCatalogs}
-                 onSelectProduct={setActiveProduct} 
-                 onBack={() => setActiveCategory(null)}
-                 onViewCatalog={(pages) => {}} // Unused in ProductList, kept for compatibility
-                 screensaverEnabled={screensaverEnabled}
-                 onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
-               />
-             ) : (
-               <ProductDetail 
-                 product={activeProduct} 
-                 onBack={() => setActiveProduct(null)} 
-                 screensaverEnabled={screensaverEnabled}
-                 onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
-               />
-             )}
-          </div>
+       <div className="flex-1 relative flex flex-col min-h-0">
+         {!activeBrand ? (
+           <BrandGrid 
+             brands={storeData.brands || []} 
+             heroConfig={storeData.hero}
+             allCatalogs={filteredCatalogs} 
+             ads={storeData.ads}
+             onSelectBrand={setActiveBrand}
+             onViewGlobalCatalog={handleViewCatalog} 
+             onExport={() => {}} 
+             screensaverEnabled={screensaverEnabled}
+             onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
+           />
+         ) : !activeCategory ? (
+           <CategoryGrid 
+             brand={activeBrand} 
+             storeCatalogs={filteredCatalogs}
+             pricelists={storeData.pricelists || []}
+             onSelectCategory={setActiveCategory}
+             onViewCatalog={handleViewCatalog} 
+             onBack={() => setActiveBrand(null)} 
+             screensaverEnabled={screensaverEnabled}
+             onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
+           />
+         ) : !activeProduct ? (
+           <ProductList 
+             category={activeCategory} 
+             brand={activeBrand}
+             storeCatalogs={filteredCatalogs}
+             onSelectProduct={setActiveProduct} 
+             onBack={() => setActiveCategory(null)}
+             onViewCatalog={(pages) => {}} // Unused in ProductList, kept for compatibility
+             screensaverEnabled={screensaverEnabled}
+             onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
+           />
+         ) : (
+           <ProductDetail 
+             product={activeProduct} 
+             onBack={() => setActiveProduct(null)} 
+             screensaverEnabled={screensaverEnabled}
+             onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
+           />
+         )}
        </div>
 
        <footer className="shrink-0 bg-white border-t border-slate-200 text-slate-500 h-8 flex items-center justify-between px-2 md:px-6 z-50 text-[8px] md:text-[10px]">
           <div className="flex items-center gap-2 md:gap-4">
-              <button 
-                  onClick={() => setIsRotated(!isRotated)}
-                  className={`flex items-center gap-1 font-bold uppercase tracking-widest transition-colors ${isRotated ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
-                  title={isRotated ? "Switch to Landscape" : "Switch to Portrait"}
-              >
-                  {isRotated ? <Smartphone size={10} className="md:w-3 md:h-3" /> : <Monitor size={10} className="md:w-3 md:h-3" />}
-                  <span className="hidden sm:inline">{isRotated ? 'Portrait' : 'Landscape'}</span>
-              </button>
-
-              <div className="h-3 w-[1px] bg-slate-300 hidden sm:block"></div>
-
               <div className="flex items-center gap-1 md:gap-1.5">
                  <div className={`w-1 md:w-1.5 h-1 md:h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
                  <span className="font-bold uppercase tracking-wider">
