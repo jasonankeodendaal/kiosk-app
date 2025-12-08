@@ -69,6 +69,9 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
                     const sizes = "192x192"; 
                     const largeSizes = "512x512";
 
+                    // Force orientation to portrait for mobile devices as requested
+                    manifest.orientation = "portrait";
+
                     // Force update icons array with comprehensive definitions based on the single source
                     manifest.icons = [
                         { src: targetIconUrl, sizes: sizes, type: iconType, purpose: "any" },
