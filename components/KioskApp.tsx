@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist } from '../types';
+import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist, PricelistBrand } from '../types';
 import { 
   getKioskId, 
   provisionKioskId, 
@@ -475,11 +475,13 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
       );
   }, [storeData]);
   
-  // Memoized Pricelist Brands (Only brands that have pricelists)
+  // UPDATED: Use Independent Pricelist Brands
   const pricelistBrands = useMemo(() => {
-      if (!storeData?.pricelists || storeData.pricelists.length === 0) return [];
-      const brandIds = Array.from(new Set(storeData.pricelists.map(p => p.brandId)));
-      return brandIds.map(id => storeData.brands.find(b => b.id === id)).filter(Boolean) as Brand[];
+      // If storeData has explicit pricelistBrands (new structure), use them
+      if (storeData?.pricelistBrands && storeData.pricelistBrands.length > 0) {
+          return storeData.pricelistBrands;
+      }
+      return [];
   }, [storeData]);
 
   const handleSetupComplete = (name: string, type: 'kiosk' | 'mobile' | 'tv') => {

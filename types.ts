@@ -95,6 +95,13 @@ export interface Catalogue {
   pages: string[]; // Legacy support for image-based flipbooks
 }
 
+// New Interface for decoupled Pricelist Brands
+export interface PricelistBrand {
+  id: string;
+  name: string;
+  logoUrl?: string;
+}
+
 export interface Pricelist {
   id: string;
   brandId: string;
@@ -194,6 +201,7 @@ export interface StoreData {
   hero: HeroConfig;
   catalogues?: Catalogue[]; 
   pricelists?: Pricelist[];
+  pricelistBrands?: PricelistBrand[]; // New independent list
   brands: Brand[];
   tv?: TVConfig; // New TV Configuration
   ads?: AdConfig;

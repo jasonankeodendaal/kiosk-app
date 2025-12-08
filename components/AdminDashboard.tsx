@@ -6,7 +6,7 @@ import {
   Monitor, Grid, Image as ImageIcon, ChevronRight, ChevronLeft, Wifi, WifiOff, 
   Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv, UserCog, Key, Move
 } from 'lucide-react';
-import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig, TVModel, AdminUser, AdminPermissions, Pricelist } from '../types';
+import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig, TVModel, AdminUser, AdminPermissions, Pricelist, PricelistBrand } from '../types';
 import { resetStoreData } from '../services/geminiService';
 import { uploadFileToStorage, supabase, checkCloudConnection } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
@@ -169,7 +169,7 @@ const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <I
     </div>
   );
 };
-// ... rest of AdminDashboard code (InputField, CatalogueManager, etc.) is the same
+
 const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false, type = 'text' }: any) => (
     <div className={`mb-4 ${half ? 'w-full' : ''}`}>
       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">{label}</label>
@@ -352,48 +352,80 @@ const MoveProductModal = ({
   );
 };
 
+// REFACTORED: Now manages Independent Pricelist Brands
 const PricelistManager = ({ 
     pricelists, 
-    brands, 
-    onSave 
+    pricelistBrands, 
+    onSavePricelists,
+    onSaveBrands
 }: { 
     pricelists: Pricelist[], 
-    brands: Brand[], 
-    onSave: (p: Pricelist[]) => void 
+    pricelistBrands: PricelistBrand[], 
+    onSavePricelists: (p: Pricelist[]) => void,
+    onSaveBrands: (b: PricelistBrand[]) => void
 }) => {
-    const [selectedBrandId, setSelectedBrandId] = useState<string>(brands.length > 0 ? brands[0].id : '');
-    const [localList, setLocalList] = useState<Pricelist[]>(pricelists || []);
+    // We select a brand to manage its pricelists
+    const [selectedBrand, setSelectedBrand] = useState<PricelistBrand | null>(pricelistBrands.length > 0 ? pricelistBrands[0] : null);
+    
+    // Sync if selected brand gets deleted externally
+    useEffect(() => {
+        if (selectedBrand && !pricelistBrands.find(b => b.id === selectedBrand.id)) {
+            setSelectedBrand(pricelistBrands.length > 0 ? pricelistBrands[0] : null);
+        }
+    }, [pricelistBrands]);
 
-    // Sync local list if parent updates
-    useEffect(() => { setLocalList(pricelists || []) }, [pricelists]);
+    const filteredLists = selectedBrand ? pricelists.filter(p => p.brandId === selectedBrand.id) : [];
 
-    const handleUpdate = (newList: Pricelist[]) => {
-        setLocalList(newList);
-        onSave(newList);
+    // --- BRAND LOGIC ---
+    const addBrand = () => {
+        const name = prompt("Enter Brand Name for Pricelists:");
+        if (!name) return;
+        const newBrand: PricelistBrand = {
+            id: generateId('plb'),
+            name: name,
+            logoUrl: ''
+        };
+        onSaveBrands([...pricelistBrands, newBrand]);
+        setSelectedBrand(newBrand);
     };
 
-    const filteredLists = localList.filter(p => p.brandId === selectedBrandId);
+    const updateBrand = (id: string, updates: Partial<PricelistBrand>) => {
+        const updatedBrands = pricelistBrands.map(b => b.id === id ? { ...b, ...updates } : b);
+        onSaveBrands(updatedBrands);
+        if (selectedBrand?.id === id) {
+            setSelectedBrand({ ...selectedBrand, ...updates });
+        }
+    };
 
+    const deleteBrand = (id: string) => {
+        if (confirm("Delete this brand? This will also hide associated pricelists.")) {
+            onSaveBrands(pricelistBrands.filter(b => b.id !== id));
+            // Also optional: cleanup pricelists with this brand ID? 
+            // For now, we keep them in DB but they are orphaned.
+        }
+    };
+
+    // --- PRICELIST PDF LOGIC ---
     const addPricelist = () => {
-        if (!selectedBrandId) return alert("Please create a Brand first.");
+        if (!selectedBrand) return;
         const newItem: Pricelist = {
             id: generateId('pl'),
-            brandId: selectedBrandId,
+            brandId: selectedBrand.id,
             title: 'New Pricelist',
             url: '',
             month: 'January',
             year: new Date().getFullYear().toString()
         };
-        handleUpdate([...localList, newItem]);
+        onSavePricelists([...pricelists, newItem]);
     };
 
     const updatePricelist = (id: string, updates: Partial<Pricelist>) => {
-        handleUpdate(localList.map(p => p.id === id ? { ...p, ...updates } : p));
+        onSavePricelists(pricelists.map(p => p.id === id ? { ...p, ...updates } : p));
     };
 
     const deletePricelist = (id: string) => {
         if(confirm("Delete this pricelist?")) {
-            handleUpdate(localList.filter(p => p.id !== id));
+            onSavePricelists(pricelists.filter(p => p.id !== id));
         }
     };
 
@@ -403,48 +435,97 @@ const PricelistManager = ({
     ];
 
     return (
-        <div className="max-w-6xl mx-auto animate-fade-in">
-             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-                <div>
-                    <h2 className="text-2xl font-black text-slate-900 uppercase mb-2">Pricelist Management</h2>
-                    <p className="text-slate-500 text-sm">Upload PDF pricelists for specific brands.</p>
-                </div>
-                
-                <div className="flex items-center gap-4 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider pl-2">Select Brand:</span>
-                    <select 
-                        value={selectedBrandId} 
-                        onChange={(e) => setSelectedBrandId(e.target.value)}
-                        className="p-2 bg-slate-100 rounded-lg text-sm font-bold text-slate-900 outline-none border-transparent focus:border-blue-500 border"
-                    >
-                        {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
-                </div>
+        <div className="max-w-7xl mx-auto animate-fade-in flex flex-col md:flex-row gap-6 h-[calc(100vh-140px)]">
+             
+             {/* LEFT COLUMN: BRAND MANAGEMENT */}
+             <div className="w-full md:w-1/3 flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                 <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                     <div>
+                        <h2 className="font-black text-slate-900 uppercase text-sm">Pricelist Brands</h2>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">Independent List</p>
+                     </div>
+                     <button onClick={addBrand} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase flex items-center gap-1">
+                        <Plus size={12} /> Add
+                     </button>
+                 </div>
+                 
+                 <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                     {pricelistBrands.map(brand => (
+                         <div 
+                            key={brand.id} 
+                            onClick={() => setSelectedBrand(brand)}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer relative group ${selectedBrand?.id === brand.id ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200' : 'bg-white border-slate-100 hover:border-blue-200'}`}
+                         >
+                             <div className="flex items-center gap-3">
+                                 <div className="w-10 h-10 bg-white rounded-lg border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                                     {brand.logoUrl ? (
+                                         <img src={brand.logoUrl} className="w-full h-full object-contain" />
+                                     ) : (
+                                         <span className="font-black text-slate-300 text-lg">{brand.name.charAt(0)}</span>
+                                     )}
+                                 </div>
+                                 <div className="flex-1 min-w-0">
+                                     <div className="font-bold text-slate-900 text-xs uppercase truncate">{brand.name}</div>
+                                     <div className="text-[10px] text-slate-400 font-mono truncate">{pricelists.filter(p => p.brandId === brand.id).length} Pricelists</div>
+                                 </div>
+                             </div>
+
+                             {/* Inline Edit Controls for Active Brand */}
+                             {selectedBrand?.id === brand.id && (
+                                 <div className="mt-3 pt-3 border-t border-slate-200/50 space-y-2" onClick={e => e.stopPropagation()}>
+                                     <input 
+                                         value={brand.name} 
+                                         onChange={(e) => updateBrand(brand.id, { name: e.target.value })}
+                                         className="w-full text-xs font-bold p-1 border-b border-slate-200 focus:border-blue-500 outline-none bg-transparent"
+                                         placeholder="Brand Name"
+                                     />
+                                     <FileUpload 
+                                         label="Brand Logo" 
+                                         currentUrl={brand.logoUrl} 
+                                         onUpload={(url: any) => updateBrand(brand.id, { logoUrl: url })} 
+                                     />
+                                     <button 
+                                         onClick={(e) => { e.stopPropagation(); deleteBrand(brand.id); }}
+                                         className="w-full text-center text-[10px] text-red-500 font-bold uppercase hover:bg-red-50 py-1 rounded"
+                                     >
+                                         Delete Brand
+                                     </button>
+                                 </div>
+                             )}
+                         </div>
+                     ))}
+                     {pricelistBrands.length === 0 && (
+                         <div className="p-8 text-center text-slate-400 text-xs italic">
+                             No brands. Click "Add" to start.
+                         </div>
+                     )}
+                 </div>
              </div>
 
-             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 min-h-[400px]">
-                 <div className="flex justify-between items-center mb-6">
+             {/* RIGHT COLUMN: PDF LIST FOR SELECTED BRAND */}
+             <div className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col shadow-inner">
+                 <div className="flex justify-between items-center mb-6 shrink-0">
                      <h3 className="font-bold text-slate-700 uppercase text-xs tracking-wider">
-                         Pricelists for {brands.find(b => b.id === selectedBrandId)?.name}
+                         {selectedBrand ? `Pricelists for ${selectedBrand.name}` : 'Select a Brand'}
                      </h3>
                      <button 
                         onClick={addPricelist} 
-                        disabled={!selectedBrandId}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase flex items-center gap-2 disabled:opacity-50"
+                        disabled={!selectedBrand}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Plus size={14} /> Add Pricelist
                     </button>
                  </div>
 
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                 <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 content-start">
                      {filteredLists.map((item) => (
-                         <div key={item.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col p-4 gap-3">
+                         <div key={item.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col p-4 gap-3 h-fit">
                              <div>
                                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Title</label>
                                  <input 
                                      value={item.title} 
                                      onChange={(e) => updatePricelist(item.id, { title: e.target.value })}
-                                     className="w-full font-bold text-slate-900 border-b border-slate-100 focus:border-blue-500 outline-none pb-1" 
+                                     className="w-full font-bold text-slate-900 border-b border-slate-100 focus:border-blue-500 outline-none pb-1 text-sm" 
                                      placeholder="e.g. Retail Price List"
                                  />
                              </div>
@@ -473,7 +554,7 @@ const PricelistManager = ({
 
                              <div className="mt-2 grid grid-cols-2 gap-2">
                                 <FileUpload 
-                                    label="Thumbnail (Image)" 
+                                    label="Thumbnail" 
                                     accept="image/*"
                                     currentUrl={item.thumbnailUrl}
                                     onUpload={(url: any) => updatePricelist(item.id, { thumbnailUrl: url })} 
@@ -495,7 +576,7 @@ const PricelistManager = ({
                              </button>
                          </div>
                      ))}
-                     {filteredLists.length === 0 && (
+                     {filteredLists.length === 0 && selectedBrand && (
                          <div className="col-span-full py-12 text-center text-slate-400 text-xs italic border-2 border-dashed border-slate-200 rounded-xl">
                              No pricelists found for this brand.
                          </div>
@@ -1356,8 +1437,9 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             {activeTab === 'pricelists' && (
                 <PricelistManager 
                     pricelists={localData.pricelists || []} 
-                    brands={brands}
-                    onSave={(p) => handleLocalUpdate({ ...localData, pricelists: p })}
+                    pricelistBrands={localData.pricelistBrands || []}
+                    onSavePricelists={(p) => handleLocalUpdate({ ...localData, pricelists: p })}
+                    onSaveBrands={(b) => handleLocalUpdate({ ...localData, pricelistBrands: b })}
                 />
             )}
             

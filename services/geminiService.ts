@@ -41,6 +41,7 @@ const DEFAULT_DATA: StoreData = {
   },
   catalogues: [],
   pricelists: [],
+  pricelistBrands: [],
   brands: [],
   tv: {
     brands: []
@@ -70,6 +71,7 @@ const migrateData = (data: any): StoreData => {
     if (!data.brands || !Array.isArray(data.brands)) data.brands = [];
     if (!data.catalogues || !Array.isArray(data.catalogues)) data.catalogues = [];
     if (!data.pricelists || !Array.isArray(data.pricelists)) data.pricelists = [];
+    if (!data.pricelistBrands || !Array.isArray(data.pricelistBrands)) data.pricelistBrands = [];
     if (!data.fleet || !Array.isArray(data.fleet)) data.fleet = [];
     
     // 2. Force Config Objects to Exist
@@ -156,6 +158,23 @@ const migrateData = (data: any): StoreData => {
                     }
                 });
             });
+        });
+    }
+
+    // --- MIGRATION: SEPARATE PRICELIST BRANDS FROM INVENTORY BRANDS ---
+    // If pricelistBrands is empty but we have pricelists, copy the inventory brands they belong to
+    // so the data is preserved in the new "Split" structure.
+    if (data.pricelistBrands.length === 0 && data.pricelists.length > 0 && data.brands.length > 0) {
+        console.log("Migrating Pricelist Brands...");
+        const usedBrandIds = new Set(data.pricelists.map((p: any) => p.brandId));
+        data.brands.forEach((b: any) => {
+            if (usedBrandIds.has(b.id)) {
+                data.pricelistBrands.push({
+                    id: b.id, // Keep ID consistent for link
+                    name: b.name,
+                    logoUrl: b.logoUrl
+                });
+            }
         });
     }
 
