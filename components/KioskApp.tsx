@@ -775,9 +775,9 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                                           onClick={() => setViewingPdf({ url: pl.url, title: pl.title })}
                                           className="bg-white rounded-lg md:rounded-xl overflow-hidden shadow-sm hover:shadow-lg border border-slate-200 hover:border-green-400 transition-all group text-left flex flex-col h-full"
                                        >
-                                           <div className="aspect-[3/4] bg-slate-200 relative overflow-hidden border-b border-slate-100">
+                                           <div className="aspect-[3/4] bg-white relative overflow-hidden border-b border-slate-100 p-2">
                                                {pl.thumbnailUrl ? (
-                                                   <img src={pl.thumbnailUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={pl.title} />
+                                                   <img src={pl.thumbnailUrl} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" alt={pl.title} />
                                                ) : (
                                                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
                                                        <FileText size={24} className="md:w-8 md:h-8" />

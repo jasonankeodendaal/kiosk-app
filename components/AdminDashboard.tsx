@@ -144,25 +144,24 @@ const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <I
   return (
     <div className="mb-4">
       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">{label}</label>
-      <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+      <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
         {isProcessing && <div className="absolute bottom-0 left-0 h-1 bg-blue-500 transition-all" style={{ width: `${uploadProgress}%` }}></div>}
-        <div className="w-16 h-16 bg-slate-50 border border-slate-200 border-dashed rounded-lg flex items-center justify-center overflow-hidden shrink-0 text-slate-400">
+        <div className="w-10 h-10 bg-slate-50 border border-slate-200 border-dashed rounded-lg flex items-center justify-center overflow-hidden shrink-0 text-slate-400">
            {isProcessing ? (
                <Loader2 className="animate-spin text-blue-500" /> 
            ) : currentUrl && !allowMultiple ? (
-               accept.includes('video') ? <Video className="text-blue-500" /> : 
-               accept.includes('pdf') ? <FileText className="text-red-500" /> : 
+               accept.includes('video') ? <Video className="text-blue-500" size={16} /> : 
+               accept.includes('pdf') ? <FileText className="text-red-500" size={16} /> : 
                accept.includes('audio') ? (
                   <div className="flex flex-col items-center justify-center bg-green-50 w-full h-full text-green-600">
-                      <Music size={24} />
-                      <span className="text-[8px] font-black uppercase mt-1">Audio Loaded</span>
+                      <Music size={16} />
                   </div>
                ) : 
-               <img src={currentUrl} className="w-full h-full object-cover" />
-           ) : icon}
+               <img src={currentUrl} className="w-full h-full object-contain" />
+           ) : React.cloneElement(icon, { size: 16 })}
         </div>
-        <label className={`cursor-pointer bg-slate-900 text-white px-4 py-2 rounded-lg font-bold text-[10px] uppercase ${isProcessing ? 'opacity-50' : ''}`}>
-              <Upload size={12} className="inline mr-2" /> {isProcessing ? 'Uploading...' : 'Select File'}
+        <label className={`flex-1 text-center cursor-pointer bg-slate-900 text-white px-2 py-2 rounded-lg font-bold text-[9px] uppercase whitespace-nowrap overflow-hidden text-ellipsis ${isProcessing ? 'opacity-50' : ''}`}>
+              <Upload size={10} className="inline mr-1" /> {isProcessing ? '...' : 'Select'}
               <input type="file" className="hidden" accept={accept} onChange={handleFileChange} disabled={isProcessing} multiple={allowMultiple}/>
         </label>
       </div>
@@ -215,7 +214,7 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
                     <div key={cat.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
                         <div className="h-40 bg-slate-100 relative group flex items-center justify-center overflow-hidden">
                             {cat.thumbnailUrl || (cat.pages && cat.pages[0]) ? (
-                                <img src={cat.thumbnailUrl || cat.pages[0]} className="w-full h-full object-cover" /> 
+                                <img src={cat.thumbnailUrl || cat.pages[0]} className="w-full h-full object-contain" /> 
                             ) : (
                                 <BookOpen size={32} className="text-slate-300" />
                             )}
@@ -821,10 +820,10 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
 
                         <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
                              <h5 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-4">Technical Specs</h5>
-                             <div className="flex gap-4 mb-4 items-end">
-                                <input value={newSpecKey} onChange={(e) => setNewSpecKey(e.target.value)} placeholder="Spec Name" className="flex-1 p-2 border border-slate-300 rounded-lg text-sm font-bold" />
-                                <input value={newSpecValue} onChange={(e) => setNewSpecValue(e.target.value)} placeholder="Value" className="flex-1 p-2 border border-slate-300 rounded-lg text-sm font-bold" onKeyDown={(e) => e.key === 'Enter' && addSpec()} />
-                                <button onClick={addSpec} className="bg-blue-600 text-white p-2.5 rounded-lg"><Plus size={18} /></button>
+                             <div className="flex flex-wrap gap-2 mb-4 items-end">
+                                <input value={newSpecKey} onChange={(e) => setNewSpecKey(e.target.value)} placeholder="Spec Name" className="flex-1 min-w-[80px] p-2 border border-slate-300 rounded-lg text-sm font-bold" />
+                                <input value={newSpecValue} onChange={(e) => setNewSpecValue(e.target.value)} placeholder="Value" className="flex-1 min-w-[80px] p-2 border border-slate-300 rounded-lg text-sm font-bold" onKeyDown={(e) => e.key === 'Enter' && addSpec()} />
+                                <button onClick={addSpec} className="bg-blue-600 text-white p-2.5 rounded-lg shrink-0"><Plus size={18} /></button>
                              </div>
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                  {Object.entries(draft.specs).map(([key, value]) => (<div key={key} className="flex justify-between bg-white p-3 rounded-lg border border-slate-200 shadow-sm"><div><span className="block text-[10px] font-bold text-slate-400 uppercase">{key}</span><span className="block text-sm font-black">{value}</span></div><button onClick={() => { const s = {...draft.specs}; delete s[key]; setDraft({...draft, specs: s}); }} className="text-red-400"><Trash2 size={16}/></button></div>))}
