@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist, PricelistBrand } from '../types';
 import { 
@@ -760,7 +761,15 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                        <div className="flex-1 overflow-y-auto p-2 md:p-8 bg-slate-100/50">
                            {selectedBrandForPricelist ? (
                                <div className="grid grid-cols-3 gap-2 md:gap-4">
-                                   {storeData.pricelists?.filter(p => p.brandId === selectedBrandForPricelist).map(pl => (
+                                   {storeData.pricelists?.filter(p => p.brandId === selectedBrandForPricelist)
+                                   .sort((a, b) => {
+                                        const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                                        const yearA = parseInt(a.year) || 0;
+                                        const yearB = parseInt(b.year) || 0;
+                                        if (yearA !== yearB) return yearB - yearA;
+                                        return months.indexOf(b.month) - months.indexOf(a.month);
+                                   })
+                                   .map(pl => (
                                        <button 
                                           key={pl.id}
                                           onClick={() => setViewingPdf({ url: pl.url, title: pl.title })}

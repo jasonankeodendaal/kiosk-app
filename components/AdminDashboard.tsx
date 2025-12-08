@@ -376,6 +376,19 @@ const PricelistManager = ({
 
     const filteredLists = selectedBrand ? pricelists.filter(p => p.brandId === selectedBrand.id) : [];
 
+    const months = [
+        "January", "February", "March", "April", "May", "June", 
+        "July", "August", "September", "October", "November", "December"
+    ];
+
+    const sortedLists = [...filteredLists].sort((a, b) => {
+        const yearA = parseInt(a.year) || 0;
+        const yearB = parseInt(b.year) || 0;
+        if (yearA !== yearB) return yearB - yearA;
+        
+        return months.indexOf(b.month) - months.indexOf(a.month);
+    });
+
     // --- BRAND LOGIC ---
     const addBrand = () => {
         const name = prompt("Enter Brand Name for Pricelists:");
@@ -428,11 +441,6 @@ const PricelistManager = ({
             onSavePricelists(pricelists.filter(p => p.id !== id));
         }
     };
-
-    const months = [
-        "January", "February", "March", "April", "May", "June", 
-        "July", "August", "September", "October", "November", "December"
-    ];
 
     return (
         <div className="max-w-7xl mx-auto animate-fade-in flex flex-col md:flex-row gap-6 h-[calc(100vh-140px)]">
@@ -518,7 +526,7 @@ const PricelistManager = ({
                  </div>
 
                  <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 content-start">
-                     {filteredLists.map((item) => (
+                     {sortedLists.map((item) => (
                          <div key={item.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col p-4 gap-3 h-fit">
                              <div>
                                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Title</label>
@@ -576,7 +584,7 @@ const PricelistManager = ({
                              </button>
                          </div>
                      ))}
-                     {filteredLists.length === 0 && selectedBrand && (
+                     {sortedLists.length === 0 && selectedBrand && (
                          <div className="col-span-full py-12 text-center text-slate-400 text-xs italic border-2 border-dashed border-slate-200 rounded-xl">
                              No pricelists found for this brand.
                          </div>
