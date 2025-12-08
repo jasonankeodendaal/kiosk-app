@@ -32,6 +32,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null); // To measure available space
   const renderTaskRef = useRef<any>(null); // pdfjsLib.RenderTask
+  const loadingTaskRef = useRef<any>(null); // pdfjsLib.LoadingTask
 
   // Load PDF Document
   useEffect(() => {
@@ -42,18 +43,44 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
         setPageNum(1);
         setScale(0); // Reset to auto-fit on new document
         
-        // Using safe pdfjs reference
-        const loadingTask = pdfjs.getDocument(url);
+        // Cancel previous loading task if active
+        if (loadingTaskRef.current) {
+            loadingTaskRef.current.destroy().catch(() => {});
+        }
+
+        // Using safe pdfjs reference with optimization options
+        const loadingTask = pdfjs.getDocument({
+            url,
+            // Configuring cMapUrl significantly speeds up rendering by using CDN for font maps
+            // instead of failing/timing out on local resolution
+            cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
+            cMapPacked: true,
+        });
+        
+        loadingTaskRef.current = loadingTask;
         const doc = await loadingTask.promise;
-        setPdf(doc);
-        setLoading(false);
+        
+        // Only update state if this is still the active request
+        if (loadingTaskRef.current === loadingTask) {
+            setPdf(doc);
+            setLoading(false);
+        }
       } catch (err: any) {
-        console.error("PDF Load Error:", err);
-        setError("Unable to load document. The file might be corrupted or restricted.");
-        setLoading(false);
+        if (err?.message !== 'Loading aborted') {
+            console.error("PDF Load Error:", err);
+            setError("Unable to load document. The file might be corrupted or restricted.");
+            setLoading(false);
+        }
       }
     };
     loadPdf();
+
+    // Cleanup on unmount
+    return () => {
+        if (loadingTaskRef.current) {
+            loadingTaskRef.current.destroy().catch(() => {});
+        }
+    };
   }, [url]);
 
   // Render Page

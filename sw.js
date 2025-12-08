@@ -1,3 +1,4 @@
+
 // Service Worker for Kiosk Pro
 const CACHE_NAME = 'kiosk-pro-v3';
 
@@ -52,9 +53,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy: Cache First for Images and Fonts
+  // Helper to identify PDF requests
+  const url = new URL(event.request.url);
+  const isPdf = url.pathname.toLowerCase().endsWith('.pdf');
+
+  // Strategy: Cache First for Images, Fonts, and PDFs
   // This speeds up the heavy visual assets of the kiosk
-  if (event.request.destination === 'image' || event.request.destination === 'font') {
+  if (event.request.destination === 'image' || event.request.destination === 'font' || isPdf) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         if (cachedResponse) {
