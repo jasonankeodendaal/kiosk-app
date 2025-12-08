@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist, PricelistBrand } from '../types';
 import { 
@@ -10,7 +8,7 @@ import {
   isKioskConfigured, 
   sendHeartbeat, 
   setCustomKioskId, 
-  getShopName,
+  getShopName, 
   getDeviceType,
   supabase,
   checkCloudConnection,
@@ -25,7 +23,7 @@ import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
 import PdfViewer from './PdfViewer';
 import TVMode from './TVMode';
-import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv, FileText } from 'lucide-react';
+import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv, FileText, Monitor } from 'lucide-react';
 
 const DEFAULT_IDLE_TIMEOUT = 60000;
 
@@ -677,10 +675,10 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
               <button 
                   onClick={() => setIsRotated(!isRotated)}
                   className={`flex items-center gap-1 font-bold uppercase tracking-widest transition-colors ${isRotated ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
-                  title="Rotate Screen"
+                  title={isRotated ? "Switch to Landscape" : "Switch to Portrait"}
               >
-                  <RotateCcw size={10} className="md:w-3 md:h-3" />
-                  <span className="hidden sm:inline">Rotate</span>
+                  {isRotated ? <Smartphone size={10} className="md:w-3 md:h-3" /> : <Monitor size={10} className="md:w-3 md:h-3" />}
+                  <span className="hidden sm:inline">{isRotated ? 'Portrait' : 'Landscape'}</span>
               </button>
 
               <div className="h-3 w-[1px] bg-slate-300 hidden sm:block"></div>
