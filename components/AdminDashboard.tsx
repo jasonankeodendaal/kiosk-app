@@ -1472,7 +1472,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             <div className="bg-white border-b border-slate-200 flex overflow-x-auto no-scrollbar shadow-sm z-10 shrink-0">
                 <button onClick={() => setActiveSubTab('hero')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'hero' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Hero Banner</button>
                 <button onClick={() => setActiveSubTab('ads')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'ads' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Ad Zones</button>
-                <button onClick={() => setActiveSubTab('catalogues')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'catalogues' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Pamphlets & Catalogues</button>
+                <button onClick={() => setActiveSubTab('catalogues')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'catalogues' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Pamphlets</button>
             </div>
         )}
 
@@ -1668,6 +1668,10 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                        <div>
                                            <div className="flex items-center gap-0.5 md:gap-2 mb-0 md:mb-1">{kiosk.deviceType === 'mobile' ? <Smartphone size={10} className="text-purple-500 md:w-4 md:h-4"/> : kiosk.deviceType === 'tv' ? <Tv size={10} className="text-indigo-500 md:w-4 md:h-4" /> : <Tablet size={10} className="text-blue-500 md:w-4 md:h-4"/>}<span className="font-black text-slate-900 text-[8px] md:text-sm uppercase truncate max-w-[60px] md:max-w-none">{kiosk.name}</span></div>
                                            <span className="text-[6px] md:text-[10px] font-mono text-slate-400 bg-white border border-slate-200 px-0.5 py-0 rounded hidden md:inline-block">{kiosk.id}</span>
+                                           <div className="flex items-center gap-1 mt-1 text-[8px] md:text-[10px] font-mono text-slate-500">
+                                               <Signal size={10} />
+                                               <span>{kiosk.ipAddress || 'Unknown Speed'}</span>
+                                           </div>
                                        </div>
                                        <div className={`flex items-center gap-0.5 md:gap-1 px-1 py-0.5 rounded-full text-[6px] md:text-[10px] font-bold uppercase border ${isOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}><div className={`w-1 h-1 md:w-1.5 md:h-1.5 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>{isOnline ? 'On' : 'Off'}</div>
                                    </div>
