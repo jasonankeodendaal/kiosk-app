@@ -106,18 +106,21 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
   useEffect(() => {
     const list: PlaylistItem[] = [];
 
-    // Add Custom Ads
+    // Add Custom Ads - Multiplied by 3 to ensure "Special Marketing" frequency
     if (config.showCustomAds) {
         ads.forEach((ad, i) => {
           if (shouldIncludeItem(ad.dateAdded)) {
-            list.push({
-                id: `ad-${ad.id}-${i}`,
-                type: ad.type,
-                url: ad.url,
-                title: "Sponsored",
-                subtitle: "",
-                dateAdded: ad.dateAdded
-            });
+            // Push 3 copies of each ad to increase frequency in the shuffle
+            for(let c=0; c<3; c++) {
+                list.push({
+                    id: `ad-${ad.id}-${i}-${c}`,
+                    type: ad.type,
+                    url: ad.url,
+                    title: "Sponsored",
+                    subtitle: "",
+                    dateAdded: ad.dateAdded
+                });
+            }
           }
         });
     }
@@ -183,7 +186,7 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
         }
     });
 
-    // Simple Shuffle
+    // Robust Shuffle
     for (let i = list.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [list[i], list[j]] = [list[j], list[i]];
@@ -208,7 +211,7 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
 
   const currentItem = playlist[currentIndex];
 
-  // 2. Effect Selector (Separated to ensure state stability)
+  // 2. Effect Selector
   useEffect(() => {
     if (!currentItem) return;
 
@@ -272,7 +275,7 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
     return () => {
         if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [currentIndex, currentItem, animationEffect, config.imageDuration, playlist.length, isSleepMode]); // animationEffect added to deps to ensure ref is fresh
+  }, [currentIndex, currentItem, animationEffect, config.imageDuration, playlist.length, isSleepMode]);
 
   // Sleep Mode Render
   if (isSleepMode) {
@@ -431,30 +434,30 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
              </div>
          )}
 
-         {/* Enhanced Overlay Info */}
+         {/* Enhanced Overlay Info - UPDATED: Much smaller text sizes and constrained widths */}
          {config.showInfoOverlay && (currentItem.title || currentItem.subtitle) && (
-             <div className="absolute bottom-12 left-12 md:bottom-20 md:left-20 max-w-[85%] pointer-events-none z-30">
+             <div className="absolute bottom-12 left-8 md:bottom-20 md:left-20 max-w-[80%] md:max-w-[70%] pointer-events-none z-30">
                 {currentItem.title && (
                     <div className="slide-up">
-                        <h1 className="text-5xl md:text-9xl font-black text-white uppercase tracking-tighter drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)] mb-2 leading-[0.85] opacity-90 break-words">
+                        <h1 className="text-2xl sm:text-3xl md:text-5xl font-black text-white uppercase tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] mb-2 leading-tight opacity-95 break-words">
                             {currentItem.title}
                         </h1>
-                        <div className="h-2 w-24 bg-blue-500 mt-4 mb-6 rounded-full"></div>
+                        <div className="h-1 sm:h-1.5 w-16 sm:w-20 bg-blue-500 mt-2 sm:mt-4 mb-4 sm:mb-6 rounded-full"></div>
                     </div>
                 )}
                 
-                <div className="flex flex-wrap gap-4 items-center slide-up-delay">
+                <div className="flex flex-wrap gap-2 sm:gap-4 items-center slide-up-delay">
                     {currentItem.subtitle && (
-                        <div className="bg-white/10 backdrop-blur-md border-l-4 border-blue-500 px-6 py-4 shadow-xl">
-                            <h2 className="text-xl md:text-4xl font-bold text-white tracking-wide uppercase">
+                        <div className="bg-white/10 backdrop-blur-md border-l-2 sm:border-l-4 border-blue-500 px-3 sm:px-5 py-2 sm:py-3 shadow-xl rounded-r-lg">
+                            <h2 className="text-sm sm:text-lg md:text-2xl font-bold text-white tracking-wide uppercase leading-tight">
                                 {currentItem.subtitle}
                             </h2>
                         </div>
                     )}
                     
                     {(currentItem.startDate || currentItem.endDate) && (
-                        <div className="bg-blue-900/80 border border-blue-400/30 px-6 py-4 rounded-xl shadow-xl">
-                            <p className="text-lg md:text-xl text-white font-mono font-bold uppercase tracking-widest">
+                        <div className="bg-blue-900/80 border border-blue-400/30 px-3 sm:px-5 py-2 sm:py-3 rounded-lg shadow-xl">
+                            <p className="text-xs sm:text-sm md:text-lg text-white font-mono font-bold uppercase tracking-widest">
                                 {currentItem.startDate && formatDate(currentItem.startDate)}
                                 {currentItem.startDate && currentItem.endDate && ` — `}
                                 {currentItem.endDate && formatDate(currentItem.endDate)}

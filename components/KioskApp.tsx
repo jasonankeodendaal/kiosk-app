@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist, PricelistBrand } from '../types';
 import { 
@@ -575,7 +577,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
        <footer className="shrink-0 bg-white border-t border-slate-200 text-slate-500 h-8 flex items-center justify-between px-2 md:px-6 z-50 text-[8px] md:text-[10px]">
           <div className="flex items-center gap-2 md:gap-4">
               <div className="flex items-center gap-1 md:gap-1.5">
-                 <div className={`w-1 md:w-1.5 h-1 md:h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                 <div className={`w-1 md:w-1.5 h-1 md:h-1.5 rounded-full ${isOnline ? 'bg-green-50' : 'bg-red-50'}`}></div>
                  <span className="font-bold uppercase tracking-wider">
                     {isOnline ? 'Online' : 'Offline'}
                  </span>
@@ -677,7 +679,8 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                                                <div className="absolute top-1 right-1 md:top-2 md:right-2 bg-red-500 text-white text-[6px] md:text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">PDF</div>
                                            </div>
                                            <div className="p-2 md:p-4 flex flex-col flex-1">
-                                               <h3 className="font-bold text-slate-900 text-[9px] md:text-sm uppercase mb-1 leading-tight line-clamp-2">{pl.title}</h3>
+                                               {/* UPDATED: Name wraps and fits container */}
+                                               <h3 className="font-bold text-slate-900 text-[9px] md:text-sm uppercase mb-1 leading-tight whitespace-normal break-words">{pl.title}</h3>
                                                <div className="mt-auto pt-1 md:pt-2 flex flex-col md:flex-row md:items-center justify-between text-[8px] md:text-[10px] font-bold text-slate-400 uppercase">
                                                    <span>{pl.month} {pl.year}</span>
                                                    <span className="text-green-600 group-hover:underline hidden md:inline">View</span>

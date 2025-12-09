@@ -157,10 +157,19 @@ export interface KioskRegistry {
   restartRequested?: boolean; 
 }
 
+export interface ArchivedItem {
+    id: string;
+    type: 'product' | 'pricelist' | 'tv_model' | 'other';
+    name: string;
+    data: any;
+    deletedAt: string;
+}
+
 export interface ArchiveData {
     brands: Brand[];
-    products: { product: Product, originalBrand: string, originalCategory: string }[];
+    products: { product: Product, originalBrand: string, originalCategory: string }[]; // Legacy specific
     catalogues: Catalogue[];
+    deletedItems?: ArchivedItem[]; // New Generic Catch-all
     deletedAt: Record<string, string>; 
 }
 

@@ -1,10 +1,12 @@
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, ChevronLeft, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv, UserCog, Key, Move, FileInput
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv, UserCog, Key, Move, FileInput, Lock, Unlock, Calendar, Filter
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig, TVModel, AdminUser, AdminPermissions, Pricelist, PricelistBrand } from '../types';
 import { resetStoreData } from '../services/geminiService';
@@ -619,12 +621,14 @@ const PricelistManager = ({
     pricelists, 
     pricelistBrands, 
     onSavePricelists,
-    onSaveBrands
+    onSaveBrands,
+    onDeletePricelist
 }: { 
     pricelists: Pricelist[], 
     pricelistBrands: PricelistBrand[], 
     onSavePricelists: (p: Pricelist[]) => void,
-    onSaveBrands: (b: PricelistBrand[]) => void
+    onSaveBrands: (b: PricelistBrand[]) => void,
+    onDeletePricelist: (id: string) => void
 }) => {
     const [selectedBrand, setSelectedBrand] = useState<PricelistBrand | null>(pricelistBrands.length > 0 ? pricelistBrands[0] : null);
     
@@ -688,9 +692,9 @@ const PricelistManager = ({
         onSavePricelists(pricelists.map(p => p.id === id ? { ...p, ...updates } : p));
     };
 
-    const deletePricelist = (id: string) => {
-        if(confirm("Delete this pricelist?")) {
-            onSavePricelists(pricelists.filter(p => p.id !== id));
+    const handleDeletePricelist = (id: string) => {
+        if(confirm("Delete this pricelist? It will be moved to Archive.")) {
+            onDeletePricelist(id);
         }
     };
 
@@ -818,7 +822,7 @@ const PricelistManager = ({
                                 />
                              </div>
                              <button 
-                                onClick={() => deletePricelist(item.id)}
+                                onClick={() => handleDeletePricelist(item.id)}
                                 className="mt-auto pt-3 border-t border-slate-100 text-red-500 hover:text-red-600 text-[10px] font-bold uppercase flex items-center justify-center gap-1"
                              >
                                  <Trash2 size={12} /> Delete
@@ -1217,6 +1221,38 @@ const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], 
         pricelists: true
     });
 
+    const PERMISSION_GROUPS = [
+        {
+            title: "Inventory & Products",
+            icon: <Box size={14} />,
+            color: "blue",
+            items: [
+                { key: 'inventory', label: 'Inventory Management', desc: 'Create brands, categories, products and upload media.' }
+            ]
+        },
+        {
+            title: "Marketing & Content",
+            icon: <Megaphone size={14} />,
+            color: "purple",
+            items: [
+                { key: 'marketing', label: 'Marketing Hub', desc: 'Edit Hero banner, Ad zones, and Pamphlets.' },
+                { key: 'pricelists', label: 'Pricelists', desc: 'Manage PDF pricelists and brand documents.' },
+                { key: 'screensaver', label: 'Screensaver Control', desc: 'Configure screensaver timing and display rules.' }
+            ]
+        },
+        {
+            title: "System & Devices",
+            icon: <Settings size={14} />,
+            color: "slate",
+            items: [
+                { key: 'fleet', label: 'Fleet Management', desc: 'Monitor active devices and remote restart.' },
+                { key: 'tv', label: 'TV Mode Config', desc: 'Manage TV video loops and brand channels.' },
+                { key: 'settings', label: 'Global Settings', desc: 'System backups, app icons, and admin users.' },
+                { key: 'history', label: 'Archive History', desc: 'View logs and restore deleted items.' }
+            ]
+        }
+    ];
+
     const resetForm = () => {
         setEditingId(null);
         setNewName('');
@@ -1267,60 +1303,118 @@ const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], 
         setNewPermissions(admin.permissions);
     };
 
+    const toggleAll = (enable: boolean) => {
+        const p = { ...newPermissions };
+        (Object.keys(p) as Array<keyof AdminPermissions>).forEach(k => p[k] = enable);
+        setNewPermissions(p);
+    };
+
+    const isEditingSuperAdmin = editingId && admins.find(a => a.id === editingId)?.isSuperAdmin;
+
     return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                    <h4 className="font-bold text-slate-900 uppercase text-xs mb-4">{editingId ? 'Edit Admin' : 'Add New Admin'}</h4>
+        <div className="space-y-8">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                {/* Form Column */}
+                <div className="xl:col-span-2 bg-slate-50 p-6 rounded-xl border border-slate-200">
+                    <div className="flex justify-between items-center mb-6">
+                         <h4 className="font-bold text-slate-900 uppercase text-xs flex items-center gap-2">
+                             <UserCog size={16} className="text-blue-600"/> {editingId ? 'Edit Admin Profile' : 'Create New Admin'}
+                         </h4>
+                         {isEditingSuperAdmin && <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-[10px] font-black uppercase">Super Admin (Full Access)</span>}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <InputField label="Admin Name" val={newName} onChange={(e:any) => setNewName(e.target.value)} placeholder="e.g. John Doe" />
+                        <InputField label="4-Digit PIN" val={newPin} onChange={(e:any) => setNewPin(e.target.value)} placeholder="####" type="text" />
+                    </div>
+
                     <div className="space-y-4">
-                        <InputField label="Name" val={newName} onChange={(e:any) => setNewName(e.target.value)} placeholder="Admin Name" />
-                        <InputField label="PIN" val={newPin} onChange={(e:any) => setNewPin(e.target.value)} placeholder="4-Digit PIN" type="text" />
-                        
-                        <div className="bg-white p-4 rounded-lg border border-slate-200">
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Access Permissions</label>
-                            <div className="grid grid-cols-2 gap-2">
-                                {Object.keys(newPermissions).map((key) => (
-                                    <label key={key} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-slate-50 rounded">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={(newPermissions as any)[key]} 
-                                            onChange={(e) => setNewPermissions({...newPermissions, [key]: e.target.checked})}
-                                            className="w-4 h-4 text-blue-600 rounded"
-                                            disabled={editingId && admins.find(a => a.id === editingId)?.isSuperAdmin}
-                                        />
-                                        <span className="text-xs font-bold uppercase text-slate-700">{key}</span>
-                                    </label>
-                                ))}
-                            </div>
+                        <div className="flex justify-between items-center">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Access Permissions</label>
+                            {!isEditingSuperAdmin && (
+                                <div className="flex gap-2">
+                                    <button onClick={() => toggleAll(true)} className="text-[10px] font-bold text-blue-600 hover:bg-blue-50 px-2 py-1 rounded">Select All</button>
+                                    <button onClick={() => toggleAll(false)} className="text-[10px] font-bold text-slate-400 hover:bg-slate-100 px-2 py-1 rounded">Clear All</button>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="flex gap-2 pt-2">
-                            {editingId && <button onClick={resetForm} className="px-4 py-2 bg-slate-200 text-slate-600 rounded-lg text-xs font-bold uppercase">Cancel</button>}
-                            <button onClick={handleAddOrUpdate} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold uppercase hover:bg-blue-700">
-                                {editingId ? 'Update Admin' : 'Create Admin'}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {PERMISSION_GROUPS.map(group => (
+                                <div key={group.title} className={`bg-white rounded-xl border border-${group.color}-100 overflow-hidden shadow-sm`}>
+                                    <div className={`bg-${group.color}-50 p-3 border-b border-${group.color}-100 flex items-center gap-2`}>
+                                        <span className={`text-${group.color}-600`}>{group.icon}</span>
+                                        <span className={`text-[10px] font-black uppercase text-${group.color}-800`}>{group.title}</span>
+                                    </div>
+                                    <div className="p-3 space-y-3">
+                                        {group.items.map(item => (
+                                            <label key={item.key} className={`flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isEditingSuperAdmin ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50'}`}>
+                                                <div className="pt-0.5">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={(newPermissions as any)[item.key]} 
+                                                        onChange={(e) => setNewPermissions({...newPermissions, [item.key]: e.target.checked})}
+                                                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                                                        disabled={isEditingSuperAdmin}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs font-bold text-slate-800">{item.label}</div>
+                                                    <div className="text-[10px] text-slate-500 leading-tight mt-0.5">{item.desc}</div>
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex gap-3 pt-4 border-t border-slate-200 mt-4">
+                            {editingId && <button onClick={resetForm} className="px-6 py-3 bg-white border border-slate-300 text-slate-600 rounded-xl text-xs font-bold uppercase hover:bg-slate-50">Cancel Edit</button>}
+                            <button onClick={handleAddOrUpdate} className="flex-1 px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase hover:bg-slate-800 shadow-lg flex items-center justify-center gap-2">
+                                <Check size={16} /> {editingId ? 'Update Admin Permissions' : 'Create Admin User'}
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <div className="space-y-3">
-                    {admins.map(admin => (
-                        <div key={admin.id} className={`p-4 rounded-xl border flex justify-between items-center ${editingId === admin.id ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-300' : 'bg-white border-slate-200'}`}>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span className="font-bold text-slate-900">{admin.name}</span>
-                                    {admin.isSuperAdmin && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-black uppercase">Master</span>}
+                {/* List Column */}
+                <div className="space-y-4">
+                    <h4 className="font-bold text-slate-900 uppercase text-xs mb-2">Active Admins ({admins.length})</h4>
+                    <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                        {admins.map(admin => (
+                            <div key={admin.id} className={`p-4 rounded-xl border transition-all ${editingId === admin.id ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-100' : 'bg-white border-slate-200 hover:border-blue-300'}`}>
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${admin.isSuperAdmin ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-500'}`}>
+                                            <UserCog size={16} />
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-slate-900 text-sm">{admin.name}</div>
+                                            <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono">
+                                                <Lock size={10} /> {admin.pin}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <button onClick={() => startEdit(admin)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Permissions"><Edit2 size={14} /></button>
+                                        {admin.id !== 'super-admin' && currentUser.name === 'Admin' && currentUser.pin === '1723' && (
+                                            <button onClick={() => handleDelete(admin.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Admin"><Trash2 size={14} /></button>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="text-xs text-slate-500 font-mono mt-0.5">PIN: {admin.pin}</div>
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                    {admin.isSuperAdmin ? (
+                                        <span className="text-[9px] font-bold uppercase bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded border border-yellow-100">Full Access</span>
+                                    ) : (
+                                        Object.entries(admin.permissions).filter(([_, v]) => v).map(([k]) => (
+                                            <span key={k} className="text-[9px] font-bold uppercase bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">{k}</span>
+                                        ))
+                                    )}
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => startEdit(admin)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
-                                {admin.id !== 'super-admin' && currentUser.name === 'Admin' && currentUser.pin === '1723' && (
-                                    <button onClick={() => handleDelete(admin.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
@@ -1341,6 +1435,10 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   const [showGuide, setShowGuide] = useState(false);
   const [selectedTVBrand, setSelectedTVBrand] = useState<TVBrand | null>(null);
   const [editingTVModel, setEditingTVModel] = useState<TVModel | null>(null);
+  
+  // History State
+  const [historyTab, setHistoryTab] = useState<'brands' | 'catalogues' | 'deletedItems'>('deletedItems');
+  const [historySearch, setHistorySearch] = useState('');
   
   const [localData, setLocalData] = useState<StoreData | null>(storeData);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -1445,6 +1543,27 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       }
   };
 
+  // ARCHIVE HANDLERS
+  const addToArchive = (type: 'product' | 'pricelist' | 'tv_model' | 'other', name: string, data: any) => {
+      if (!localData) return;
+      const now = new Date().toISOString();
+      const newItem = {
+          id: generateId('arch'),
+          type,
+          name,
+          data,
+          deletedAt: now
+      };
+      
+      const currentArchive = localData.archive || { brands: [], products: [], catalogues: [], deletedItems: [], deletedAt: {} };
+      const newArchive = {
+          ...currentArchive,
+          deletedItems: [newItem, ...(currentArchive.deletedItems || [])]
+      };
+      
+      return newArchive;
+  };
+
   const restoreBrand = (b: Brand) => {
      if(!localData) return;
      const newArchiveBrands = localData.archive?.brands.filter(x => x.id !== b.id) || [];
@@ -1504,6 +1623,20 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       setMovingProduct(null);
   };
 
+  const formatRelativeTime = (isoString: string) => {
+      if (!isoString) return 'Unknown';
+      const date = new Date(isoString);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Yesterday';
+      if (diffDays < 7) return `${diffDays} days ago`;
+      if (diffDays < 30) return `${Math.floor(diffDays/7)} weeks ago`;
+      return date.toLocaleDateString();
+  };
+
   if (!localData) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /> Loading...</div>;
   if (!currentUser) return <Auth admins={localData.admins || []} onLogin={setCurrentUser} />;
 
@@ -1514,6 +1647,20 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   const tvBrands = Array.isArray(localData.tv?.brands)
       ? [...localData.tv!.brands].sort((a, b) => a.name.localeCompare(b.name))
       : [];
+
+  // Filter Logic for History
+  const archivedBrands = (localData.archive?.brands || []).filter(b => 
+      b.name.toLowerCase().includes(historySearch.toLowerCase()) || 
+      b.id.toLowerCase().includes(historySearch.toLowerCase())
+  );
+  
+  const archivedCatalogues = (localData.archive?.catalogues || []).filter(c => 
+      c.title.toLowerCase().includes(historySearch.toLowerCase())
+  );
+
+  const archivedGenericItems = (localData.archive?.deletedItems || []).filter(i =>
+      i.name.toLowerCase().includes(historySearch.toLowerCase())
+  );
 
   return (
     <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
@@ -1581,7 +1728,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                            <div key={brand.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition-all group relative flex flex-col h-full">
                                <div className="flex-1 bg-slate-50 flex items-center justify-center p-2 relative aspect-square">
                                    {brand.logoUrl ? <img src={brand.logoUrl} className="max-h-full max-w-full object-contain" /> : <span className="text-4xl font-black text-slate-200">{brand.name.charAt(0)}</span>}
-                                   <button onClick={(e) => { e.stopPropagation(); if(confirm("Move to archive?")) { handleLocalUpdate({...localData, brands: brands.filter(b=>b.id!==brand.id), archive: {...localData.archive!, brands: [...(localData.archive?.brands||[]), brand]}}); } }} className="absolute top-2 right-2 p-1.5 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button>
+                                   <button onClick={(e) => { e.stopPropagation(); if(confirm("Move to archive?")) { const now = new Date().toISOString(); handleLocalUpdate({...localData, brands: brands.filter(b=>b.id!==brand.id), archive: {...localData.archive!, brands: [...(localData.archive?.brands||[]), brand], deletedAt: {...localData.archive?.deletedAt, [brand.id]: now} }}); } }} className="absolute top-2 right-2 p-1.5 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button>
                                </div>
                                <div className="p-2 md:p-4">
                                    <h3 className="font-black text-slate-900 text-xs md:text-lg uppercase tracking-tight mb-1 truncate">{brand.name}</h3>
@@ -1621,7 +1768,17 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                                 <button onClick={() => setEditingProduct(product)} className="p-1.5 md:p-2 bg-white text-blue-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-blue-50">Edit</button>
                                                 <button onClick={() => setMovingProduct(product)} className="p-1.5 md:p-2 bg-white text-orange-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-orange-50" title="Move Category">Move</button>
                                            </div>
-                                           <button onClick={() => { if(confirm(`Delete product "${product.name}"?`)) { const updatedCat = {...selectedCategory, products: selectedCategory.products.filter(p => p.id !== product.id)}; const updatedBrand = {...selectedBrand, categories: selectedBrand.categories.map(c => c.id === updatedCat.id ? updatedCat : c)}; handleLocalUpdate({...localData, brands: brands.map(b => b.id === updatedBrand.id ? updatedBrand : b)}); } }} className="p-1.5 md:p-2 bg-white text-red-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-red-50 w-[80%]">Delete</button>
+                                           <button onClick={() => { 
+                                               if(confirm(`Delete product "${product.name}"?`)) { 
+                                                   const updatedCat = {...selectedCategory, products: selectedCategory.products.filter(p => p.id !== product.id)}; 
+                                                   const updatedBrand = {...selectedBrand, categories: selectedBrand.categories.map(c => c.id === updatedCat.id ? updatedCat : c)}; 
+                                                   
+                                                   // Add to archive
+                                                   const newArchive = addToArchive('product', product.name, product);
+                                                   
+                                                   handleLocalUpdate({...localData, brands: brands.map(b => b.id === updatedBrand.id ? updatedBrand : b), archive: newArchive}); 
+                                               } 
+                                           }} className="p-1.5 md:p-2 bg-white text-red-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-red-50 w-[80%]">Delete</button>
                                        </div>
                                    </div>
                                    <div className="p-2 md:p-4">
@@ -1642,6 +1799,13 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                     pricelistBrands={localData.pricelistBrands || []}
                     onSavePricelists={(p) => handleLocalUpdate({ ...localData, pricelists: p })}
                     onSaveBrands={(b) => handleLocalUpdate({ ...localData, pricelistBrands: b })}
+                    onDeletePricelist={(id) => {
+                        const toDelete = localData.pricelists?.find(p => p.id === id);
+                        if (toDelete) {
+                            const newArchive = addToArchive('pricelist', toDelete.title, toDelete);
+                            handleLocalUpdate({ ...localData, pricelists: localData.pricelists?.filter(p => p.id !== id), archive: newArchive });
+                        }
+                    }}
                 />
             )}
             
@@ -1890,11 +2054,196 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             )}
             
             {activeTab === 'history' && (
-               <div className="max-w-4xl mx-auto">
-                   <div className="flex items-center justify-between mb-8"><h2 className="text-2xl font-black text-slate-900 uppercase">Archive History</h2><button onClick={() => { if(confirm("Clear history?")) handleLocalUpdate({...localData, archive: { brands: [], products: [], catalogues: [], deletedAt: {} }}) }} className="text-red-500 font-bold uppercase text-xs flex items-center gap-2 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors"><Trash2 size={14}/> Clear All</button></div>
-                   <div className="space-y-6">
-                       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm"><div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center gap-2"><Package size={16} className="text-slate-400" /><h3 className="font-bold text-slate-700 uppercase text-xs">Deleted Brands</h3></div>{localData.archive?.brands.length === 0 ? <div className="p-8 text-center text-slate-400 text-xs italic">No archived brands.</div> : (<div className="divide-y divide-slate-100">{localData.archive?.brands.map(b => (<div key={b.id} className="p-4 flex justify-between items-center hover:bg-slate-50"><div><div className="font-bold text-slate-900">{b.name}</div><div className="text-[10px] text-slate-400 font-mono uppercase">ID: {b.id}</div></div><button onClick={() => restoreBrand(b)} className="text-blue-600 font-bold text-xs uppercase flex items-center gap-1 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"><RotateCcw size={12}/> Restore</button></div>))}</div>)}</div>
-                       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm"><div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center gap-2"><Book size={16} className="text-slate-400" /><h3 className="font-bold text-slate-700 uppercase text-xs">Expired / Deleted Catalogues</h3></div>{localData.archive?.catalogues.length === 0 ? <div className="p-8 text-center text-slate-400 text-xs italic">No archived catalogues.</div> : (<div className="divide-y divide-slate-100">{localData.archive?.catalogues.map(c => (<div key={c.id} className="p-4 flex justify-between items-center hover:bg-slate-50"><div><div className="font-bold text-slate-900">{c.title}</div><div className="text-[10px] text-slate-400 font-mono uppercase">Expired: {localData.archive?.deletedAt?.[c.id] ? new Date(localData.archive.deletedAt[c.id]).toLocaleDateString() : 'Manual Delete'}</div></div><button onClick={() => restoreCatalogue(c)} className="text-blue-600 font-bold text-xs uppercase flex items-center gap-1 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"><RotateCcw size={12}/> Restore</button></div>))}</div>)}</div>
+               <div className="max-w-6xl mx-auto space-y-6">
+                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                       <h2 className="text-2xl font-black text-slate-900 uppercase">Archive Management</h2>
+                       <div className="flex gap-2">
+                            <button 
+                                onClick={() => { if(confirm("Permanently clear ALL archived history?")) handleLocalUpdate({...localData, archive: { brands: [], products: [], catalogues: [], deletedItems: [], deletedAt: {} }}) }} 
+                                className="text-red-500 font-bold uppercase text-xs flex items-center gap-2 bg-red-50 hover:bg-red-100 border border-red-100 px-4 py-2 rounded-lg transition-colors"
+                            >
+                                <Trash2 size={14}/> Wipe History
+                            </button>
+                       </div>
+                   </div>
+
+                   <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm min-h-[500px] flex flex-col">
+                       {/* Toolbar */}
+                       <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row justify-between gap-4">
+                           <div className="flex items-center gap-2 bg-slate-200/50 p-1 rounded-lg self-start overflow-x-auto max-w-full">
+                               <button onClick={() => setHistoryTab('deletedItems')} className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all whitespace-nowrap ${historyTab === 'deletedItems' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>All Items</button>
+                               <button onClick={() => setHistoryTab('brands')} className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all whitespace-nowrap ${historyTab === 'brands' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Deleted Brands</button>
+                               <button onClick={() => setHistoryTab('catalogues')} className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all whitespace-nowrap ${historyTab === 'catalogues' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Deleted Pamphlets</button>
+                           </div>
+                           <div className="relative">
+                               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                               <input 
+                                  type="text" 
+                                  placeholder="Search Archives..." 
+                                  className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-full md:w-64 focus:border-blue-500 outline-none"
+                                  value={historySearch}
+                                  onChange={(e) => setHistorySearch(e.target.value)}
+                               />
+                           </div>
+                       </div>
+
+                       {/* List Content */}
+                       <div className="flex-1 overflow-y-auto">
+                           {historyTab === 'deletedItems' ? (
+                               archivedGenericItems.length === 0 ? (
+                                   <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+                                       <Archive size={48} className="mb-4 opacity-20" />
+                                       <span className="text-xs font-bold uppercase tracking-widest">No Deleted Items Found</span>
+                                   </div>
+                               ) : (
+                                   <table className="w-full text-left">
+                                       <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                                           <tr>
+                                               <th className="px-6 py-3">Type</th>
+                                               <th className="px-6 py-3">Name</th>
+                                               <th className="px-6 py-3">Deleted Date</th>
+                                               <th className="px-6 py-3 text-right">Data</th>
+                                           </tr>
+                                       </thead>
+                                       <tbody className="divide-y divide-slate-100 text-sm">
+                                           {archivedGenericItems.map(item => (
+                                               <tr key={item.id} className="hover:bg-slate-50 group">
+                                                   <td className="px-6 py-4">
+                                                       <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                                                           item.type === 'product' ? 'bg-blue-50 text-blue-700' :
+                                                           item.type === 'pricelist' ? 'bg-green-50 text-green-700' :
+                                                           'bg-slate-100 text-slate-600'
+                                                       }`}>
+                                                           {item.type}
+                                                       </span>
+                                                   </td>
+                                                   <td className="px-6 py-4">
+                                                       <div className="font-bold text-slate-900">{item.name}</div>
+                                                       <div className="text-[10px] text-slate-400 font-mono">{item.id}</div>
+                                                   </td>
+                                                   <td className="px-6 py-4">
+                                                       <div className="text-xs font-bold text-slate-600">
+                                                           {formatRelativeTime(item.deletedAt)}
+                                                       </div>
+                                                       <div className="text-[10px] text-slate-400">
+                                                           {new Date(item.deletedAt).toLocaleTimeString()}
+                                                       </div>
+                                                   </td>
+                                                   <td className="px-6 py-4 text-right">
+                                                       <button 
+                                                            onClick={() => {
+                                                                const json = JSON.stringify(item.data, null, 2);
+                                                                const blob = new Blob([json], {type: "application/json"});
+                                                                const url = URL.createObjectURL(blob);
+                                                                const a = document.createElement('a');
+                                                                a.href = url;
+                                                                a.download = `${item.name}-recovered.json`;
+                                                                a.click();
+                                                            }}
+                                                            className="text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase inline-flex items-center gap-1 transition-colors border border-slate-200"
+                                                       >
+                                                           <Download size={12} /> JSON
+                                                       </button>
+                                                   </td>
+                                               </tr>
+                                           ))}
+                                       </tbody>
+                                   </table>
+                               )
+                           ) : historyTab === 'brands' ? (
+                               archivedBrands.length === 0 ? (
+                                   <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+                                       <Archive size={48} className="mb-4 opacity-20" />
+                                       <span className="text-xs font-bold uppercase tracking-widest">No Archived Brands Found</span>
+                                   </div>
+                               ) : (
+                                   <table className="w-full text-left">
+                                       <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                                           <tr>
+                                               <th className="px-6 py-3">Brand Name</th>
+                                               <th className="px-6 py-3">Metadata</th>
+                                               <th className="px-6 py-3">Deleted Date</th>
+                                               <th className="px-6 py-3 text-right">Actions</th>
+                                           </tr>
+                                       </thead>
+                                       <tbody className="divide-y divide-slate-100 text-sm">
+                                           {archivedBrands.map(b => (
+                                               <tr key={b.id} className="hover:bg-slate-50 group">
+                                                   <td className="px-6 py-4">
+                                                       <div className="font-bold text-slate-900">{b.name}</div>
+                                                       <div className="text-[10px] text-slate-400 font-mono">{b.id}</div>
+                                                   </td>
+                                                   <td className="px-6 py-4">
+                                                       <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">
+                                                           <Box size={12} /> {b.categories.length} Categories
+                                                       </div>
+                                                   </td>
+                                                   <td className="px-6 py-4">
+                                                       <div className="text-xs font-bold text-slate-600">
+                                                           {localData.archive?.deletedAt?.[b.id] ? formatRelativeTime(localData.archive.deletedAt[b.id]) : 'Unknown'}
+                                                       </div>
+                                                       <div className="text-[10px] text-slate-400">
+                                                           {localData.archive?.deletedAt?.[b.id] ? new Date(localData.archive.deletedAt[b.id]).toLocaleTimeString() : ''}
+                                                       </div>
+                                                   </td>
+                                                   <td className="px-6 py-4 text-right">
+                                                       <button onClick={() => restoreBrand(b)} className="text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-xs font-bold uppercase inline-flex items-center gap-1 transition-colors">
+                                                           <RotateCcw size={14} /> Restore
+                                                       </button>
+                                                   </td>
+                                               </tr>
+                                           ))}
+                                       </tbody>
+                                   </table>
+                               )
+                           ) : (
+                               archivedCatalogues.length === 0 ? (
+                                   <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+                                       <Archive size={48} className="mb-4 opacity-20" />
+                                       <span className="text-xs font-bold uppercase tracking-widest">No Archived Pamphlets Found</span>
+                                   </div>
+                               ) : (
+                                   <table className="w-full text-left">
+                                       <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                                           <tr>
+                                               <th className="px-6 py-3">Title</th>
+                                               <th className="px-6 py-3">Type</th>
+                                               <th className="px-6 py-3">Expiration Info</th>
+                                               <th className="px-6 py-3 text-right">Actions</th>
+                                           </tr>
+                                       </thead>
+                                       <tbody className="divide-y divide-slate-100 text-sm">
+                                           {archivedCatalogues.map(c => (
+                                               <tr key={c.id} className="hover:bg-slate-50 group">
+                                                   <td className="px-6 py-4">
+                                                       <div className="font-bold text-slate-900">{c.title}</div>
+                                                       <div className="text-[10px] text-slate-400 font-mono">{c.id}</div>
+                                                   </td>
+                                                   <td className="px-6 py-4">
+                                                       <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${c.brandId ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
+                                                           {c.brandId ? 'Brand Catalogue' : 'Global Pamphlet'}
+                                                       </span>
+                                                   </td>
+                                                   <td className="px-6 py-4">
+                                                       <div className="text-xs font-bold text-slate-600">
+                                                           {c.endDate ? `Expired: ${new Date(c.endDate).toLocaleDateString()}` : 'Manual Delete'}
+                                                       </div>
+                                                       <div className="text-[10px] text-slate-400">
+                                                           Deleted: {localData.archive?.deletedAt?.[c.id] ? formatRelativeTime(localData.archive.deletedAt[c.id]) : 'N/A'}
+                                                       </div>
+                                                   </td>
+                                                   <td className="px-6 py-4 text-right">
+                                                       <button onClick={() => restoreCatalogue(c)} className="text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg text-xs font-bold uppercase inline-flex items-center gap-1 transition-colors">
+                                                           <RotateCcw size={14} /> Restore
+                                                       </button>
+                                                   </td>
+                                               </tr>
+                                           ))}
+                                       </tbody>
+                                   </table>
+                               )
+                           )}
+                       </div>
                    </div>
                </div>
             )}

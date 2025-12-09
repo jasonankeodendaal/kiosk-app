@@ -15,7 +15,7 @@ interface BrandGridProps {
   onToggleScreensaver: () => void;
 }
 
-// Improved AdUnit with separate logic for Images vs Videos
+// Improved AdUnit with robust playback logic
 const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -30,7 +30,7 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
 
     useEffect(() => {
         if (!activeItem) return;
-        if (items && items.length <= 1) return; // No rotation needed if 0 or 1 item
+        if (items && items.length <= 1 && activeItem.type !== 'video') return; // Static image doesn't need rotation logic if alone
 
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
@@ -46,14 +46,29 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
                 videoRef.current.play().catch(e => console.warn("Ad auto-play failed", e));
             }
             timeoutRef.current = window.setTimeout(() => {
+                console.warn("Video timeout in AdUnit, forcing next.");
                 setCurrentIndex(prev => (prev + 1) % items!.length);
-            }, 120000); // 2 min safety
+            }, 180000); // 3 min max safety
         }
 
         return () => {
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
         };
     }, [currentIndex, activeItem, items]);
+
+    // Watchdog Timer for Video Freezing
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (activeItem?.type === 'video' && videoRef.current) {
+                // If paused but not ended, and has source, force play
+                if (videoRef.current.paused && !videoRef.current.ended && videoRef.current.readyState > 2) {
+                    console.log("AdUnit Watchdog: Restarting frozen video...");
+                    videoRef.current.play().catch(() => {});
+                }
+            }
+        }, 5000); // Check every 5 seconds
+        return () => clearInterval(interval);
+    }, [activeItem]);
 
     if (!items || items.length === 0) return (
        <div className={`relative overflow-hidden rounded-xl border border-slate-200/50 bg-slate-50/50 ${className}`}></div>
@@ -63,7 +78,7 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
         if (items.length > 1) {
             setCurrentIndex(prev => (prev + 1) % items.length);
         } else if (videoRef.current) {
-            // Loop single video
+            // Explicitly handle single video loop
             videoRef.current.currentTime = 0;
             videoRef.current.play().catch(e => {});
         }
@@ -80,6 +95,8 @@ const AdUnit = ({ items, className }: { items?: AdItem[], className?: string }) 
                         src={activeItem!.url} 
                         muted 
                         playsInline
+                        autoPlay
+                        loop={items.length === 1} // Important for single video stability
                         className="w-full h-full object-cover"
                         onEnded={handleVideoEnded}
                     />
@@ -368,7 +385,6 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
                     >
                       <div className="relative w-12 h-12 md:w-24 md:h-24 flex items-center justify-center">
                         {brand.logoUrl ? (
-                          // REMOVED filters so logos appear naturally (dark logos visible on white bg)
                           <img 
                             src={brand.logoUrl} 
                             alt={brand.name} 
