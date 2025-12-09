@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { StoreData } from '../types';
 import { ArrowLeft, Play, Pause, AudioLines, Info, Share2, Check, Headphones, Globe, MessageSquare } from 'lucide-react';
@@ -75,7 +74,7 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
            </div>
        </header>
        
-       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full overflow-y-auto">
+       <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full overflow-y-auto pb-40 md:pb-8">
            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-12 h-full">
                
                {/* LEFT COLUMN (Media / Context) */}
@@ -166,44 +165,12 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
                                 <span className="w-8 h-1 bg-blue-600 rounded-full"></span>
                                 Our Story
                             </h3>
-                            
-                            {pageText.split('\n').map((paragraph, idx) => (
-                                paragraph.trim() !== '' && (
-                                    <p key={idx} className="mb-6 text-slate-700 leading-relaxed font-medium text-sm md:text-base">
-                                        {paragraph}
-                                    </p>
-                                )
-                            ))}
-                            
-                            {pageText.trim() === '' && (
-                                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                                     <Info size={48} className="mb-4 opacity-20" />
-                                     <p className="uppercase font-bold text-xs tracking-widest">No description available.</p>
-                                </div>
-                            )}
-
-                            {/* New Share Button Area in Text Column */}
-                            <div className="mt-8 pt-6 border-t border-slate-100">
-                                <button 
-                                    onClick={handleShare}
-                                    className="w-full md:w-auto flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold uppercase text-xs tracking-widest transition-all border border-slate-200 group"
-                                >
-                                    <Share2 size={16} className="group-hover:scale-110 transition-transform" /> 
-                                    <span>{copied ? 'Link Copied' : 'Share About Page'}</span>
-                                </button>
+                            <div className="whitespace-pre-wrap font-medium text-slate-600 leading-relaxed">
+                                {pageText}
                             </div>
-                        </div>
-                        
-                        {/* Footer Signature */}
-                        <div className="mt-8 pt-8 border-t border-slate-100 flex items-center gap-4 opacity-60 shrink-0">
-                             <img src={storeData.companyLogoUrl || "https://i.ibb.co/cS36Vp5w/maskable-icon.png"} className="h-8 object-contain grayscale" alt="Logo" />
-                             <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                 &copy; {new Date().getFullYear()} Kiosk Pro Systems
-                             </div>
                         </div>
                    </div>
                </div>
-
            </div>
        </main>
     </div>

@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useMemo, useState } from 'react';
 import { Brand, Category, Catalogue, Pricelist } from '../types';
 import { Smartphone, Laptop, Watch, Headphones, Monitor, Tablet, Box, ChevronLeft, ArrowRight, BookOpen, MonitorPlay, MonitorStop, Calendar, DollarSign, X, FileText } from 'lucide-react';
@@ -82,7 +79,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSel
       </div>
 
       {/* Grid Content */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col">
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col pb-40 md:pb-8">
         
         {/* Categories Grid - Smaller on Mobile (4 columns) */}
         <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-6 mb-12">

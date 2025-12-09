@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 import Flipbook from './Flipbook';
@@ -406,7 +405,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
         </div>
 
         <div className="flex-1 bg-white rounded-t-[2rem] -mt-6 relative z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 md:p-8 pb-20 touch-pan-y">
+            <div className="flex-1 overflow-y-auto p-6 md:p-8 pb-40 touch-pan-y">
                 <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-6"></div>
                 <div className="mb-6">
                     <div className="flex justify-between items-start mb-2">

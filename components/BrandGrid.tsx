@@ -167,7 +167,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 overflow-y-auto animate-fade-in pb-24">
+    <div className="flex flex-col h-full bg-slate-50 overflow-y-auto animate-fade-in pb-40 md:pb-24">
       
       {/* Hero Section */}
       <div className="bg-slate-900 text-white relative overflow-hidden shrink-0 min-h-[20vh] md:min-h-[40vh] flex flex-col">

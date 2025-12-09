@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -775,7 +776,7 @@ const PricelistManager = ({
                         <Plus size={14} /> Add Pricelist
                     </button>
                  </div>
-                 <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 content-start">
+                 <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 content-start pb-20">
                      {sortedLists.map((item) => (
                          <div key={item.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col p-4 gap-3 h-fit">
                              <div>
@@ -910,7 +911,7 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
                 <h3 className="font-bold uppercase tracking-wide">Edit Product: {draft.name || 'New Product'}</h3>
                 <button onClick={onCancel} className="text-slate-400 hover:text-white"><X size={24} /></button>
             </div>
-            <div className="flex-1 overflow-y-auto p-8">
+            <div className="flex-1 overflow-y-auto p-8 pb-20">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                         <InputField label="Product Name" val={draft.name} onChange={(e: any) => setDraft({ ...draft, name: e.target.value })} />
@@ -1383,7 +1384,7 @@ const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], 
                 {/* List Column */}
                 <div className="space-y-4">
                     <h4 className="font-bold text-slate-900 uppercase text-xs mb-2">Active Admins ({admins.length})</h4>
-                    <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                    <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 pb-20">
                         {admins.map(admin => (
                             <div key={admin.id} className={`p-4 rounded-xl border transition-all ${editingId === admin.id ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-100' : 'bg-white border-slate-200 hover:border-blue-300'}`}>
                                 <div className="flex justify-between items-start mb-2">
@@ -1718,7 +1719,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             </div>
         )}
 
-        <main className="flex-1 overflow-y-auto p-2 md:p-8 relative">
+        <main className="flex-1 overflow-y-auto p-2 md:p-8 relative pb-40 md:pb-8">
             {/* Inventory Tab */}
             {activeTab === 'inventory' && (
                 !selectedBrand ? (

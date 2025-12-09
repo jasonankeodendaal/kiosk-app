@@ -89,7 +89,7 @@ const ProductList: React.FC<ProductListProps> = ({ category, onSelectProduct, on
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 md:p-8 bg-slate-50">
+      <div className="flex-1 overflow-y-auto p-2 md:p-8 bg-slate-50 pb-40 md:pb-8">
         {/* Responsive Grid - Mobile: grid-cols-3 */}
         <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-6 pb-12">
           {filteredProducts.map((product) => (
