@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist, PricelistBrand } from '../types';
 import { 
@@ -112,19 +113,6 @@ export const SetupScreen = ({
     
     setIsSubmitting(true);
 
-    // Request Camera Permission specifically for Kiosk Mode during setup
-    if (deviceType === 'kiosk' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-            // Request video stream to trigger permission prompt
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            // Immediately stop tracks as we just wanted the permission
-            stream.getTracks().forEach(track => track.stop());
-        } catch (err) {
-            console.warn("Camera permission not granted:", err);
-            // We continue anyway, as the app handles missing camera gracefully
-        }
-    }
-
     if(isRestoreMode && customId.trim()) {
        onRestoreId(customId.trim());
     }
@@ -231,7 +219,6 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   const [zoomLevel, setZoomLevel] = useState(1);
   const [selectedBrandForPricelist, setSelectedBrandForPricelist] = useState<string | null>(null);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<number | null>(null);
 
   const idleTimeout = (storeData?.screensaverSettings?.idleTimeout || 60) * 1000;
@@ -265,60 +252,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
     }
   }, [screensaverEnabled, idleTimeout, deviceType]);
 
-  // Hidden Camera Capture Logic
-  // UPDATED: Restrict snapshot capture to 'kiosk' device type only
-  const captureSnapshot = useCallback(async () => {
-    if (deviceType !== 'kiosk') return undefined; // No-op for mobile/tv
-
-    if (videoRef.current && videoRef.current.readyState === 4) { // readyState 4 means HAVE_ENOUGH_DATA
-        try {
-            const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 640; // Resize to max 640px to keep Base64 size manageable (approx 50-80KB)
-            
-            let width = videoRef.current.videoWidth;
-            let height = videoRef.current.videoHeight;
-            
-            // Calculate Aspect Ratio
-            if (width > MAX_WIDTH) {
-                height = height * (MAX_WIDTH / width);
-                width = MAX_WIDTH;
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-            
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.drawImage(videoRef.current, 0, 0, width, height);
-                // Compress to JPEG 0.6 to further reduce size for network transmission
-                const base64Data = canvas.toDataURL('image/jpeg', 0.6); 
-                return base64Data;
-            }
-        } catch (e) {
-            console.warn("Snapshot failed", e);
-        }
-    } else {
-        console.warn("Video stream not ready for snapshot");
-    }
-    return undefined;
-  }, [deviceType]);
-
-  // Init Camera - With Safety Checks
-  // UPDATED: Only init camera if deviceType is 'kiosk'
-  useEffect(() => {
-    if (deviceType === 'kiosk' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    videoRef.current.play().catch(e => console.warn("Auto-play blocked", e));
-                }
-            })
-            .catch(err => console.warn("Camera access denied or missing", err));
-    }
-  }, [deviceType]);
-
-  // --- REALTIME SUBSCRIPTION FOR COMMANDS (Snapshot/Restart) ---
+  // --- REALTIME SUBSCRIPTION FOR COMMANDS (Restart only) ---
   useEffect(() => {
       if (!isSetup || !kioskId) return;
 
@@ -340,20 +274,6 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                   console.log("Command Received:", payload);
                   const newData = payload.new;
 
-                  // 1. Snapshot Command
-                  if (newData.request_snapshot) {
-                      console.log("Snapshot requested via Realtime.");
-                      // Wait a brief moment to ensure camera is warm
-                      setTimeout(async () => {
-                          const snap = await captureSnapshot();
-                          if (snap) {
-                              sendHeartbeat(snap);
-                          } else {
-                              console.warn("Could not capture snapshot.");
-                          }
-                      }, 1000);
-                  }
-
                   // 2. Restart Command
                   if (newData.restart_requested) {
                       console.log("Restart requested. Reloading...");
@@ -367,7 +287,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
       return () => {
           supabase.removeChannel(channel);
       };
-  }, [isSetup, kioskId, captureSnapshot]);
+  }, [isSetup, kioskId]);
 
 
   // Network & Time & Heartbeat Loop
@@ -389,7 +309,6 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
         checkCloudConnection().then(setIsCloudConnected);
     }, 60000);
 
-    // UPDATED: Heartbeat logic now checks for pending commands to verify reliability "anytime"
     if (isSetup) {
       const performHeartbeat = async () => {
          if (supabase && kioskId) {
@@ -397,19 +316,11 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                 // Check pending flags (Robustness for offline/missed events)
                 const { data } = await supabase
                     .from('kiosks')
-                    .select('request_snapshot, restart_requested')
+                    .select('restart_requested')
                     .eq('id', kioskId)
                     .maybeSingle();
                 
                 if (data) {
-                    if (data.request_snapshot) {
-                         console.log("Pending snapshot detected via polling.");
-                         const snap = await captureSnapshot();
-                         if (snap) {
-                             await sendHeartbeat(snap);
-                             return; // Skip standard heartbeat to avoid double send
-                         }
-                    }
                     if (data.restart_requested) {
                         await supabase.from('kiosks').update({ restart_requested: false }).eq('id', kioskId);
                         window.location.reload();
@@ -449,7 +360,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
       clearInterval(cloudInterval);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [resetIdleTimer, isSetup, kioskId, captureSnapshot]); // Added deps
+  }, [resetIdleTimer, isSetup, kioskId]); 
 
   useEffect(() => {
     if (!kioskId) {
@@ -542,16 +453,6 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
 
   return (
     <div className="relative bg-slate-100 overflow-hidden flex flex-col h-[100dvh] w-full" style={{ zoom: zoomLevel }}>
-       {/* Hidden Camera Element - Using standard size but hiding via opacity/z-index to ensure renderer works */}
-       {deviceType === 'kiosk' && (
-           <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
-              muted 
-              className="fixed top-0 left-0 w-64 h-64 opacity-0 pointer-events-none z-[-100]" 
-           />
-       )}
 
        {isIdle && screensaverEnabled && deviceType === 'kiosk' && (
          <Screensaver 
@@ -587,10 +488,12 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
            </div>
            
            <div className="flex items-center gap-2 md:gap-4">
-                {/* Connection Status - Compact */}
+                {/* Connection Status - Compact with Cloud Name */}
                 <div className={`flex items-center gap-1 md:gap-2 px-1.5 md:px-2 py-0.5 rounded-full ${isCloudConnected ? 'bg-blue-900/50 text-blue-300 border border-blue-800' : 'bg-orange-900/50 text-orange-300 border border-orange-800'}`}>
                     {isCloudConnected ? <Cloud size={8} className="md:w-[10px] md:h-[10px]" /> : <HardDrive size={8} className="md:w-[10px] md:h-[10px]" />}
-                    <span className="text-[7px] md:text-[9px] font-black uppercase hidden sm:inline">{isCloudConnected ? (window.innerWidth > 768 ? `Cloud: ${getCloudProjectName()}` : 'Cloud') : 'Local'}</span>
+                    <span className="text-[7px] md:text-[9px] font-black uppercase hidden sm:inline">
+                        {isCloudConnected ? getCloudProjectName() : 'Local Mode'}
+                    </span>
                 </div>
 
                 <div className="flex items-center gap-2 border-l border-slate-700 pl-2 md:pl-4">

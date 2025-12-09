@@ -166,7 +166,6 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
           version: '1.0.5',
           location_description: 'Newly Registered',
           assigned_zone: 'Unassigned',
-          request_snapshot: false,
           restart_requested: false
         };
 
@@ -219,8 +218,8 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
   return true;
 };
 
-// 7. Send Heartbeat (Now supports snapshot and writes to SQL Table)
-export const sendHeartbeat = async (snapshotBase64?: string) => {
+// 7. Send Heartbeat (No snapshot logic)
+export const sendHeartbeat = async () => {
   const id = getKioskId();
   const name = getShopName();
   const deviceType = getDeviceType();
@@ -253,17 +252,7 @@ export const sendHeartbeat = async (snapshotBase64?: string) => {
           ip_address: connection ? `${connection.effectiveType} | ${connection.downlink}Mbps` : 'Unknown',
       };
 
-      // 2. Handle Snapshot Response
-      if (snapshotBase64) {
-          console.log("Uploading Snapshot...");
-          payload.snapshot_url = snapshotBase64;
-          payload.request_snapshot = false; // Reset the flag since we are fulfilling it
-      }
-
-      // Upsert to SQL table (Partial update works with upsert in Supabase if all keys not present? 
-      // Upsert usually replaces. We should ideally use Update, but Upsert ensures existence.
-      // To be safe, we rely on the DB definition allowing nulls or we provide current vals if needed.
-      // But upsert is best for heartbeat.)
+      // Upsert to SQL table
       const { error } = await supabase.from('kiosks').upsert(payload, { onConflict: 'id' });
       
       if (error) console.warn("Heartbeat Error:", error.message);

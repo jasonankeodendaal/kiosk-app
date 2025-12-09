@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, ChevronLeft, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Calendar, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv, UserCog, Key, Move
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv, UserCog, Key, Move
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig, TVModel, AdminUser, AdminPermissions, Pricelist, PricelistBrand } from '../types';
 import { resetStoreData } from '../services/geminiService';
@@ -1109,7 +1109,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   const [editingKiosk, setEditingKiosk] = useState<KioskRegistry | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
-  const [viewingSnapshot, setViewingSnapshot] = useState<string | null>(null);
   const [selectedTVBrand, setSelectedTVBrand] = useState<TVBrand | null>(null);
   
   // NEW: State for editing TV Model
@@ -1216,13 +1215,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       if(confirm("Remove device from fleet? This cannot be undone.") && supabase) {
           await supabase.from('kiosks').delete().eq('id', id);
           onRefresh();
-      }
-  };
-
-  const requestSnapshot = async (id: string) => {
-      if(supabase) {
-          const { error } = await supabase.from('kiosks').update({ request_snapshot: true }).eq('id', id);
-          if(!error) alert("Snapshot requested. It will appear here shortly.");
       }
   };
 
@@ -1700,36 +1692,8 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                        </div>
                                    </div>
 
-                                   <div className="aspect-video bg-slate-900 relative flex items-center justify-center overflow-hidden">
-                                       {kiosk.snapshotUrl ? (
-                                           <>
-                                             <img src={kiosk.snapshotUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="Snapshot" />
-                                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                 <button onClick={() => setViewingSnapshot(kiosk.snapshotUrl)} className="bg-white text-slate-900 px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[8px] md:text-[10px] font-bold uppercase flex items-center gap-1 md:gap-2 hover:bg-blue-50">
-                                                     <Eye size={10} className="md:w-3 md:h-3" /> <span className="hidden md:inline">View Full</span>
-                                                 </button>
-                                             </div>
-                                           </>
-                                       ) : (
-                                           <div className="flex flex-col items-center text-slate-600">
-                                               <Camera size={14} className="mb-0 md:mb-1 opacity-50 md:w-5 md:h-5" />
-                                               <span className="text-[6px] md:text-[10px] font-bold uppercase tracking-wide">No Snap</span>
-                                           </div>
-                                       )}
-                                   </div>
-
                                    <div className="p-1 md:p-4 flex gap-1 md:gap-2 mt-auto">
-                                       {/* Only enable snapshot button if device type is Kiosk (technically backend ignores it, but UI feedback helps) */}
-                                       <button 
-                                          onClick={() => requestSnapshot(kiosk.id)} 
-                                          title={kiosk.deviceType === 'kiosk' ? "Request Camera Snapshot" : "Snapshots only available on Kiosk devices"} 
-                                          disabled={kiosk.deviceType !== 'kiosk' || kiosk.requestSnapshot}
-                                          className={`flex-1 py-1 md:py-2 rounded md:rounded-lg flex items-center justify-center gap-1 md:gap-2 text-[8px] md:text-[10px] font-bold uppercase border ${kiosk.requestSnapshot ? 'bg-yellow-50 text-yellow-600 border-yellow-200' : kiosk.deviceType === 'kiosk' ? 'bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-100' : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed opacity-50'}`}
-                                       >
-                                           {kiosk.requestSnapshot ? <Loader2 size={10} className="animate-spin md:w-3 md:h-3"/> : <Camera size={10} className="md:w-3 md:h-3"/>} 
-                                           <span className="hidden md:inline">{kiosk.requestSnapshot ? 'Pending...' : 'Snap'}</span>
-                                       </button>
-                                       <button onClick={() => setEditingKiosk(kiosk)} className="p-1 md:p-2 bg-slate-100 text-slate-600 rounded md:rounded-lg hover:bg-slate-200 border border-slate-200 flex items-center justify-center"><Edit2 size={10} className="md:w-3 md:h-3"/></button>
+                                       <button onClick={() => setEditingKiosk(kiosk)} className="p-1 md:p-2 bg-slate-100 text-slate-600 rounded md:rounded-lg hover:bg-slate-200 border border-slate-200 flex items-center justify-center flex-1"><Edit2 size={10} className="md:w-3 md:h-3"/></button>
                                        {supabase && <button onClick={async () => { if(confirm("Restart Device?")) await supabase.from('kiosks').update({restart_requested: true}).eq('id', kiosk.id); }} className="p-1 md:p-2 bg-orange-50 text-orange-600 rounded md:rounded-lg hover:bg-orange-100 border border-orange-100 flex items-center justify-center" title="Remote Restart"><Power size={10} className="md:w-3 md:h-3"/></button>}
                                        <button onClick={() => removeFleetMember(kiosk.id)} className="p-1 md:p-2 bg-red-50 text-red-600 rounded md:rounded-lg hover:bg-red-100 border border-red-100 flex items-center justify-center"><Trash2 size={10} className="md:w-3 md:h-3"/></button>
                                    </div>
@@ -1993,12 +1957,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
         
         {showGuide && <SetupGuide onClose={() => setShowGuide(false)} />}
         
-        {viewingSnapshot && (
-            <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4" onClick={() => setViewingSnapshot(null)}>
-                <img src={viewingSnapshot} className="max-w-full max-h-full rounded-xl shadow-2xl" />
-                <button className="absolute top-4 right-4 text-white p-2 bg-white/10 rounded-full"><X size={24}/></button>
-            </div>
-        )}
     </div>
   );
 };

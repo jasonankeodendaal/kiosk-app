@@ -154,8 +154,6 @@ export interface KioskRegistry {
   locationDescription?: string;
   assignedZone?: string;
   notes?: string;
-  snapshotUrl?: string; 
-  requestSnapshot?: boolean; 
   restartRequested?: boolean; 
 }
 

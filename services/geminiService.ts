@@ -298,8 +298,6 @@ const generateStoreData = async (): Promise<StoreData> => {
                   locationDescription: k.location_description,
                   assignedZone: k.assigned_zone,
                   notes: k.notes,
-                  snapshotUrl: k.snapshot_url,
-                  requestSnapshot: k.request_snapshot,
                   restartRequested: k.restart_requested
               }));
               processedData.fleet = mappedFleet;
