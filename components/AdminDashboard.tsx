@@ -24,21 +24,64 @@ const RIcon = (props: any) => (
 );
 
 // --- ZIP IMPORT/EXPORT UTILS ---
+
+// Helper: Determine extension from MIME type or URL
+const getExtension = (blob: Blob, url: string): string => {
+    if (blob.type === 'image/jpeg') return 'jpg';
+    if (blob.type === 'image/png') return 'png';
+    if (blob.type === 'image/webp') return 'webp';
+    if (blob.type === 'application/pdf') return 'pdf';
+    if (blob.type === 'video/mp4') return 'mp4';
+    if (blob.type === 'video/webm') return 'webm';
+    
+    // Fallback to URL extension
+    const match = url.match(/\.([0-9a-z]+)(?:[?#]|$)/i);
+    return match ? match[1] : 'dat';
+};
+
+const fetchAssetAndAddToZip = async (zipFolder: JSZip | null, url: string, filenameBase: string) => {
+    if (!zipFolder || !url) return;
+    try {
+        let blob: Blob;
+        
+        // Handle Base64 Data URLs
+        if (url.startsWith('data:')) {
+            const res = await fetch(url);
+            blob = await res.blob();
+        } else {
+            // Handle Remote URLs
+            const response = await fetch(url, { mode: 'cors', cache: 'no-cache' });
+            if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+            blob = await response.blob();
+        }
+
+        const ext = getExtension(blob, url);
+        zipFolder.file(`${filenameBase}.${ext}`, blob);
+    } catch (e) {
+        console.warn(`Failed to pack asset: ${url}`, e);
+        // Create a placeholder error file so user knows it failed
+        zipFolder.file(`${filenameBase}_FAILED.txt`, `Could not download: ${url}`);
+    }
+};
+
 const downloadZip = async (storeData: StoreData) => {
     const zip = new JSZip();
     
+    // UI Notification would be good here, but we are in a static function.
+    console.log("Starting Backup Process...");
+
     // 1. Structure: Brand -> Category -> Product
-    storeData.brands.forEach(brand => {
+    for (const brand of storeData.brands) {
         const brandFolder = zip.folder(brand.name.replace(/[^a-z0-9 ]/gi, '').trim() || 'Untitled Brand');
         
-        brand.categories.forEach(category => {
+        for (const category of brand.categories) {
             const catFolder = brandFolder?.folder(category.name.replace(/[^a-z0-9 ]/gi, '').trim() || 'Untitled Category');
             
-            category.products.forEach(product => {
+            for (const product of category.products) {
                 const prodFolder = catFolder?.folder(product.name.replace(/[^a-z0-9 ]/gi, '').trim() || 'Untitled Product');
                 
                 if (prodFolder) {
-                    // Create Metadata JSON
+                    // 1. Create Metadata JSON
                     const metadata = {
                         name: product.name,
                         sku: product.sku,
@@ -47,26 +90,56 @@ const downloadZip = async (storeData: StoreData) => {
                         features: product.features,
                         dimensions: product.dimensions,
                         terms: product.terms,
-                        boxContents: product.boxContents
+                        boxContents: product.boxContents,
+                        // We store original URLs in JSON as backup, 
+                        // but files will be alongside for the import to pick up.
+                        originalImageUrl: product.imageUrl, 
+                        originalVideoUrl: product.videoUrl
                     };
                     prodFolder.file("details.json", JSON.stringify(metadata, null, 2));
 
-                    // Note: We cannot easily fetch external images to blob due to CORS in browser unless they are proxied.
-                    // We will create a manifest of URLs instead if we can't fetch binaries.
-                    // For auto-population locally, users drop files IN. Exporting effectively is harder without a proxy.
-                    // We will just export the metadata structure so users can fill it.
-                    prodFolder.file("readme.txt", "Drop images (.jpg, .png) and manuals (.pdf) in this folder. The system will auto-detect them on import.");
+                    // 2. Fetch & Pack Main Image
+                    if (product.imageUrl) {
+                        await fetchAssetAndAddToZip(prodFolder, product.imageUrl, "cover");
+                    }
+
+                    // 3. Fetch & Pack Gallery Images
+                    if (product.galleryUrls) {
+                        for (let i = 0; i < product.galleryUrls.length; i++) {
+                            await fetchAssetAndAddToZip(prodFolder, product.galleryUrls[i], `gallery_${i}`);
+                        }
+                    }
+
+                    // 4. Fetch & Pack Videos (Legacy + New)
+                    const videos = [...(product.videoUrls || [])];
+                    if (product.videoUrl && !videos.includes(product.videoUrl)) videos.push(product.videoUrl);
+                    
+                    for (let i = 0; i < videos.length; i++) {
+                        await fetchAssetAndAddToZip(prodFolder, videos[i], `video_${i}`);
+                    }
+
+                    // 5. Fetch & Pack Manuals
+                    if (product.manuals) {
+                         for (let i = 0; i < product.manuals.length; i++) {
+                             const m = product.manuals[i];
+                             if (m.pdfUrl) {
+                                 // Clean title for filename
+                                 const safeTitle = m.title.replace(/[^a-z0-9]/gi, '_');
+                                 await fetchAssetAndAddToZip(prodFolder, m.pdfUrl, safeTitle || `manual_${i}`);
+                             }
+                         }
+                    }
                 }
-            });
-        });
-    });
+            }
+        }
+    }
 
     // Generate
     const content = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(content);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `kiosk-backup-${new Date().toISOString().split('T')[0]}.zip`;
+    a.download = `kiosk-full-backup-${new Date().toISOString().split('T')[0]}.zip`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -144,6 +217,7 @@ const importZip = async (file: File): Promise<Brand[]> => {
                 dimensions: [],
                 imageUrl: '',
                 galleryUrls: [],
+                videoUrls: [],
                 manuals: [],
                 dateAdded: new Date().toISOString()
             };
@@ -178,12 +252,17 @@ const importZip = async (file: File): Promise<Brand[]> => {
                  product.galleryUrls = [...(product.galleryUrls || []), b64];
              }
         }
+        // Handle Videos (NEW)
+        else if (lowerFile.endsWith('.mp4') || lowerFile.endsWith('.webm') || lowerFile.endsWith('.mov')) {
+            const b64 = await getBase64(fileObj);
+            product.videoUrls = [...(product.videoUrls || []), b64];
+        }
         // Handle PDF Manuals
         else if (lowerFile.endsWith('.pdf')) {
              const b64 = await getBase64(fileObj);
              product.manuals?.push({
                  id: generateId('man'),
-                 title: fileName.replace('.pdf', ''),
+                 title: fileName.replace('.pdf', '').replace(/_/g, ' '),
                  images: [], // No preview images generated automatically client-side easily
                  pdfUrl: b64,
                  thumbnailUrl: '' 
