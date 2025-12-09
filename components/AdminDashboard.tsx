@@ -1657,34 +1657,126 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             )}
             
             {activeTab === 'fleet' && (
-                <div className="animate-fade-in max-w-6xl mx-auto">
-                   <h2 className="text-2xl font-black text-slate-900 uppercase mb-6">Device Fleet</h2>
-                   <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-1.5 md:gap-6">
-                       {localData.fleet?.map(kiosk => {
-                           const isOnline = (new Date().getTime() - new Date(kiosk.last_seen).getTime()) < 350000;
-                           return (
-                               <div key={kiosk.id} className="bg-white rounded-lg md:rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:shadow-md transition-shadow">
-                                   <div className="p-1 md:p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start bg-slate-50/50 gap-0 md:gap-0">
-                                       <div>
-                                           <div className="flex items-center gap-0.5 md:gap-2 mb-0 md:mb-1">{kiosk.deviceType === 'mobile' ? <Smartphone size={10} className="text-purple-500 md:w-4 md:h-4"/> : kiosk.deviceType === 'tv' ? <Tv size={10} className="text-indigo-500 md:w-4 md:h-4" /> : <Tablet size={10} className="text-blue-500 md:w-4 md:h-4"/>}<span className="font-black text-slate-900 text-[8px] md:text-sm uppercase truncate max-w-[60px] md:max-w-none">{kiosk.name}</span></div>
-                                           <span className="text-[6px] md:text-[10px] font-mono text-slate-400 bg-white border border-slate-200 px-0.5 py-0 rounded hidden md:inline-block">{kiosk.id}</span>
-                                           <div className="flex items-center gap-1 mt-1 text-[8px] md:text-[10px] font-mono text-slate-500">
-                                               <Signal size={10} />
-                                               <span>{kiosk.ipAddress || 'Unknown Speed'}</span>
-                                           </div>
-                                       </div>
-                                       <div className={`flex items-center gap-0.5 md:gap-1 px-1 py-0.5 rounded-full text-[6px] md:text-[10px] font-bold uppercase border ${isOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}><div className={`w-1 h-1 md:w-1.5 md:h-1.5 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>{isOnline ? 'On' : 'Off'}</div>
-                                   </div>
-                                   <div className="p-1 md:p-4 flex gap-1 md:gap-2 mt-auto">
-                                       <button onClick={() => setEditingKiosk(kiosk)} className="p-1 md:p-2 bg-slate-100 text-slate-600 rounded md:rounded-lg hover:bg-slate-200 border border-slate-200 flex items-center justify-center flex-1"><Edit2 size={10} className="md:w-3 md:h-3"/></button>
-                                       {supabase && <button onClick={async () => { if(confirm("Restart Device?")) await supabase.from('kiosks').update({restart_requested: true}).eq('id', kiosk.id); }} className="p-1 md:p-2 bg-orange-50 text-orange-600 rounded md:rounded-lg hover:bg-orange-100 border border-orange-100 flex items-center justify-center" title="Remote Restart"><Power size={10} className="md:w-3 md:h-3"/></button>}
-                                       <button onClick={() => removeFleetMember(kiosk.id)} className="p-1 md:p-2 bg-red-50 text-red-600 rounded md:rounded-lg hover:bg-red-100 border border-red-100 flex items-center justify-center"><Trash2 size={10} className="md:w-3 md:h-3"/></button>
-                                   </div>
-                               </div>
-                           );
-                       })}
+                <div className="animate-fade-in max-w-6xl mx-auto pb-24">
+                   <div className="flex items-center justify-between mb-8">
+                       <h2 className="text-2xl font-black text-slate-900 uppercase">Device Fleet</h2>
+                       <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-xs font-bold text-slate-500">
+                           Total Devices: {localData.fleet?.length || 0}
+                       </div>
                    </div>
-                   {localData.fleet?.length === 0 && <div className="p-12 text-center text-slate-400 font-bold uppercase text-xs border-2 border-dashed border-slate-200 rounded-2xl">No devices registered in fleet</div>}
+
+                   {/* Device Categories Loop */}
+                   {['kiosk', 'mobile', 'tv'].map((type) => {
+                       // Filter devices for this category
+                       // Default undefined deviceType to 'kiosk' for legacy compatibility
+                       const devices = localData.fleet?.filter(k => 
+                           k.deviceType === type || (type === 'kiosk' && !k.deviceType)
+                       ) || [];
+
+                       if (devices.length === 0) return null;
+
+                       // Config for Section Header
+                       const config = {
+                           kiosk: { label: 'Interactive Kiosks', icon: <Tablet size={20} className="text-blue-600" />, color: 'blue' },
+                           mobile: { label: 'Mobile Handhelds', icon: <Smartphone size={20} className="text-purple-600" />, color: 'purple' },
+                           tv: { label: 'TV Displays', icon: <Tv size={20} className="text-indigo-600" />, color: 'indigo' }
+                       }[type as 'kiosk' | 'mobile' | 'tv'];
+
+                       return (
+                           <div key={type} className="mb-10 last:mb-0">
+                               <div className="flex items-center gap-3 mb-4 border-b border-slate-200 pb-2">
+                                   <div className={`p-2 rounded-lg bg-${config.color}-50`}>
+                                       {config.icon}
+                                   </div>
+                                   <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">{config.label}</h3>
+                                   <span className="ml-auto text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-full border border-slate-200">
+                                       {devices.length} Devices
+                                   </span>
+                               </div>
+
+                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                   {devices.map(kiosk => {
+                                       const isOnline = (new Date().getTime() - new Date(kiosk.last_seen).getTime()) < 350000;
+                                       return (
+                                           <div key={kiosk.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:shadow-lg transition-all duration-300">
+                                               {/* Card Header */}
+                                               <div className="p-4 border-b border-slate-100 bg-slate-50/30 flex justify-between items-start">
+                                                   <div>
+                                                       <div className="flex items-center gap-2 mb-1">
+                                                           {type === 'kiosk' && <Tablet size={14} className="text-blue-500"/>}
+                                                           {type === 'mobile' && <Smartphone size={14} className="text-purple-500"/>}
+                                                           {type === 'tv' && <Tv size={14} className="text-indigo-500"/>}
+                                                           <h4 className="font-bold text-slate-900 uppercase text-sm truncate max-w-[140px]" title={kiosk.name}>
+                                                               {kiosk.name}
+                                                           </h4>
+                                                       </div>
+                                                       <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400">
+                                                            <span>ID: {kiosk.id}</span>
+                                                       </div>
+                                                   </div>
+                                                   <div className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border flex items-center gap-1.5 ${isOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                                       <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                                                       {isOnline ? 'Online' : 'Offline'}
+                                                   </div>
+                                               </div>
+                                               
+                                               {/* Card Body */}
+                                               <div className="p-4 flex-1">
+                                                   <div className="flex justify-between items-center text-xs mb-3">
+                                                       <span className="text-slate-400 font-bold uppercase text-[10px]">Zone</span>
+                                                       <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                                           {kiosk.assignedZone || 'Unassigned'}
+                                                       </span>
+                                                   </div>
+                                                   <div className="flex justify-between items-center text-xs">
+                                                       <span className="text-slate-400 font-bold uppercase text-[10px]">IP / Net</span>
+                                                       <span className="font-mono text-slate-500 text-[10px] flex items-center gap-1">
+                                                           <Signal size={10} /> {kiosk.ipAddress || 'Unknown'}
+                                                       </span>
+                                                   </div>
+                                               </div>
+
+                                               {/* Card Footer (Actions) */}
+                                               <div className="bg-slate-50 p-2 border-t border-slate-100 flex gap-2">
+                                                   <button 
+                                                       onClick={() => setEditingKiosk(kiosk)} 
+                                                       className="flex-1 py-2 bg-white text-slate-600 rounded-lg border border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-sm transition-all text-[10px] font-bold uppercase flex items-center justify-center gap-1.5"
+                                                   >
+                                                       <Edit2 size={12}/> Edit
+                                                   </button>
+                                                   
+                                                   {supabase && (
+                                                       <button 
+                                                           onClick={async () => { if(confirm("Restart Device?")) await supabase.from('kiosks').update({restart_requested: true}).eq('id', kiosk.id); }} 
+                                                           className="flex-1 py-2 bg-white text-orange-600 rounded-lg border border-slate-200 hover:border-orange-300 hover:bg-orange-50 hover:shadow-sm transition-all text-[10px] font-bold uppercase flex items-center justify-center gap-1.5" 
+                                                           title="Restart Device"
+                                                       >
+                                                           <Power size={12}/> Restart
+                                                       </button>
+                                                   )}
+                                                   
+                                                   <button 
+                                                       onClick={() => removeFleetMember(kiosk.id)} 
+                                                       className="w-10 py-2 bg-white text-red-500 rounded-lg border border-slate-200 hover:border-red-300 hover:bg-red-50 hover:shadow-sm transition-all flex items-center justify-center" 
+                                                       title="Remove Device"
+                                                   >
+                                                       <Trash2 size={12}/>
+                                                   </button>
+                                               </div>
+                                           </div>
+                                       );
+                                   })}
+                               </div>
+                           </div>
+                       );
+                   })}
+                   
+                   {localData.fleet?.length === 0 && (
+                       <div className="p-16 text-center text-slate-400 font-bold uppercase text-xs border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50 flex flex-col items-center gap-4">
+                           <Tablet size={48} className="opacity-20" />
+                           <div>No devices registered in fleet</div>
+                       </div>
+                   )}
                 </div>
             )}
             
