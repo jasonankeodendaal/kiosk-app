@@ -289,7 +289,7 @@ const generateStoreData = async (): Promise<StoreData> => {
               const mappedFleet: KioskRegistry[] = fleetResponse.data.map((k: any) => ({
                   id: k.id,
                   name: k.name,
-                  device_type: k.device_type,
+                  deviceType: k.device_type, // Fixed Mapping: snake_case to camelCase
                   status: k.status,
                   last_seen: k.last_seen,
                   wifiStrength: k.wifi_strength,
