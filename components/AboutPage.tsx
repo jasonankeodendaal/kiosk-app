@@ -1,6 +1,7 @@
-import React, { useRef, useState } from 'react';
+
+import React, { useRef, useState, useEffect } from 'react';
 import { StoreData } from '../types';
-import { ArrowLeft, Play, Pause, AudioLines, Info, Share2, Check, Headphones, Globe, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Play, Pause, AudioLines, Info, Share2, Check, Headphones, Globe, MessageSquare, Loader2 } from 'lucide-react';
 
 interface AboutPageProps {
   storeData: StoreData;
@@ -10,6 +11,7 @@ interface AboutPageProps {
 const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [audioLoaded, setAudioLoaded] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const toggleAudio = () => {
@@ -69,7 +71,7 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
                   className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 md:px-6 md:py-3 rounded-xl font-bold uppercase text-xs tracking-widest transition-all shadow-lg hover:shadow-blue-900/50"
                >
                    {copied ? <Check size={16} /> : <Share2 size={16} />}
-                   <span>{copied ? 'Link Copied' : 'Share'}</span>
+                   <span>{copied ? 'Link Copied' : 'Share Page'}</span>
                </button>
            </div>
        </header>
@@ -81,28 +83,40 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
                <div className="md:col-span-5 lg:col-span-4 flex flex-col gap-6">
                    {/* Audio Player Card */}
                    {storeData.about?.audioUrl ? (
-                       <div className="bg-slate-900 text-white rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden group border border-slate-800">
+                       <div className="bg-slate-900 text-white rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden group border border-slate-800 transition-all duration-500">
                             {/* Decorative Background */}
                             <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 to-purple-900/20 z-0"></div>
                             
-                            {/* Explicit Share Button for Audio Card with Text */}
-                            <button 
-                                onClick={handleShare}
-                                className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/10 z-20 text-xs font-bold uppercase tracking-wide"
-                                title="Share Audio Page"
-                            >
-                                <Share2 size={14} /> Share
-                            </button>
-                            
-                            <div className="relative z-10 flex flex-col items-center text-center">
+                            {/* Explicit Share Button for Audio Card - Appears ONLY after load */}
+                            <div className={`absolute top-4 right-4 z-20 transition-all duration-500 ${audioLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
                                 <button 
-                                    onClick={toggleAudio}
-                                    className={`w-20 h-20 md:w-24 md:h-24 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:scale-110 transition-transform mb-6 ${isPlaying ? 'scale-105 ring-4 ring-white/20' : ''}`}
+                                    onClick={handleShare}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-full transition-all shadow-lg border border-white/10 text-[10px] font-black uppercase tracking-wide"
+                                    title="Share Audio Page"
                                 >
-                                    {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
+                                    <Share2 size={12} /> Share Audio
                                 </button>
+                            </div>
+                            
+                            <div className="relative z-10 flex flex-col items-center text-center pt-4">
+                                <div className="relative mb-6">
+                                    <button 
+                                        onClick={toggleAudio}
+                                        disabled={!audioLoaded}
+                                        className={`w-20 h-20 md:w-24 md:h-24 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.15)] transition-all duration-300 ${!audioLoaded ? 'opacity-50 cursor-wait' : 'hover:scale-110 cursor-pointer'} ${isPlaying ? 'scale-105 ring-4 ring-white/20' : ''}`}
+                                    >
+                                        {!audioLoaded ? (
+                                            <Loader2 size={32} className="animate-spin text-slate-400" />
+                                        ) : isPlaying ? (
+                                            <Pause size={32} fill="currentColor" />
+                                        ) : (
+                                            <Play size={32} fill="currentColor" className="ml-1" />
+                                        )}
+                                    </button>
+                                    {!audioLoaded && <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-400 whitespace-nowrap uppercase tracking-wider animate-pulse">Loading Audio...</div>}
+                                </div>
                                 
-                                <div className="space-y-2">
+                                <div className="space-y-2 mt-2">
                                     <h2 className="text-xl md:text-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2">
                                         <Headphones size={24} className="text-blue-400" /> Audio Guide
                                     </h2>
@@ -125,7 +139,16 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
                                      ))}
                                 </div>
                             </div>
-                            <audio ref={audioRef} src={storeData.about.audioUrl} onEnded={() => setIsPlaying(false)} className="hidden" />
+                            <audio 
+                                ref={audioRef} 
+                                src={storeData.about.audioUrl} 
+                                onEnded={() => setIsPlaying(false)} 
+                                onCanPlayThrough={() => setAudioLoaded(true)}
+                                onLoadedMetadata={() => setAudioLoaded(true)}
+                                onError={(e) => console.error("Audio Load Error", e)}
+                                preload="auto"
+                                className="hidden" 
+                            />
                        </div>
                    ) : (
                        <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center flex flex-col items-center justify-center text-slate-400 min-h-[200px]">
@@ -141,7 +164,9 @@ const AboutPage: React.FC<AboutPageProps> = ({ storeData, onBack }) => {
                                <Globe size={20} />
                            </div>
                            <span className="text-[10px] font-black uppercase text-slate-400 mb-1">Website</span>
-                           <span className="text-xs font-bold text-slate-800 truncate w-full">kioskpro.com</span>
+                           <a href={storeData.hero?.websiteUrl || '#'} target="_blank" rel="noreferrer" className="text-xs font-bold text-slate-800 truncate w-full hover:text-blue-600">
+                               {storeData.hero?.websiteUrl ? new URL(storeData.hero.websiteUrl).hostname : 'kioskpro.com'}
+                           </a>
                        </div>
                        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center text-center">
                            <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-2">

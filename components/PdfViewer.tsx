@@ -48,19 +48,21 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
             loadingTaskRef.current.destroy().catch(() => {});
         }
 
-        // Using safe pdfjs reference with optimization options
+        // Optimized Loading Configuration for Speed
         const loadingTask = pdfjs.getDocument({
             url,
-            // Configuring cMapUrl significantly speeds up rendering by using CDN for font maps
-            // instead of failing/timing out on local resolution
             cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
             cMapPacked: true,
+            disableRange: false, // Allow range requests for faster partial loading
+            disableStream: false, // Allow streaming
+            disableAutoFetch: false, // Auto fetch is good for small docs, consider true for massive ones but false is generally snappier for first page
         });
         
         loadingTaskRef.current = loadingTask;
+        
+        // Load document
         const doc = await loadingTask.promise;
         
-        // Only update state if this is still the active request
         if (loadingTaskRef.current === loadingTask) {
             setPdf(doc);
             setLoading(false);
@@ -75,7 +77,6 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
     };
     loadPdf();
 
-    // Cleanup on unmount
     return () => {
         if (loadingTaskRef.current) {
             loadingTaskRef.current.destroy().catch(() => {});
@@ -98,30 +99,24 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
         // --- AUTO-FIT LOGIC ---
         let renderScale = scale;
         
-        // If scale is 0, we calculate the "shrink to fit" scale
         if (renderScale <= 0) {
             const viewportUnscaled = page.getViewport({ scale: 1.0 });
-            // Get container dimensions with padding deduction (accounting for safe area)
             const containerWidth = containerRef.current.clientWidth - 40; 
             const containerHeight = containerRef.current.clientHeight - 40;
             
-            // Calculate scale to fit width and height
             const scaleX = containerWidth / viewportUnscaled.width;
             const scaleY = containerHeight / viewportUnscaled.height;
             
-            // Choose the smaller scale to ensure full page fits
             renderScale = Math.min(scaleX, scaleY);
             
-            // Update state so the controls reflect the new scale
-            // This will trigger a re-render, effectively processing the 'else' block below next time
-            setScale(renderScale);
-            return; 
+            // Just render immediately with calculated scale, don't trigger re-effect loop
+            // We set state after render start to update UI controls
+            if (scale === 0) setScale(renderScale); 
         }
 
         // --- HIGH QUALITY RENDER LOGIC ---
-        // Adjust for device pixel ratio (Retina displays etc)
         const outputScale = window.devicePixelRatio || 1;
-        const viewport = page.getViewport({ scale: renderScale });
+        const viewport = page.getViewport({ scale: renderScale || 1.0 }); // Fallback
         
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
@@ -129,8 +124,6 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
         if (context) {
             canvas.width = Math.floor(viewport.width * outputScale);
             canvas.height = Math.floor(viewport.height * outputScale);
-            
-            // Scale content back down visually in CSS to fit
             canvas.style.width = Math.floor(viewport.width) + "px";
             canvas.style.height = Math.floor(viewport.height) + "px";
 
@@ -166,12 +159,10 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
       }
   };
 
-  // Zoom Helpers
   const handleZoomIn = () => setScale(prev => Math.min(5.0, prev * 1.25));
   const handleZoomOut = () => setScale(prev => Math.max(0.25, prev / 1.25));
   const handleFit = () => setScale(0);
 
-  // Mouse Drag Handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || !containerRef.current) return;
     setIsDragging(true);
@@ -233,7 +224,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
           {loading && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-10 pointer-events-none">
                   <Loader2 size={48} className="animate-spin mb-4 text-blue-500" />
-                  <span className="font-bold uppercase tracking-widest text-sm animate-pulse">Loading Document...</span>
+                  <span className="font-bold uppercase tracking-widest text-sm animate-pulse">Initializing Document...</span>
               </div>
           )}
 
