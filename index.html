@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -120,6 +119,28 @@
       }
       .animate-float {
         animation: float 6s ease-in-out infinite;
+      }
+
+      /* ROTATION LOCK ENFORCEMENT for Browsers that ignore Manifest */
+      /* Only apply if the 'allow-landscape' class is NOT present on body */
+      @media screen and (orientation: landscape) and (max-width: 1024px) {
+        body:not(.allow-landscape)::after {
+          content: "Please rotate your device to Portrait mode.";
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: #0f172a;
+          color: white;
+          z-index: 99999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          font-size: 1.5rem;
+          text-align: center;
+          padding: 20px;
+        }
       }
     </style>
   <script type="importmap">

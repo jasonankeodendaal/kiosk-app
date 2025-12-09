@@ -4,12 +4,13 @@ import React, { useState, useEffect } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, ChevronLeft, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv, UserCog, Key, Move
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv, UserCog, Key, Move, FileInput
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig, TVModel, AdminUser, AdminPermissions, Pricelist, PricelistBrand } from '../types';
 import { resetStoreData } from '../services/geminiService';
 import { uploadFileToStorage, supabase, checkCloudConnection } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
+import JSZip from 'jszip';
 
 const generateId = (prefix: string) => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -21,6 +22,178 @@ const RIcon = (props: any) => (
     <path d="M11.5 14L17 19" />
   </svg>
 );
+
+// --- ZIP IMPORT/EXPORT UTILS ---
+const downloadZip = async (storeData: StoreData) => {
+    const zip = new JSZip();
+    
+    // 1. Structure: Brand -> Category -> Product
+    storeData.brands.forEach(brand => {
+        const brandFolder = zip.folder(brand.name.replace(/[^a-z0-9 ]/gi, '').trim() || 'Untitled Brand');
+        
+        brand.categories.forEach(category => {
+            const catFolder = brandFolder?.folder(category.name.replace(/[^a-z0-9 ]/gi, '').trim() || 'Untitled Category');
+            
+            category.products.forEach(product => {
+                const prodFolder = catFolder?.folder(product.name.replace(/[^a-z0-9 ]/gi, '').trim() || 'Untitled Product');
+                
+                if (prodFolder) {
+                    // Create Metadata JSON
+                    const metadata = {
+                        name: product.name,
+                        sku: product.sku,
+                        description: product.description,
+                        specs: product.specs,
+                        features: product.features,
+                        dimensions: product.dimensions,
+                        terms: product.terms,
+                        boxContents: product.boxContents
+                    };
+                    prodFolder.file("details.json", JSON.stringify(metadata, null, 2));
+
+                    // Note: We cannot easily fetch external images to blob due to CORS in browser unless they are proxied.
+                    // We will create a manifest of URLs instead if we can't fetch binaries.
+                    // For auto-population locally, users drop files IN. Exporting effectively is harder without a proxy.
+                    // We will just export the metadata structure so users can fill it.
+                    prodFolder.file("readme.txt", "Drop images (.jpg, .png) and manuals (.pdf) in this folder. The system will auto-detect them on import.");
+                }
+            });
+        });
+    });
+
+    // Generate
+    const content = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kiosk-backup-${new Date().toISOString().split('T')[0]}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+const importZip = async (file: File): Promise<Brand[]> => {
+    const zip = new JSZip();
+    const loadedZip = await zip.loadAsync(file);
+    
+    const newBrands: Record<string, Brand> = {};
+    
+    // Helper to get Base64 from ZipObj
+    const getBase64 = async (zipObj: any): Promise<string> => {
+        const blob = await zipObj.async("blob");
+        return new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+        });
+    };
+
+    // Iterate files
+    const filePaths = Object.keys(loadedZip.files);
+    
+    for (const path of filePaths) {
+        const fileObj = loadedZip.files[path];
+        if (fileObj.dir) continue;
+        if (path.includes('__MACOSX') || path.includes('.DS_Store')) continue;
+
+        // Path should be: Brand/Category/Product/File.ext
+        const parts = path.split('/');
+        
+        // Ensure strictly structured depth
+        if (parts.length < 3) continue;
+
+        const brandName = parts[0];
+        const categoryName = parts[1];
+        const productName = parts[2];
+        const fileName = parts.slice(3).join('/'); // In case of subfolders inside product (e.g. gallery)
+
+        // Init Brand
+        if (!newBrands[brandName]) {
+            newBrands[brandName] = {
+                id: generateId('brand'),
+                name: brandName,
+                categories: []
+            };
+        }
+
+        // Init Category
+        let category = newBrands[brandName].categories.find(c => c.name === categoryName);
+        if (!category) {
+            category = {
+                id: generateId('cat'),
+                name: categoryName,
+                icon: 'Box',
+                products: []
+            };
+            newBrands[brandName].categories.push(category);
+        }
+
+        // Init Product (We use folder name as initial product name)
+        // If file is directly in category folder (length 3), skip or handle as generic asset
+        if (parts.length === 3) continue; // Must be inside a product folder
+
+        let product = category.products.find(p => p.name === productName);
+        if (!product) {
+            product = {
+                id: generateId('prod'),
+                name: productName, // Default name from folder
+                description: '',
+                specs: {},
+                features: [],
+                dimensions: [],
+                imageUrl: '',
+                galleryUrls: [],
+                manuals: [],
+                dateAdded: new Date().toISOString()
+            };
+            category.products.push(product);
+        }
+
+        const lowerFile = fileName.toLowerCase();
+        
+        // Handle Details JSON/TXT
+        if (fileName.endsWith('.json') && fileName.includes('details')) {
+             try {
+                 const text = await fileObj.async("text");
+                 const meta = JSON.parse(text);
+                 // Merge metadata
+                 if (meta.name) product.name = meta.name;
+                 if (meta.description) product.description = meta.description;
+                 if (meta.sku) product.sku = meta.sku;
+                 if (meta.specs) product.specs = meta.specs;
+                 if (meta.features) product.features = meta.features;
+                 if (meta.dimensions) product.dimensions = meta.dimensions;
+                 if (meta.boxContents) product.boxContents = meta.boxContents;
+                 if (meta.terms) product.terms = meta.terms;
+             } catch(e) { console.warn("Failed to parse JSON for " + productName); }
+        }
+        // Handle Images
+        else if (lowerFile.endsWith('.jpg') || lowerFile.endsWith('.jpeg') || lowerFile.endsWith('.png') || lowerFile.endsWith('.webp')) {
+             const b64 = await getBase64(fileObj);
+             // Heuristic: If it's named 'cover' or 'main' or it's the first image found and no image set
+             if (lowerFile.includes('cover') || lowerFile.includes('main') || !product.imageUrl) {
+                 product.imageUrl = b64;
+             } else {
+                 product.galleryUrls = [...(product.galleryUrls || []), b64];
+             }
+        }
+        // Handle PDF Manuals
+        else if (lowerFile.endsWith('.pdf')) {
+             const b64 = await getBase64(fileObj);
+             product.manuals?.push({
+                 id: generateId('man'),
+                 title: fileName.replace('.pdf', ''),
+                 images: [], // No preview images generated automatically client-side easily
+                 pdfUrl: b64,
+                 thumbnailUrl: '' 
+             });
+        }
+    }
+
+    return Object.values(newBrands);
+};
+
 
 // Updated Auth Component with Name/PIN and Admin validation
 const Auth = ({ admins, onLogin }: { admins: AdminUser[], onLogin: (user: AdminUser) => void }) => {
@@ -176,14 +349,14 @@ const InputField = ({ label, val, onChange, placeholder, isArea = false, half = 
     </div>
 );
 
+// ... [CatalogueManager, MoveProductModal, PricelistManager, ProductEditor, KioskEditorModal, TVModelEditor, AdminManager components remain unchanged] ...
 const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalogue[], onSave: (c: Catalogue[]) => void, brandId?: string }) => {
     const [localList, setLocalList] = useState(catalogues || []);
     useEffect(() => setLocalList(catalogues || []), [catalogues]);
 
-    // Local update wrapper
     const handleUpdate = (newList: Catalogue[]) => {
         setLocalList(newList);
-        onSave(newList); // Propagate up to AdminDashboard local state
+        onSave(newList); 
     };
 
     const addCatalogue = () => {
@@ -305,7 +478,6 @@ const MoveProductModal = ({
                      value={targetBrandId} 
                      onChange={(e) => {
                          setTargetBrandId(e.target.value);
-                         // Reset category when brand changes
                          const newBrand = allBrands.find(b => b.id === e.target.value);
                          if (newBrand && newBrand.categories.length > 0) {
                              setTargetCategoryId(newBrand.categories[0].id);
@@ -351,7 +523,6 @@ const MoveProductModal = ({
   );
 };
 
-// REFACTORED: Now manages Independent Pricelist Brands
 const PricelistManager = ({ 
     pricelists, 
     pricelistBrands, 
@@ -363,10 +534,8 @@ const PricelistManager = ({
     onSavePricelists: (p: Pricelist[]) => void,
     onSaveBrands: (b: PricelistBrand[]) => void
 }) => {
-    // We select a brand to manage its pricelists
     const [selectedBrand, setSelectedBrand] = useState<PricelistBrand | null>(pricelistBrands.length > 0 ? pricelistBrands[0] : null);
     
-    // Sync if selected brand gets deleted externally
     useEffect(() => {
         if (selectedBrand && !pricelistBrands.find(b => b.id === selectedBrand.id)) {
             setSelectedBrand(pricelistBrands.length > 0 ? pricelistBrands[0] : null);
@@ -375,20 +544,15 @@ const PricelistManager = ({
 
     const filteredLists = selectedBrand ? pricelists.filter(p => p.brandId === selectedBrand.id) : [];
 
-    const months = [
-        "January", "February", "March", "April", "May", "June", 
-        "July", "August", "September", "October", "November", "December"
-    ];
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
     const sortedLists = [...filteredLists].sort((a, b) => {
         const yearA = parseInt(a.year) || 0;
         const yearB = parseInt(b.year) || 0;
         if (yearA !== yearB) return yearB - yearA;
-        
         return months.indexOf(b.month) - months.indexOf(a.month);
     });
 
-    // --- BRAND LOGIC ---
     const addBrand = () => {
         const name = prompt("Enter Brand Name for Pricelists:");
         if (!name) return;
@@ -412,12 +576,9 @@ const PricelistManager = ({
     const deleteBrand = (id: string) => {
         if (confirm("Delete this brand? This will also hide associated pricelists.")) {
             onSaveBrands(pricelistBrands.filter(b => b.id !== id));
-            // Also optional: cleanup pricelists with this brand ID? 
-            // For now, we keep them in DB but they are orphaned.
         }
     };
 
-    // --- PRICELIST PDF LOGIC ---
     const addPricelist = () => {
         if (!selectedBrand) return;
         const newItem: Pricelist = {
@@ -443,8 +604,6 @@ const PricelistManager = ({
 
     return (
         <div className="max-w-7xl mx-auto animate-fade-in flex flex-col md:flex-row gap-6 h-[calc(100vh-140px)]">
-             
-             {/* LEFT COLUMN: BRAND MANAGEMENT */}
              <div className="w-full md:w-1/3 flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                  <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                      <div>
@@ -455,7 +614,6 @@ const PricelistManager = ({
                         <Plus size={12} /> Add
                      </button>
                  </div>
-                 
                  <div className="flex-1 overflow-y-auto p-2 space-y-2">
                      {pricelistBrands.map(brand => (
                          <div 
@@ -476,8 +634,6 @@ const PricelistManager = ({
                                      <div className="text-[10px] text-slate-400 font-mono truncate">{pricelists.filter(p => p.brandId === brand.id).length} Pricelists</div>
                                  </div>
                              </div>
-
-                             {/* Inline Edit Controls for Active Brand */}
                              {selectedBrand?.id === brand.id && (
                                  <div className="mt-3 pt-3 border-t border-slate-200/50 space-y-2" onClick={e => e.stopPropagation()}>
                                      <input 
@@ -508,8 +664,6 @@ const PricelistManager = ({
                      )}
                  </div>
              </div>
-
-             {/* RIGHT COLUMN: PDF LIST FOR SELECTED BRAND */}
              <div className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col shadow-inner">
                  <div className="flex justify-between items-center mb-6 shrink-0">
                      <h3 className="font-bold text-slate-700 uppercase text-xs tracking-wider">
@@ -523,7 +677,6 @@ const PricelistManager = ({
                         <Plus size={14} /> Add Pricelist
                     </button>
                  </div>
-
                  <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 content-start">
                      {sortedLists.map((item) => (
                          <div key={item.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col p-4 gap-3 h-fit">
@@ -536,7 +689,6 @@ const PricelistManager = ({
                                      placeholder="e.g. Retail Price List"
                                  />
                              </div>
-
                              <div className="grid grid-cols-2 gap-2">
                                  <div>
                                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Month</label>
@@ -558,7 +710,6 @@ const PricelistManager = ({
                                      />
                                  </div>
                              </div>
-
                              <div className="mt-2 grid grid-cols-2 gap-2">
                                 <FileUpload 
                                     label="Thumbnail" 
@@ -574,7 +725,6 @@ const PricelistManager = ({
                                     onUpload={(url: any) => updatePricelist(item.id, { url: url })} 
                                 />
                              </div>
-
                              <button 
                                 onClick={() => deletePricelist(item.id)}
                                 className="mt-auto pt-3 border-t border-slate-100 text-red-500 hover:text-red-600 text-[10px] font-bold uppercase flex items-center justify-center gap-1"
@@ -595,7 +745,6 @@ const PricelistManager = ({
 };
 
 const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave: (p: Product) => void, onCancel: () => void }) => {
-    // Migrate legacy data on init (single video -> multiple array, single manual -> multiple manuals)
     const [draft, setDraft] = useState<Product>({ 
         ...product, 
         dimensions: Array.isArray(product.dimensions) 
@@ -608,7 +757,7 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
             images: product.manualImages || [],
             pdfUrl: product.manualUrl
         }] : []),
-        dateAdded: product.dateAdded || new Date().toISOString() // Ensure date added exists
+        dateAdded: product.dateAdded || new Date().toISOString()
     });
     const [newFeature, setNewFeature] = useState('');
     const [newBoxItem, setNewBoxItem] = useState('');
@@ -840,7 +989,6 @@ const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave
     );
 };
 
-// ... existing KioskEditorModal, TVModelEditor, AdminManager ...
 const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, onSave: (k: KioskRegistry) => void, onClose: () => void }) => {
     const [draft, setDraft] = useState({ ...kiosk });
     return (
@@ -999,10 +1147,8 @@ const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], 
         let updatedList = [...admins];
 
         if (editingId) {
-            // Edit existing
             updatedList = updatedList.map(a => a.id === editingId ? { ...a, name: newName, pin: newPin, permissions: newPermissions } : a);
         } else {
-            // Add new
             updatedList.push({
                 id: generateId('adm'),
                 name: newName,
@@ -1023,10 +1169,6 @@ const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], 
     };
 
     const startEdit = (admin: AdminUser) => {
-        if (admin.isSuperAdmin) {
-            // Limited editing for super admin (mostly just pin/name, though usually safe to block deleting)
-            // But let's allow editing name/pin
-        }
         setEditingId(admin.id);
         setNewName(admin.name);
         setNewPin(admin.pin);
@@ -1036,7 +1178,6 @@ const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], 
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Form Side */}
                 <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
                     <h4 className="font-bold text-slate-900 uppercase text-xs mb-4">{editingId ? 'Edit Admin' : 'Add New Admin'}</h4>
                     <div className="space-y-4">
@@ -1053,7 +1194,7 @@ const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], 
                                             checked={(newPermissions as any)[key]} 
                                             onChange={(e) => setNewPermissions({...newPermissions, [key]: e.target.checked})}
                                             className="w-4 h-4 text-blue-600 rounded"
-                                            disabled={editingId && admins.find(a => a.id === editingId)?.isSuperAdmin} // Prevent removing perms from super admin
+                                            disabled={editingId && admins.find(a => a.id === editingId)?.isSuperAdmin}
                                         />
                                         <span className="text-xs font-bold uppercase text-slate-700">{key}</span>
                                     </label>
@@ -1070,7 +1211,6 @@ const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], 
                     </div>
                 </div>
 
-                {/* List Side */}
                 <div className="space-y-3">
                     {admins.map(admin => (
                         <div key={admin.id} className={`p-4 rounded-xl border flex justify-between items-center ${editingId === admin.id ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-300' : 'bg-white border-slate-200'}`}>
@@ -1098,27 +1238,22 @@ const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], 
 export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh: () => void }) => {
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
   
-  // Set default tab based on first available permission
   const [activeTab, setActiveTab] = useState<string>('inventory');
-
   const [activeSubTab, setActiveSubTab] = useState<string>('brands'); 
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [movingProduct, setMovingProduct] = useState<Product | null>(null); // New for moving logic
+  const [movingProduct, setMovingProduct] = useState<Product | null>(null);
   const [editingKiosk, setEditingKiosk] = useState<KioskRegistry | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [selectedTVBrand, setSelectedTVBrand] = useState<TVBrand | null>(null);
-  
-  // NEW: State for editing TV Model
   const [editingTVModel, setEditingTVModel] = useState<TVModel | null>(null);
   
-  // GLOBAL LOCAL STATE (BUFFER)
   const [localData, setLocalData] = useState<StoreData | null>(storeData);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [importProcessing, setImportProcessing] = useState(false);
 
-  // Determine available tabs based on user permissions
   const availableTabs = [
       { id: 'inventory', label: 'Inventory', icon: Box },
       { id: 'marketing', label: 'Marketing', icon: Megaphone },
@@ -1130,7 +1265,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       { id: 'settings', label: 'Settings', icon: Settings },
   ].filter(tab => currentUser?.permissions[tab.id as keyof AdminPermissions]);
 
-  // ... (existing effects for tabs/network/unsaved changes) ...
   useEffect(() => {
       if (currentUser && availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
           setActiveTab(availableTabs[0].id);
@@ -1243,7 +1377,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   const handleMoveProduct = (product: Product, targetBrandId: string, targetCategoryId: string) => {
       if (!localData || !selectedBrand || !selectedCategory) return;
       
-      // 1. Remove from Current Category
       const updatedSourceCat = {
           ...selectedCategory,
           products: selectedCategory.products.filter(p => p.id !== product.id)
@@ -1259,7 +1392,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
           return b;
       });
 
-      // 2. Add to Target Category
       newBrands = newBrands.map(b => {
           if (b.id === targetBrandId) {
               return {
@@ -1286,7 +1418,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       ? [...localData.brands].sort((a, b) => a.name.localeCompare(b.name)) 
       : [];
 
-  // TV Brands
   const tvBrands = Array.isArray(localData.tv?.brands)
       ? [...localData.tv!.brands].sort((a, b) => a.name.localeCompare(b.name))
       : [];
@@ -1346,6 +1477,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
         )}
 
         <main className="flex-1 overflow-y-auto p-2 md:p-8 relative">
+            {/* Inventory Tab */}
             {activeTab === 'inventory' && (
                 !selectedBrand ? (
                    <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 animate-fade-in">
@@ -1376,25 +1508,8 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                    <Box size={20} className="mb-2 md:mb-4 text-slate-400 mx-auto md:mx-0" />
                                    <h3 className="font-black text-slate-900 uppercase text-[10px] md:text-sm text-center md:text-left truncate w-full">{cat.name}</h3>
                                    <p className="text-[9px] md:text-xs text-slate-500 font-bold text-center md:text-left">{cat.products.length} Products</p>
-                                   <div 
-                                        onClick={(e)=>{
-                                            e.stopPropagation(); 
-                                            const newName = prompt("Rename Category:", cat.name);
-                                            if(newName && newName.trim() !== "") {
-                                                const updated = {...selectedBrand, categories: selectedBrand.categories.map(c => c.id === cat.id ? {...c, name: newName.trim()} : c)};
-                                                handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)});
-                                            }
-                                        }} 
-                                        className="absolute top-1 right-8 md:top-2 md:right-8 p-1 md:p-1.5 opacity-0 group-hover:opacity-100 hover:bg-blue-50 text-blue-500 rounded transition-all"
-                                   >
-                                       <Edit2 size={12}/>
-                                   </div>
-                                   <div 
-                                        onClick={(e)=>{e.stopPropagation(); if(confirm("Delete?")){ const updated={...selectedBrand, categories: selectedBrand.categories.filter(c=>c.id!==cat.id)}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }}} 
-                                        className="absolute top-1 right-1 md:top-2 md:right-2 p-1 md:p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded"
-                                   >
-                                       <Trash2 size={12}/>
-                                   </div>
+                                   <div onClick={(e)=>{e.stopPropagation(); const newName = prompt("Rename Category:", cat.name); if(newName && newName.trim() !== "") { const updated = {...selectedBrand, categories: selectedBrand.categories.map(c => c.id === cat.id ? {...c, name: newName.trim()} : c)}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }}} className="absolute top-1 right-8 md:top-2 md:right-8 p-1 md:p-1.5 opacity-0 group-hover:opacity-100 hover:bg-blue-50 text-blue-500 rounded transition-all"><Edit2 size={12}/></div>
+                                   <div onClick={(e)=>{e.stopPropagation(); if(confirm("Delete?")){ const updated={...selectedBrand, categories: selectedBrand.categories.filter(c=>c.id!==cat.id)}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }}} className="absolute top-1 right-1 md:top-2 md:right-2 p-1 md:p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded"><Trash2 size={12}/></div>
                                 </button>
                             ))}
                        </div>
@@ -1413,13 +1528,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                                 <button onClick={() => setEditingProduct(product)} className="p-1.5 md:p-2 bg-white text-blue-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-blue-50">Edit</button>
                                                 <button onClick={() => setMovingProduct(product)} className="p-1.5 md:p-2 bg-white text-orange-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-orange-50" title="Move Category">Move</button>
                                            </div>
-                                           <button onClick={() => {
-                                              if(confirm(`Delete product "${product.name}"?`)) {
-                                                  const updatedCat = {...selectedCategory, products: selectedCategory.products.filter(p => p.id !== product.id)};
-                                                  const updatedBrand = {...selectedBrand, categories: selectedBrand.categories.map(c => c.id === updatedCat.id ? updatedCat : c)};
-                                                  handleLocalUpdate({...localData, brands: brands.map(b => b.id === updatedBrand.id ? updatedBrand : b)});
-                                              }
-                                           }} className="p-1.5 md:p-2 bg-white text-red-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-red-50 w-[80%]">Delete</button>
+                                           <button onClick={() => { if(confirm(`Delete product "${product.name}"?`)) { const updatedCat = {...selectedCategory, products: selectedCategory.products.filter(p => p.id !== product.id)}; const updatedBrand = {...selectedBrand, categories: selectedBrand.categories.map(c => c.id === updatedCat.id ? updatedCat : c)}; handleLocalUpdate({...localData, brands: brands.map(b => b.id === updatedBrand.id ? updatedBrand : b)}); } }} className="p-1.5 md:p-2 bg-white text-red-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-red-50 w-[80%]">Delete</button>
                                        </div>
                                    </div>
                                    <div className="p-2 md:p-4">
@@ -1433,6 +1542,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                )
             )}
 
+            {/* Other Tabs */}
             {activeTab === 'pricelists' && (
                 <PricelistManager 
                     pricelists={localData.pricelists || []} 
@@ -1442,37 +1552,15 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                 />
             )}
             
-            {/* Rest of the AdminDashboard code (marketing, tv, fleet, screensaver, history, settings) remains identical */}
             {activeTab === 'tv' && (
                 !selectedTVBrand ? (
                     <div className="animate-fade-in max-w-6xl mx-auto">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-black text-slate-900 uppercase">TV Video Management</h2>
                         </div>
-                        
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-8 flex items-start gap-3">
-                            <Tv size={24} className="text-blue-500 shrink-0 mt-1" />
-                            <div>
-                                <h4 className="font-bold text-blue-900 uppercase text-xs mb-1">How to manage TV Content</h4>
-                                <p className="text-sm text-blue-800 leading-relaxed">
-                                    Create a Brand, then click "Manage Models" to add specific TV models (e.g. "OLED 65"). Inside each model, you can upload a playlist of videos.
-                                </p>
-                            </div>
-                        </div>
-
                         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                            <button 
-                                onClick={() => { 
-                                    const name = prompt("Brand Name:"); 
-                                    if(name) {
-                                        const newBrand = { id: generateId('tvb'), name, models: [] };
-                                        handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: [...(localData.tv?.brands || []), newBrand] } as TVConfig });
-                                    }
-                                }} 
-                                className="bg-indigo-50 border-2 border-dashed border-indigo-200 rounded-2xl flex flex-col items-center justify-center p-4 min-h-[160px] text-indigo-400 hover:border-indigo-500 hover:text-indigo-600 transition-all group"
-                            >
-                                <Plus size={32} className="mb-2" />
-                                <span className="font-bold uppercase text-xs tracking-wider text-center">Add TV Brand</span>
+                            <button onClick={() => { const name = prompt("Brand Name:"); if(name) { const newBrand = { id: generateId('tvb'), name, models: [] }; handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: [...(localData.tv?.brands || []), newBrand] } as TVConfig }); }}} className="bg-indigo-50 border-2 border-dashed border-indigo-200 rounded-2xl flex flex-col items-center justify-center p-4 min-h-[160px] text-indigo-400 hover:border-indigo-500 hover:text-indigo-600 transition-all group">
+                                <Plus size={32} className="mb-2" /><span className="font-bold uppercase text-xs tracking-wider text-center">Add TV Brand</span>
                             </button>
                             {tvBrands.map(brand => (
                                 <div key={brand.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:shadow-lg transition-all relative">
@@ -1483,105 +1571,41 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                         <h3 className="font-black text-slate-900 text-sm uppercase truncate mb-1">{brand.name}</h3>
                                         <p className="text-xs text-slate-500 font-bold">{brand.models?.length || 0} Models</p>
                                     </div>
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); if(confirm("Delete TV Brand?")) { handleLocalUpdate({...localData, tv: { ...localData.tv, brands: tvBrands.filter(b => b.id !== brand.id) } as TVConfig }); } }} 
-                                        className="absolute top-2 right-2 p-1.5 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                                    >
-                                        <Trash2 size={14}/>
-                                    </button>
-                                    <button 
-                                        onClick={() => setSelectedTVBrand(brand)} 
-                                        className="absolute inset-0 w-full h-full opacity-0 z-10"
-                                    />
-                                    <div className="absolute bottom-16 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
-                                        <span className="bg-slate-900 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">Manage Models</span>
-                                    </div>
+                                    <button onClick={(e) => { e.stopPropagation(); if(confirm("Delete TV Brand?")) { handleLocalUpdate({...localData, tv: { ...localData.tv, brands: tvBrands.filter(b => b.id !== brand.id) } as TVConfig }); } }} className="absolute top-2 right-2 p-1.5 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity z-20"><Trash2 size={14}/></button>
+                                    <button onClick={() => setSelectedTVBrand(brand)} className="absolute inset-0 w-full h-full opacity-0 z-10" />
                                 </div>
                             ))}
                         </div>
                     </div>
                 ) : (
                     <div className="animate-fade-in max-w-5xl mx-auto">
-                        <div className="flex items-center gap-4 mb-6">
-                            <button onClick={() => setSelectedTVBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50"><ArrowLeft size={20} /></button>
-                            <h2 className="text-2xl font-black uppercase text-slate-900 flex-1">{selectedTVBrand.name} <span className="text-slate-400 font-bold ml-2 text-lg">TV Config</span></h2>
-                        </div>
-                        
+                        <div className="flex items-center gap-4 mb-6"><button onClick={() => setSelectedTVBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50"><ArrowLeft size={20} /></button><h2 className="text-2xl font-black uppercase text-slate-900 flex-1">{selectedTVBrand.name} <span className="text-slate-400 font-bold ml-2 text-lg">TV Config</span></h2></div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                             <div className="space-y-6">
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                                     <h4 className="font-bold text-slate-900 uppercase text-xs mb-4">Brand Identity</h4>
                                     <div className="space-y-4">
-                                        <InputField 
-                                            label="Brand Name" 
-                                            val={selectedTVBrand.name} 
-                                            onChange={(e: any) => {
-                                                const updated = { ...selectedTVBrand, name: e.target.value };
-                                                handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
-                                            }} 
-                                        />
-                                        <FileUpload 
-                                            label="Brand Logo" 
-                                            currentUrl={selectedTVBrand.logoUrl} 
-                                            onUpload={(url: any) => { 
-                                                const updated = { ...selectedTVBrand, logoUrl: url };
-                                                handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
-                                            }} 
-                                        />
+                                        <InputField label="Brand Name" val={selectedTVBrand.name} onChange={(e: any) => { const updated = { ...selectedTVBrand, name: e.target.value }; handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig }); }} />
+                                        <FileUpload label="Brand Logo" currentUrl={selectedTVBrand.logoUrl} onUpload={(url: any) => { const updated = { ...selectedTVBrand, logoUrl: url }; handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig }); }} />
                                     </div>
                                 </div>
                             </div>
-                            
                             <div className="md:col-span-2">
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h4 className="font-bold text-slate-900 uppercase text-xs">TV Models</h4>
-                                        <button 
-                                            onClick={() => setEditingTVModel({ id: generateId('tvm'), name: '', videoUrls: [] })}
-                                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase flex items-center gap-1"
-                                        >
-                                            <Plus size={12} /> Add Model
-                                        </button>
-                                    </div>
-                                    
+                                    <div className="flex justify-between items-center mb-6"><h4 className="font-bold text-slate-900 uppercase text-xs">TV Models</h4><button onClick={() => setEditingTVModel({ id: generateId('tvm'), name: '', videoUrls: [] })} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase flex items-center gap-1"><Plus size={12} /> Add Model</button></div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         {(selectedTVBrand.models || []).map((model) => (
                                             <div key={model.id} className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden group">
                                                 <div className="p-4 flex items-center gap-4">
-                                                    <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shrink-0 border border-slate-200">
-                                                        {model.imageUrl ? <img src={model.imageUrl} className="w-full h-full object-cover rounded-lg" /> : <Monitor size={20} className="text-slate-300" />}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="font-bold text-slate-900 text-sm truncate">{model.name}</div>
-                                                        <div className="text-[10px] font-bold text-slate-500 uppercase">{model.videoUrls?.length || 0} Videos</div>
-                                                    </div>
+                                                    <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shrink-0 border border-slate-200">{model.imageUrl ? <img src={model.imageUrl} className="w-full h-full object-cover rounded-lg" /> : <Monitor size={20} className="text-slate-300" />}</div>
+                                                    <div className="flex-1 min-w-0"><div className="font-bold text-slate-900 text-sm truncate">{model.name}</div><div className="text-[10px] font-bold text-slate-500 uppercase">{model.videoUrls?.length || 0} Videos</div></div>
                                                 </div>
                                                 <div className="flex border-t border-slate-200 divide-x divide-slate-200">
-                                                    <button 
-                                                        onClick={() => setEditingTVModel(model)}
-                                                        className="flex-1 py-2 text-[10px] font-bold uppercase text-blue-600 hover:bg-blue-50 transition-colors"
-                                                    >
-                                                        Edit / Videos
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => {
-                                                            if (confirm("Delete this model?")) {
-                                                                const updated = { ...selectedTVBrand, models: selectedTVBrand.models.filter(m => m.id !== model.id) };
-                                                                handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig });
-                                                            }
-                                                        }}
-                                                        className="flex-1 py-2 text-[10px] font-bold uppercase text-red-500 hover:bg-red-50 transition-colors"
-                                                    >
-                                                        Delete
-                                                    </button>
+                                                    <button onClick={() => setEditingTVModel(model)} className="flex-1 py-2 text-[10px] font-bold uppercase text-blue-600 hover:bg-blue-50 transition-colors">Edit / Videos</button>
+                                                    <button onClick={() => { if (confirm("Delete this model?")) { const updated = { ...selectedTVBrand, models: selectedTVBrand.models.filter(m => m.id !== model.id) }; handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig }); } }} className="flex-1 py-2 text-[10px] font-bold uppercase text-red-500 hover:bg-red-50 transition-colors">Delete</button>
                                                 </div>
                                             </div>
                                         ))}
-                                        {(!selectedTVBrand.models || selectedTVBrand.models.length === 0) && (
-                                            <div className="col-span-full py-8 text-center text-slate-400 text-xs italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                                                No models yet. Click "Add Model" to create one.
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1592,18 +1616,9 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
 
             {activeTab === 'marketing' && (
                 <div className="max-w-5xl mx-auto">
-                    {/* ONLY SHOW GLOBAL PAMPHLETS HERE (No Brand Catalogues) */}
                     {activeSubTab === 'catalogues' && (
-                        <CatalogueManager 
-                            catalogues={(localData.catalogues || []).filter(c => !c.brandId)} 
-                            onSave={(c) => {
-                                // Merge global updates back with existing brand catalogues
-                                const brandCatalogues = (localData.catalogues || []).filter(c => c.brandId);
-                                handleLocalUpdate({ ...localData, catalogues: [...brandCatalogues, ...c] });
-                            }} 
-                        />
+                        <CatalogueManager catalogues={(localData.catalogues || []).filter(c => !c.brandId)} onSave={(c) => { const brandCatalogues = (localData.catalogues || []).filter(c => c.brandId); handleLocalUpdate({ ...localData, catalogues: [...brandCatalogues, ...c] }); }} />
                     )}
-                    
                     {activeSubTab === 'hero' && (
                         <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1624,44 +1639,16 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                             {['homeBottomLeft', 'homeBottomRight', 'homeSideVertical', 'screensaver'].map(zone => (
                                 <div key={zone} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                                     <h4 className="font-bold uppercase text-xs mb-1">{zone.replace('home', '')}</h4>
-                                    <p className="text-[10px] text-slate-400 mb-4 uppercase font-bold tracking-wide">
-                                        {zone.includes('Side') ? 'Size: 1080x1920 (Portrait)' : zone.includes('screensaver') ? 'Mixed Media' : 'Size: 1920x1080 (Landscape)'}
-                                    </p>
-                                    <FileUpload 
-                                        label="Upload Media" 
-                                        accept="image/*,video/*" 
-                                        allowMultiple 
-                                        onUpload={(urls:any, type:any) => { 
-                                            // Add dateAdded to new ads
-                                            const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ad'), type, url:u, dateAdded: new Date().toISOString()})); 
-                                            handleLocalUpdate({...localData, ads: {...localData.ads, [zone]: [...(localData.ads as any)[zone], ...newAds]} as any}); 
-                                        }} 
-                                    />
-                                    
+                                    <p className="text-[10px] text-slate-400 mb-4 uppercase font-bold tracking-wide">{zone.includes('Side') ? 'Size: 1080x1920 (Portrait)' : zone.includes('screensaver') ? 'Mixed Media' : 'Size: 1920x1080 (Landscape)'}</p>
+                                    <FileUpload label="Upload Media" accept="image/*,video/*" allowMultiple onUpload={(urls:any, type:any) => { const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ad'), type, url:u, dateAdded: new Date().toISOString()})); handleLocalUpdate({...localData, ads: {...localData.ads, [zone]: [...(localData.ads as any)[zone], ...newAds]} as any}); }} />
                                     <div className="grid grid-cols-3 gap-2 mt-4">
                                         {((localData.ads as any)[zone] || []).map((ad: any, idx: number) => (
                                             <div key={ad.id} className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                                                {ad.type === 'video' ? (
-                                                    <video src={ad.url} className="w-full h-full object-cover opacity-60" />
-                                                ) : (
-                                                    <img src={ad.url} alt="Ad" className="w-full h-full object-cover" />
-                                                )}
-                                                <button 
-                                                    onClick={() => {
-                                                        const currentAds = (localData.ads as any)[zone];
-                                                        const newAdsList = currentAds.filter((_: any, i: number) => i !== idx);
-                                                        handleLocalUpdate({ ...localData, ads: { ...localData.ads, [zone]: newAdsList } as any });
-                                                    }}
-                                                    className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                                                    title="Remove Ad"
-                                                >
-                                                    <Trash2 size={10} />
-                                                </button>
-                                                {ad.type === 'video' && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Video size={12} className="text-white drop-shadow-md"/></div>}
+                                                {ad.type === 'video' ? <video src={ad.url} className="w-full h-full object-cover opacity-60" /> : <img src={ad.url} alt="Ad" className="w-full h-full object-cover" />}
+                                                <button onClick={() => { const currentAds = (localData.ads as any)[zone]; const newAdsList = currentAds.filter((_: any, i: number) => i !== idx); handleLocalUpdate({ ...localData, ads: { ...localData.ads, [zone]: newAdsList } as any }); }} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"><Trash2 size={10} /></button>
                                             </div>
                                         ))}
                                     </div>
-
                                 </div>
                             ))}
                         </div>
@@ -1669,7 +1656,6 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                 </div>
             )}
             
-            {/* Same components for other tabs */}
             {activeTab === 'fleet' && (
                 <div className="animate-fade-in max-w-6xl mx-auto">
                    <h2 className="text-2xl font-black text-slate-900 uppercase mb-6">Device Fleet</h2>
@@ -1680,18 +1666,11 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                <div key={kiosk.id} className="bg-white rounded-lg md:rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:shadow-md transition-shadow">
                                    <div className="p-1 md:p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start bg-slate-50/50 gap-0 md:gap-0">
                                        <div>
-                                           <div className="flex items-center gap-0.5 md:gap-2 mb-0 md:mb-1">
-                                               {kiosk.deviceType === 'mobile' ? <Smartphone size={10} className="text-purple-500 md:w-4 md:h-4"/> : kiosk.deviceType === 'tv' ? <Tv size={10} className="text-indigo-500 md:w-4 md:h-4" /> : <Tablet size={10} className="text-blue-500 md:w-4 md:h-4"/>}
-                                               <span className="font-black text-slate-900 text-[8px] md:text-sm uppercase truncate max-w-[60px] md:max-w-none">{kiosk.name}</span>
-                                           </div>
+                                           <div className="flex items-center gap-0.5 md:gap-2 mb-0 md:mb-1">{kiosk.deviceType === 'mobile' ? <Smartphone size={10} className="text-purple-500 md:w-4 md:h-4"/> : kiosk.deviceType === 'tv' ? <Tv size={10} className="text-indigo-500 md:w-4 md:h-4" /> : <Tablet size={10} className="text-blue-500 md:w-4 md:h-4"/>}<span className="font-black text-slate-900 text-[8px] md:text-sm uppercase truncate max-w-[60px] md:max-w-none">{kiosk.name}</span></div>
                                            <span className="text-[6px] md:text-[10px] font-mono text-slate-400 bg-white border border-slate-200 px-0.5 py-0 rounded hidden md:inline-block">{kiosk.id}</span>
                                        </div>
-                                       <div className={`flex items-center gap-0.5 md:gap-1 px-1 py-0.5 rounded-full text-[6px] md:text-[10px] font-bold uppercase border ${isOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                                            <div className={`w-1 h-1 md:w-1.5 md:h-1.5 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                                            {isOnline ? 'On' : 'Off'}
-                                       </div>
+                                       <div className={`flex items-center gap-0.5 md:gap-1 px-1 py-0.5 rounded-full text-[6px] md:text-[10px] font-bold uppercase border ${isOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}><div className={`w-1 h-1 md:w-1.5 md:h-1.5 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>{isOnline ? 'On' : 'Off'}</div>
                                    </div>
-
                                    <div className="p-1 md:p-4 flex gap-1 md:gap-2 mt-auto">
                                        <button onClick={() => setEditingKiosk(kiosk)} className="p-1 md:p-2 bg-slate-100 text-slate-600 rounded md:rounded-lg hover:bg-slate-200 border border-slate-200 flex items-center justify-center flex-1"><Edit2 size={10} className="md:w-3 md:h-3"/></button>
                                        {supabase && <button onClick={async () => { if(confirm("Restart Device?")) await supabase.from('kiosks').update({restart_requested: true}).eq('id', kiosk.id); }} className="p-1 md:p-2 bg-orange-50 text-orange-600 rounded md:rounded-lg hover:bg-orange-100 border border-orange-100 flex items-center justify-center" title="Remote Restart"><Power size={10} className="md:w-3 md:h-3"/></button>}
@@ -1708,57 +1687,14 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             {activeTab === 'screensaver' && (
                 <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                         {/* Timing & Scheduling */}
                          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-                                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Clock size={20} /></div>
-                                <h3 className="font-black text-slate-900 uppercase tracking-wider text-sm">Timing & Schedule</h3>
-                             </div>
-                             
-                             <div className="grid grid-cols-2 gap-4 mb-6">
-                                <InputField label="Idle Wait (sec)" val={localData.screensaverSettings?.idleTimeout||60} onChange={(e:any)=>handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, idleTimeout: parseInt(e.target.value)}})} />
-                                <InputField label="Slide Duration (sec)" val={localData.screensaverSettings?.imageDuration||8} onChange={(e:any)=>handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, imageDuration: parseInt(e.target.value)}})} />
-                             </div>
-
-                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                <div className="flex justify-between items-center mb-4">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Active Hours (Sleep Mode)</label>
-                                    <button onClick={() => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, enableSleepMode: !localData.screensaverSettings?.enableSleepMode}})} className={`w-8 h-4 rounded-full transition-colors relative ${localData.screensaverSettings?.enableSleepMode ? 'bg-green-500' : 'bg-slate-300'}`}><div className={`w-2 h-2 bg-white rounded-full absolute top-1 transition-all ${localData.screensaverSettings?.enableSleepMode ? 'left-5' : 'left-1'}`}></div></button>
-                                </div>
-                                <div className={`grid grid-cols-2 gap-4 transition-opacity ${localData.screensaverSettings?.enableSleepMode ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                                    <div><label className="block text-[10px] font-bold text-slate-400 mb-1">Start Time</label><input type="time" value={localData.screensaverSettings?.activeHoursStart || '08:00'} onChange={(e) => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, activeHoursStart: e.target.value}})} className="w-full p-2 border border-slate-300 rounded text-sm font-bold"/></div>
-                                    <div><label className="block text-[10px] font-bold text-slate-400 mb-1">End Time</label><input type="time" value={localData.screensaverSettings?.activeHoursEnd || '20:00'} onChange={(e) => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, activeHoursEnd: e.target.value}})} className="w-full p-2 border border-slate-300 rounded text-sm font-bold"/></div>
-                                </div>
-                             </div>
+                             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100"><div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Clock size={20} /></div><h3 className="font-black text-slate-900 uppercase tracking-wider text-sm">Timing & Schedule</h3></div>
+                             <div className="grid grid-cols-2 gap-4 mb-6"><InputField label="Idle Wait (sec)" val={localData.screensaverSettings?.idleTimeout||60} onChange={(e:any)=>handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, idleTimeout: parseInt(e.target.value)}})} /><InputField label="Slide Duration (sec)" val={localData.screensaverSettings?.imageDuration||8} onChange={(e:any)=>handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, imageDuration: parseInt(e.target.value)}})} /></div>
+                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200"><div className="flex justify-between items-center mb-4"><label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Active Hours (Sleep Mode)</label><button onClick={() => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, enableSleepMode: !localData.screensaverSettings?.enableSleepMode}})} className={`w-8 h-4 rounded-full transition-colors relative ${localData.screensaverSettings?.enableSleepMode ? 'bg-green-500' : 'bg-slate-300'}`}><div className={`w-2 h-2 bg-white rounded-full absolute top-1 transition-all ${localData.screensaverSettings?.enableSleepMode ? 'left-5' : 'left-1'}`}></div></button></div><div className={`grid grid-cols-2 gap-4 transition-opacity ${localData.screensaverSettings?.enableSleepMode ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}><div><label className="block text-[10px] font-bold text-slate-400 mb-1">Start Time</label><input type="time" value={localData.screensaverSettings?.activeHoursStart || '08:00'} onChange={(e) => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, activeHoursStart: e.target.value}})} className="w-full p-2 border border-slate-300 rounded text-sm font-bold"/></div><div><label className="block text-[10px] font-bold text-slate-400 mb-1">End Time</label><input type="time" value={localData.screensaverSettings?.activeHoursEnd || '20:00'} onChange={(e) => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, activeHoursEnd: e.target.value}})} className="w-full p-2 border border-slate-300 rounded text-sm font-bold"/></div></div></div>
                          </div>
-
-                         {/* Content Controls */}
                          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-                                <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><Monitor size={20} /></div>
-                                <h3 className="font-black text-slate-900 uppercase tracking-wider text-sm">Content & Behavior</h3>
-                             </div>
-
-                             <div className="space-y-4">
-                                 {[
-                                     { key: 'showProductImages', label: 'Show Products (Images)' },
-                                     { key: 'showProductVideos', label: 'Show Products (Videos)' },
-                                     { key: 'showPamphlets', label: 'Show Pamphlet Covers' },
-                                     { key: 'showCustomAds', label: 'Show Custom Ads' },
-                                     { key: 'muteVideos', label: 'Mute Videos' },
-                                     { key: 'showInfoOverlay', label: 'Show Title Overlay' },
-                                 ].map(opt => (
-                                     <div key={opt.key} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-100">
-                                         <label className="text-xs font-bold text-slate-700 uppercase">{opt.label}</label>
-                                         <button 
-                                            onClick={() => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, [opt.key]: !(localData.screensaverSettings as any)[opt.key]}})}
-                                            className={`w-10 h-5 rounded-full transition-colors relative ${(localData.screensaverSettings as any)[opt.key] ? 'bg-blue-600' : 'bg-slate-300'}`}
-                                         >
-                                            <div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all ${(localData.screensaverSettings as any)[opt.key] ? 'left-6' : 'left-1'}`}></div>
-                                         </button>
-                                     </div>
-                                 ))}
-                             </div>
+                             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100"><div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><Monitor size={20} /></div><h3 className="font-black text-slate-900 uppercase tracking-wider text-sm">Content & Behavior</h3></div>
+                             <div className="space-y-4">{[{ key: 'showProductImages', label: 'Show Products (Images)' }, { key: 'showProductVideos', label: 'Show Products (Videos)' }, { key: 'showPamphlets', label: 'Show Pamphlet Covers' }, { key: 'showCustomAds', label: 'Show Custom Ads' }, { key: 'muteVideos', label: 'Mute Videos' }, { key: 'showInfoOverlay', label: 'Show Title Overlay' }].map(opt => (<div key={opt.key} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-100"><label className="text-xs font-bold text-slate-700 uppercase">{opt.label}</label><button onClick={() => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, [opt.key]: !(localData.screensaverSettings as any)[opt.key]}})} className={`w-10 h-5 rounded-full transition-colors relative ${(localData.screensaverSettings as any)[opt.key] ? 'bg-blue-600' : 'bg-slate-300'}`}><div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all ${(localData.screensaverSettings as any)[opt.key] ? 'left-6' : 'left-1'}`}></div></button></div>))}</div>
                          </div>
                      </div>
                 </div>
@@ -1766,136 +1702,122 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             
             {activeTab === 'history' && (
                <div className="max-w-4xl mx-auto">
-                   <div className="flex items-center justify-between mb-8">
-                      <h2 className="text-2xl font-black text-slate-900 uppercase">Archive History</h2>
-                      <button onClick={() => { if(confirm("Clear history?")) handleLocalUpdate({...localData, archive: { brands: [], products: [], catalogues: [], deletedAt: {} }}) }} className="text-red-500 font-bold uppercase text-xs flex items-center gap-2 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors"><Trash2 size={14}/> Clear All</button>
-                   </div>
-                   
+                   <div className="flex items-center justify-between mb-8"><h2 className="text-2xl font-black text-slate-900 uppercase">Archive History</h2><button onClick={() => { if(confirm("Clear history?")) handleLocalUpdate({...localData, archive: { brands: [], products: [], catalogues: [], deletedAt: {} }}) }} className="text-red-500 font-bold uppercase text-xs flex items-center gap-2 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors"><Trash2 size={14}/> Clear All</button></div>
                    <div className="space-y-6">
-                       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                           <div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center gap-2">
-                               <Package size={16} className="text-slate-400" />
-                               <h3 className="font-bold text-slate-700 uppercase text-xs">Deleted Brands</h3>
-                           </div>
-                           {localData.archive?.brands.length === 0 ? <div className="p-8 text-center text-slate-400 text-xs italic">No archived brands.</div> : (
-                               <div className="divide-y divide-slate-100">
-                                   {localData.archive?.brands.map(b => (
-                                       <div key={b.id} className="p-4 flex justify-between items-center hover:bg-slate-50">
-                                           <div>
-                                               <div className="font-bold text-slate-900">{b.name}</div>
-                                               <div className="text-[10px] text-slate-400 font-mono uppercase">ID: {b.id}</div>
-                                           </div>
-                                           <button onClick={() => restoreBrand(b)} className="text-blue-600 font-bold text-xs uppercase flex items-center gap-1 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"><RotateCcw size={12}/> Restore</button>
-                                       </div>
-                                   ))}
-                               </div>
-                           )}
-                       </div>
-
-                       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                           <div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center gap-2">
-                               <Book size={16} className="text-slate-400" />
-                               <h3 className="font-bold text-slate-700 uppercase text-xs">Expired / Deleted Catalogues</h3>
-                           </div>
-                           {localData.archive?.catalogues.length === 0 ? <div className="p-8 text-center text-slate-400 text-xs italic">No archived catalogues.</div> : (
-                               <div className="divide-y divide-slate-100">
-                                   {localData.archive?.catalogues.map(c => (
-                                       <div key={c.id} className="p-4 flex justify-between items-center hover:bg-slate-50">
-                                           <div>
-                                               <div className="font-bold text-slate-900">{c.title}</div>
-                                               <div className="text-[10px] text-slate-400 font-mono uppercase">Expired: {localData.archive?.deletedAt?.[c.id] ? new Date(localData.archive.deletedAt[c.id]).toLocaleDateString() : 'Manual Delete'}</div>
-                                           </div>
-                                           <button onClick={() => restoreCatalogue(c)} className="text-blue-600 font-bold text-xs uppercase flex items-center gap-1 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"><RotateCcw size={12}/> Restore</button>
-                                       </div>
-                                   ))}
-                               </div>
-                           )}
-                       </div>
+                       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm"><div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center gap-2"><Package size={16} className="text-slate-400" /><h3 className="font-bold text-slate-700 uppercase text-xs">Deleted Brands</h3></div>{localData.archive?.brands.length === 0 ? <div className="p-8 text-center text-slate-400 text-xs italic">No archived brands.</div> : (<div className="divide-y divide-slate-100">{localData.archive?.brands.map(b => (<div key={b.id} className="p-4 flex justify-between items-center hover:bg-slate-50"><div><div className="font-bold text-slate-900">{b.name}</div><div className="text-[10px] text-slate-400 font-mono uppercase">ID: {b.id}</div></div><button onClick={() => restoreBrand(b)} className="text-blue-600 font-bold text-xs uppercase flex items-center gap-1 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"><RotateCcw size={12}/> Restore</button></div>))}</div>)}</div>
+                       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm"><div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center gap-2"><Book size={16} className="text-slate-400" /><h3 className="font-bold text-slate-700 uppercase text-xs">Expired / Deleted Catalogues</h3></div>{localData.archive?.catalogues.length === 0 ? <div className="p-8 text-center text-slate-400 text-xs italic">No archived catalogues.</div> : (<div className="divide-y divide-slate-100">{localData.archive?.catalogues.map(c => (<div key={c.id} className="p-4 flex justify-between items-center hover:bg-slate-50"><div><div className="font-bold text-slate-900">{c.title}</div><div className="text-[10px] text-slate-400 font-mono uppercase">Expired: {localData.archive?.deletedAt?.[c.id] ? new Date(localData.archive.deletedAt[c.id]).toLocaleDateString() : 'Manual Delete'}</div></div><button onClick={() => restoreCatalogue(c)} className="text-blue-600 font-bold text-xs uppercase flex items-center gap-1 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"><RotateCcw size={12}/> Restore</button></div>))}</div>)}</div>
                    </div>
                </div>
             )}
 
             {activeTab === 'settings' && (
                <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-20">
-                   {/* NEW: APP IDENTITY (PWA ICONS) */}
+                   {/* ZIP BACKUP SECTION */}
+                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                       <div className="absolute top-0 right-0 p-8 opacity-5 text-blue-500 pointer-events-none"><Database size={120} /></div>
+                       <h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2"><Database size={20} className="text-blue-500"/> System Data & Backup</h3>
+                       
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+                           <div className="space-y-4">
+                               <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-blue-800 text-xs">
+                                   <strong>Export Full Backup:</strong> Download your entire inventory structure including Brands, Categories, and Products. This downloads a ZIP file organized by folders containing metadata JSONs.
+                                   <div className="mt-2 text-blue-600 font-bold">Use this to edit offline or migrate data.</div>
+                               </div>
+                               <button 
+                                   onClick={() => downloadZip(localData)}
+                                   className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold uppercase text-xs hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-blue-500/25"
+                               >
+                                   <Download size={16} /> Download Full Backup (.zip)
+                               </button>
+                           </div>
+
+                           <div className="space-y-4">
+                               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 text-xs">
+                                   <strong>Import Structure:</strong> Upload a ZIP file to auto-populate the system.
+                                   <ul className="list-disc pl-4 mt-2 space-y-1 text-[10px] text-slate-500 font-bold">
+                                       <li>Folder Structure: <code>Brand/Category/Product/</code></li>
+                                       <li>Place images (.jpg/.png) & manuals (.pdf) inside product folders.</li>
+                                       <li>Images & PDFs are automatically converted.</li>
+                                   </ul>
+                               </div>
+                               <label className={`w-full py-4 ${importProcessing ? 'bg-slate-300 cursor-wait' : 'bg-slate-800 hover:bg-slate-900 cursor-pointer'} text-white rounded-xl font-bold uppercase text-xs transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl`}>
+                                   {importProcessing ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16} />} 
+                                   {importProcessing ? 'Processing Backup...' : 'Import Data from ZIP'}
+                                   <input 
+                                     type="file" 
+                                     accept=".zip" 
+                                     className="hidden" 
+                                     disabled={importProcessing}
+                                     onChange={async (e) => {
+                                         if(e.target.files && e.target.files[0]) {
+                                             if(confirm("This will merge imported data into your current inventory. Continue?")) {
+                                                 setImportProcessing(true);
+                                                 try {
+                                                     const newBrands = await importZip(e.target.files[0]);
+                                                     // Merge Logic: Add new brands, or merge categories if brand exists
+                                                     let mergedBrands = [...localData.brands];
+                                                     
+                                                     newBrands.forEach(nb => {
+                                                         const existingBrandIndex = mergedBrands.findIndex(b => b.name === nb.name);
+                                                         if (existingBrandIndex > -1) {
+                                                             // Merge Categories
+                                                             nb.categories.forEach(nc => {
+                                                                 const existingCatIndex = mergedBrands[existingBrandIndex].categories.findIndex(c => c.name === nc.name);
+                                                                 if (existingCatIndex > -1) {
+                                                                     // Merge Products
+                                                                     const existingProducts = mergedBrands[existingBrandIndex].categories[existingCatIndex].products;
+                                                                     // Add only new products based on name
+                                                                     const uniqueNewProducts = nc.products.filter(np => !existingProducts.find(ep => ep.name === np.name));
+                                                                     mergedBrands[existingBrandIndex].categories[existingCatIndex].products = [...existingProducts, ...uniqueNewProducts];
+                                                                 } else {
+                                                                     mergedBrands[existingBrandIndex].categories.push(nc);
+                                                                 }
+                                                             });
+                                                         } else {
+                                                             mergedBrands.push(nb);
+                                                         }
+                                                     });
+                                                     
+                                                     handleLocalUpdate({ ...localData, brands: mergedBrands });
+                                                     alert("Import Successful!");
+                                                 } catch(err) {
+                                                     console.error(err);
+                                                     alert("Failed to read ZIP file. Ensure structure is correct.");
+                                                 } finally {
+                                                     setImportProcessing(false);
+                                                 }
+                                             }
+                                         }
+                                     }}
+                                   />
+                               </label>
+                           </div>
+                       </div>
+                   </div>
+
                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                       <h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2">
-                           <Smartphone size={20} className="text-blue-500"/> App Identity
-                       </h3>
+                       <h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2"><Smartphone size={20} className="text-blue-500"/> App Identity</h3>
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                            <div className="space-y-4">
-                               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-xs leading-relaxed">
-                                   <strong>Kiosk Icon:</strong> Upload a square image (PNG). This icon will appear on the device home screen when installed as a PWA, and in the browser tab.
-                               </div>
-                               <FileUpload 
-                                    label="Kiosk App Icon" 
-                                    currentUrl={localData.appConfig?.kioskIconUrl} 
-                                    onUpload={(url: any) => handleLocalUpdate({
-                                        ...localData, 
-                                        appConfig: { ...localData.appConfig, kioskIconUrl: url }
-                                    })} 
-                               />
+                               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-xs leading-relaxed"><strong>Kiosk Icon:</strong> Upload a square image (PNG). This icon will appear on the device home screen when installed as a PWA, and in the browser tab.</div>
+                               <FileUpload label="Kiosk App Icon" currentUrl={localData.appConfig?.kioskIconUrl} onUpload={(url: any) => handleLocalUpdate({...localData, appConfig: { ...localData.appConfig, kioskIconUrl: url }})} />
                            </div>
                            <div className="space-y-4">
-                               <div className="bg-slate-100 p-4 rounded-xl border border-slate-200 text-slate-600 text-xs leading-relaxed">
-                                   <strong>Admin Icon:</strong> Upload a square image (PNG). This allows you to distinguish the Admin Hub when saved to your personal device.
-                               </div>
-                               <FileUpload 
-                                    label="Admin App Icon" 
-                                    currentUrl={localData.appConfig?.adminIconUrl} 
-                                    onUpload={(url: any) => handleLocalUpdate({
-                                        ...localData, 
-                                        appConfig: { ...localData.appConfig, adminIconUrl: url }
-                                    })} 
-                               />
+                               <div className="bg-slate-100 p-4 rounded-xl border border-slate-200 text-slate-600 text-xs leading-relaxed"><strong>Admin Icon:</strong> Upload a square image (PNG). This allows you to distinguish the Admin Hub when saved to your personal device.</div>
+                               <FileUpload label="Admin App Icon" currentUrl={localData.appConfig?.adminIconUrl} onUpload={(url: any) => handleLocalUpdate({...localData, appConfig: { ...localData.appConfig, adminIconUrl: url }})} />
                            </div>
                        </div>
                    </div>
 
-                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                       <h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2">
-                           <UserCog size={20} className="text-blue-500"/> Admin Access Control
-                       </h3>
-                       <AdminManager admins={localData.admins || []} onUpdate={(admins) => handleLocalUpdate({ ...localData, admins })} currentUser={currentUser} />
-                   </div>
+                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2"><UserCog size={20} className="text-blue-500"/> Admin Access Control</h3><AdminManager admins={localData.admins || []} onUpdate={(admins) => handleLocalUpdate({ ...localData, admins })} currentUser={currentUser} /></div>
 
-                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                       <h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2">
-                           <Info size={20} className="text-blue-500"/> About Page Configuration
-                       </h3>
-                       <div className="space-y-4">
-                           <InputField label="About Title" val={localData.about?.title || ''} onChange={(e: any) => handleLocalUpdate({...localData, about: {...localData.about, title: e.target.value}})} placeholder="e.g. About Our Vision" />
-                           <InputField label="About Text" isArea val={localData.about?.text || ''} onChange={(e: any) => handleLocalUpdate({...localData, about: {...localData.about, text: e.target.value}})} placeholder="Enter company description..." />
-                           <FileUpload 
-                               label="Audio Guide (MP3)" 
-                               accept="audio/*" 
-                               icon={<Volume2 />}
-                               currentUrl={localData.about?.audioUrl} 
-                               onUpload={(url: any) => handleLocalUpdate({...localData, about: {...localData.about, audioUrl: url}})} 
-                           />
-                       </div>
-                   </div>
+                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2"><Info size={20} className="text-blue-500"/> About Page Configuration</h3><div className="space-y-4"><InputField label="About Title" val={localData.about?.title || ''} onChange={(e: any) => handleLocalUpdate({...localData, about: {...localData.about, title: e.target.value}})} placeholder="e.g. About Our Vision" /><InputField label="About Text" isArea val={localData.about?.text || ''} onChange={(e: any) => handleLocalUpdate({...localData, about: {...localData.about, text: e.target.value}})} placeholder="Enter company description..." /><FileUpload label="Audio Guide (MP3)" accept="audio/*" icon={<Volume2 />} currentUrl={localData.about?.audioUrl} onUpload={(url: any) => handleLocalUpdate({...localData, about: {...localData.about, audioUrl: url}})} /></div></div>
                    
                    <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg text-white">
-                        <div className="flex items-center gap-3 mb-6">
-                            <CloudLightning size={24} className="text-yellow-400" />
-                            <h3 className="font-black uppercase text-sm tracking-wider">System Operations</h3>
-                        </div>
+                        <div className="flex items-center gap-3 mb-6"><CloudLightning size={24} className="text-yellow-400" /><h3 className="font-black uppercase text-sm tracking-wider">System Operations</h3></div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <button onClick={() => setShowGuide(true)} className="p-4 bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center gap-3 transition-colors border border-slate-600">
-                                 <BookOpen size={24} className="text-blue-400"/>
-                                 <div className="text-left">
-                                     <div className="font-bold text-sm">Setup Guide</div>
-                                     <div className="text-[10px] text-slate-400 font-mono uppercase">Docs & Scripts</div>
-                                 </div>
-                             </button>
-                             <button onClick={async () => { if(confirm("WARNING: This will wipe ALL local data and reset to defaults. Continue?")) { const d = await resetStoreData(); setLocalData(d); window.location.reload(); } }} className="p-4 bg-red-900/30 hover:bg-red-900/50 rounded-xl flex items-center gap-3 transition-colors border border-red-900/50 text-red-300">
-                                 <AlertCircle size={24} />
-                                 <div className="text-left">
-                                     <div className="font-bold text-sm">Factory Reset</div>
-                                     <div className="text-[10px] text-red-400 font-mono uppercase">Clear Local Data</div>
-                                 </div>
-                             </button>
+                             <button onClick={() => setShowGuide(true)} className="p-4 bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center gap-3 transition-colors border border-slate-600"><BookOpen size={24} className="text-blue-400"/><div className="text-left"><div className="font-bold text-sm">Setup Guide</div><div className="text-[10px] text-slate-400 font-mono uppercase">Docs & Scripts</div></div></button>
+                             <button onClick={async () => { if(confirm("WARNING: This will wipe ALL local data and reset to defaults. Continue?")) { const d = await resetStoreData(); setLocalData(d); window.location.reload(); } }} className="p-4 bg-red-900/30 hover:bg-red-900/50 rounded-xl flex items-center gap-3 transition-colors border border-red-900/50 text-red-300"><AlertCircle size={24} /><div className="text-left"><div className="font-bold text-sm">Factory Reset</div><div className="text-[10px] text-red-400 font-mono uppercase">Clear Local Data</div></div></button>
                         </div>
                    </div>
                </div>
@@ -1906,12 +1828,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
             <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm p-4 md:p-8 flex items-center justify-center animate-fade-in">
                 <ProductEditor product={editingProduct} onSave={(p) => { 
                     if (!selectedBrand || !selectedCategory) return;
-                    // Check SKU Uniqueness (excluding self)
-                    if (p.sku && checkSkuDuplicate(p.sku, p.id)) {
-                        alert(`SKU "${p.sku}" is already used by another product.`);
-                        return;
-                    }
-                    
+                    if (p.sku && checkSkuDuplicate(p.sku, p.id)) { alert(`SKU "${p.sku}" is already used by another product.`); return; }
                     const isNew = !selectedCategory.products.find(x => x.id === p.id);
                     const newProducts = isNew ? [...selectedCategory.products, p] : selectedCategory.products.map(x => x.id === p.id ? p : x);
                     const updatedCat = { ...selectedCategory, products: newProducts };
@@ -1923,36 +1840,15 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
         )}
 
         {movingProduct && (
-            <MoveProductModal 
-                product={movingProduct}
-                allBrands={brands}
-                currentBrandId={selectedBrand?.id || ''}
-                currentCategoryId={selectedCategory?.id || ''}
-                onClose={() => setMovingProduct(null)}
-                onMove={(product, targetBrand, targetCategory) => handleMoveProduct(product, targetBrand, targetCategory)}
-            />
+            <MoveProductModal product={movingProduct} allBrands={brands} currentBrandId={selectedBrand?.id || ''} currentCategoryId={selectedCategory?.id || ''} onClose={() => setMovingProduct(null)} onMove={(product, targetBrand, targetCategory) => handleMoveProduct(product, targetBrand, targetCategory)} />
         )}
 
         {editingKiosk && (
-            <KioskEditorModal kiosk={editingKiosk} onSave={(k) => {
-                updateFleetMember(k);
-                setEditingKiosk(null);
-            }} onClose={() => setEditingKiosk(null)} />
+            <KioskEditorModal kiosk={editingKiosk} onSave={(k) => { updateFleetMember(k); setEditingKiosk(null); }} onClose={() => setEditingKiosk(null)} />
         )}
         
         {editingTVModel && (
-            <TVModelEditor 
-                model={editingTVModel} 
-                onSave={(m) => {
-                    if (!selectedTVBrand) return;
-                    const isNew = !selectedTVBrand.models.find(x => x.id === m.id);
-                    const newModels = isNew ? [...selectedTVBrand.models, m] : selectedTVBrand.models.map(x => x.id === m.id ? m : x);
-                    const updatedTVBrand = { ...selectedTVBrand, models: newModels };
-                    handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === updatedTVBrand.id ? updatedTVBrand : b) } as TVConfig });
-                    setEditingTVModel(null);
-                }}
-                onClose={() => setEditingTVModel(null)}
-            />
+            <TVModelEditor model={editingTVModel} onSave={(m) => { if (!selectedTVBrand) return; const isNew = !selectedTVBrand.models.find(x => x.id === m.id); const newModels = isNew ? [...selectedTVBrand.models, m] : selectedTVBrand.models.map(x => x.id === m.id ? m : x); const updatedTVBrand = { ...selectedTVBrand, models: newModels }; handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === updatedTVBrand.id ? updatedTVBrand : b) } as TVConfig }); setEditingTVModel(null); }} onClose={() => setEditingTVModel(null)} />
         )}
         
         {showGuide && <SetupGuide onClose={() => setShowGuide(false)} />}
