@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -51,6 +52,14 @@
       
       html {
         height: -webkit-fill-available;
+      }
+
+      /* Force High Quality Media Rendering */
+      img, video {
+        image-rendering: -webkit-optimize-contrast; /* Sharp edges for Chrome/Webview */
+        image-rendering: high-quality; /* Standard property */
+        backface-visibility: hidden; /* Prevent blur during 3D transforms */
+        -webkit-backface-visibility: hidden;
       }
 
       .overflow-y-auto {

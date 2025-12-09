@@ -118,18 +118,30 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
             return; 
         }
 
-        // --- RENDER LOGIC ---
+        // --- HIGH QUALITY RENDER LOGIC ---
+        // Adjust for device pixel ratio (Retina displays etc)
+        const outputScale = window.devicePixelRatio || 1;
         const viewport = page.getViewport({ scale: renderScale });
+        
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
         
         if (context) {
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
+            canvas.width = Math.floor(viewport.width * outputScale);
+            canvas.height = Math.floor(viewport.height * outputScale);
+            
+            // Scale content back down visually in CSS to fit
+            canvas.style.width = Math.floor(viewport.width) + "px";
+            canvas.style.height = Math.floor(viewport.height) + "px";
+
+            const transform = outputScale !== 1 
+              ? [outputScale, 0, 0, outputScale, 0, 0] 
+              : null;
 
             const renderContext = {
               canvasContext: context,
               viewport: viewport,
+              transform: transform
             };
             
             const task = page.render(renderContext);
@@ -151,9 +163,6 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
       const newPage = pageNum + delta;
       if (newPage >= 1 && newPage <= pdf.numPages) {
           setPageNum(newPage);
-          // Optional: Reset to fit on page turn? 
-          // setScale(0); 
-          // Keeping previous scale is usually better UX for reading.
       }
   };
 
@@ -164,9 +173,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
 
   // Mouse Drag Handlers
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Only drag on left click and if not clicking controls (though controls overlay is separate usually)
     if (e.button !== 0 || !containerRef.current) return;
-    
     setIsDragging(true);
     setStartPos({ x: e.pageX, y: e.pageY });
     setScrollPos({ 
@@ -241,7 +248,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
               </div>
           )}
 
-          {/* Canvas Wrapper - m-auto handles centering in the flex container when content is small, and scroll behavior when large */}
+          {/* Canvas Wrapper - m-auto handles centering in the flex container */}
           <div className={`relative transition-opacity duration-300 m-auto ${loading ? 'opacity-0' : 'opacity-100'}`}>
                <canvas ref={canvasRef} className="bg-white rounded shadow-2xl block" />
           </div>

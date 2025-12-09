@@ -453,8 +453,9 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
       );
   }
 
+  // --- RENDER MAIN KIOSK ---
   return (
-    <div className="relative bg-slate-100 overflow-hidden flex flex-col h-[100dvh] w-full" style={{ zoom: zoomLevel }}>
+    <div className="relative bg-slate-100 overflow-hidden flex flex-col h-[100dvh] w-full">
 
        {isIdle && screensaverEnabled && deviceType === 'kiosk' && (
          <Screensaver 
@@ -530,8 +531,9 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
            </div>
        </header>
 
-       {/* MAIN CONTENT WRAPPER WITH ZOOM */}
-       <div className="flex-1 relative flex flex-col min-h-0">
+       {/* MAIN CONTENT WRAPPER WITH ZOOM APPLIED HERE ONLY */}
+       {/* Ensure overflow is handled on the flex container, and zoom is applied to the content inside */}
+       <div className="flex-1 relative flex flex-col min-h-0" style={{ zoom: zoomLevel }}>
          {!activeBrand ? (
            <BrandGrid 
              brands={storeData.brands || []} 
@@ -579,6 +581,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
          )}
        </div>
 
+       {/* Footer remains outside the zoomed container */}
        <footer className="shrink-0 bg-white border-t border-slate-200 text-slate-500 h-8 flex items-center justify-between px-2 md:px-6 z-50 text-[8px] md:text-[10px]">
           <div className="flex items-center gap-2 md:gap-4">
               <div className="flex items-center gap-1 md:gap-1.5">
