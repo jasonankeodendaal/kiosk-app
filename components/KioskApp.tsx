@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist, PricelistBrand } from '../types';
 import { 
@@ -400,11 +402,11 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
       );
   }, [storeData]);
   
-  // UPDATED: Use Independent Pricelist Brands
+  // UPDATED: Use Independent Pricelist Brands, automatically sorted alphabetically
   const pricelistBrands = useMemo(() => {
-      // If storeData has explicit pricelistBrands (new structure), use them
       if (storeData?.pricelistBrands && storeData.pricelistBrands.length > 0) {
-          return storeData.pricelistBrands;
+          // SORT: Alphabetical A-Z
+          return [...storeData.pricelistBrands].sort((a, b) => a.name.localeCompare(b.name));
       }
       return [];
   }, [storeData]);
@@ -655,6 +657,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                                <div className="grid grid-cols-3 gap-2 md:gap-4">
                                    {storeData.pricelists?.filter(p => p.brandId === selectedBrandForPricelist)
                                    .sort((a, b) => {
+                                        // SORT: Date Descending (Closest date first)
                                         const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
                                         const yearA = parseInt(a.year) || 0;
                                         const yearB = parseInt(b.year) || 0;

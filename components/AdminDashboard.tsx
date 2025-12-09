@@ -2,7 +2,9 @@
 
 
 
-import React, { useState, useEffect } from 'react';
+
+
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, ChevronLeft, Wifi, WifiOff, 
@@ -630,13 +632,18 @@ const PricelistManager = ({
     onSaveBrands: (b: PricelistBrand[]) => void,
     onDeletePricelist: (id: string) => void
 }) => {
-    const [selectedBrand, setSelectedBrand] = useState<PricelistBrand | null>(pricelistBrands.length > 0 ? pricelistBrands[0] : null);
+    // Sort Brands Alphabetically for Display
+    const sortedBrands = useMemo(() => {
+        return [...pricelistBrands].sort((a, b) => a.name.localeCompare(b.name));
+    }, [pricelistBrands]);
+
+    const [selectedBrand, setSelectedBrand] = useState<PricelistBrand | null>(sortedBrands.length > 0 ? sortedBrands[0] : null);
     
     useEffect(() => {
-        if (selectedBrand && !pricelistBrands.find(b => b.id === selectedBrand.id)) {
-            setSelectedBrand(pricelistBrands.length > 0 ? pricelistBrands[0] : null);
+        if (selectedBrand && !sortedBrands.find(b => b.id === selectedBrand.id)) {
+            setSelectedBrand(sortedBrands.length > 0 ? sortedBrands[0] : null);
         }
-    }, [pricelistBrands]);
+    }, [sortedBrands]);
 
     const filteredLists = selectedBrand ? pricelists.filter(p => p.brandId === selectedBrand.id) : [];
 
@@ -645,6 +652,7 @@ const PricelistManager = ({
     const sortedLists = [...filteredLists].sort((a, b) => {
         const yearA = parseInt(a.year) || 0;
         const yearB = parseInt(b.year) || 0;
+        // Date Descending (Closest date first)
         if (yearA !== yearB) return yearB - yearA;
         return months.indexOf(b.month) - months.indexOf(a.month);
     });
@@ -711,7 +719,7 @@ const PricelistManager = ({
                      </button>
                  </div>
                  <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                     {pricelistBrands.map(brand => (
+                     {sortedBrands.map(brand => (
                          <div 
                             key={brand.id} 
                             onClick={() => setSelectedBrand(brand)}
@@ -753,7 +761,7 @@ const PricelistManager = ({
                              )}
                          </div>
                      ))}
-                     {pricelistBrands.length === 0 && (
+                     {sortedBrands.length === 0 && (
                          <div className="p-8 text-center text-slate-400 text-xs italic">
                              No brands. Click "Add" to start.
                          </div>
