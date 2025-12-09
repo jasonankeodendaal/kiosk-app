@@ -4,6 +4,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist, PricelistBrand } from '../types';
 import { 
@@ -501,14 +503,16 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                 </div>
 
                 <div className="flex items-center gap-2 border-l border-slate-700 pl-2 md:pl-4">
-                    {/* SCREEN SAVER TOGGLE */}
-                    <button 
-                       onClick={() => setScreensaverEnabled(!screensaverEnabled)} 
-                       className={`p-1 rounded ${screensaverEnabled ? 'text-green-400 bg-green-900/30' : 'text-slate-500 bg-slate-800'}`}
-                       title={screensaverEnabled ? "Screensaver On" : "Screensaver Off"}
-                    >
-                       {screensaverEnabled ? <MonitorPlay size={12} className="md:w-3.5 md:h-3.5" /> : <MonitorStop size={12} className="md:w-3.5 md:h-3.5" />}
-                    </button>
+                    {/* SCREEN SAVER TOGGLE - HIDDEN ON MOBILE DEVICES */}
+                    {deviceType === 'kiosk' && (
+                        <button 
+                           onClick={() => setScreensaverEnabled(!screensaverEnabled)} 
+                           className={`p-1 rounded ${screensaverEnabled ? 'text-green-400 bg-green-900/30' : 'text-slate-500 bg-slate-800'}`}
+                           title={screensaverEnabled ? "Screensaver On" : "Screensaver Off"}
+                        >
+                           {screensaverEnabled ? <MonitorPlay size={12} className="md:w-3.5 md:h-3.5" /> : <MonitorStop size={12} className="md:w-3.5 md:h-3.5" />}
+                        </button>
+                    )}
                     
                     {/* ZOOM CONTROL - Hidden on very small screens to save space, or just icon */}
                     <button 
@@ -554,6 +558,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
              onBack={() => setActiveBrand(null)} 
              screensaverEnabled={screensaverEnabled}
              onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
+             showScreensaverButton={deviceType === 'kiosk'}
            />
          ) : !activeProduct ? (
            <ProductList 
@@ -565,6 +570,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
              onViewCatalog={(pages) => {}} // Unused in ProductList, kept for compatibility
              screensaverEnabled={screensaverEnabled}
              onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
+             showScreensaverButton={deviceType === 'kiosk'}
            />
          ) : (
            <ProductDetail 
@@ -572,6 +578,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
              onBack={() => setActiveProduct(null)} 
              screensaverEnabled={screensaverEnabled}
              onToggleScreensaver={() => setScreensaverEnabled(prev => !prev)}
+             showScreensaverButton={deviceType === 'kiosk'}
            />
          )}
        </div>

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 import Flipbook from './Flipbook';
@@ -10,9 +11,10 @@ interface ProductDetailProps {
   onBack: () => void;
   screensaverEnabled: boolean;
   onToggleScreensaver: () => void;
+  showScreensaverButton?: boolean;
 }
 
-const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensaverEnabled, onToggleScreensaver }) => {
+const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensaverEnabled, onToggleScreensaver, showScreensaverButton = true }) => {
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0); 
   const [showEnlargedMedia, setShowEnlargedMedia] = useState(false);
   const [enlargedMediaIndex, setEnlargedMediaIndex] = useState(0);
@@ -121,15 +123,17 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
             </button>
           </div>
           
-          <div className="absolute top-6 right-6 z-20">
-             <button 
-                onClick={onToggleScreensaver}
-                className={`flex items-center justify-center w-8 h-8 rounded-full border shadow-sm transition-colors ${screensaverEnabled ? 'bg-green-500/20 text-green-400 border-green-500/50' : 'bg-black/40 text-slate-400 border-white/10'}`}
-                title="Toggle Screensaver"
-            >
-                {screensaverEnabled ? <MonitorPlay size={14} /> : <MonitorStop size={14} />}
-            </button>
-          </div>
+          {showScreensaverButton && (
+              <div className="absolute top-6 right-6 z-20">
+                 <button 
+                    onClick={onToggleScreensaver}
+                    className={`flex items-center justify-center w-8 h-8 rounded-full border shadow-sm transition-colors ${screensaverEnabled ? 'bg-green-500/20 text-green-400 border-green-500/50' : 'bg-black/40 text-slate-400 border-white/10'}`}
+                    title="Toggle Screensaver"
+                >
+                    {screensaverEnabled ? <MonitorPlay size={14} /> : <MonitorStop size={14} />}
+                </button>
+              </div>
+          )}
 
           {/* Main Media Stage */}
           <div className="flex-1 flex items-center justify-center p-8 relative bg-gradient-to-b from-slate-800 to-slate-900">
@@ -342,9 +346,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
            <button onClick={onBack} className="pointer-events-auto w-10 h-10 bg-white/95 rounded-full shadow-lg flex items-center justify-center text-slate-900 hover:bg-white active:scale-95 transition-all">
              <LeftArrow size={24} />
            </button>
-           <button onClick={onToggleScreensaver} className={`pointer-events-auto w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all ${screensaverEnabled ? 'bg-green-500/90 text-white' : 'bg-black/50 text-white/80'}`}>
-             {screensaverEnabled ? <MonitorPlay size={20} /> : <MonitorStop size={20} />}
-           </button>
+           {showScreensaverButton && (
+               <button onClick={onToggleScreensaver} className={`pointer-events-auto w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all ${screensaverEnabled ? 'bg-green-500/90 text-white' : 'bg-black/50 text-white/80'}`}>
+                 {screensaverEnabled ? <MonitorPlay size={20} /> : <MonitorStop size={20} />}
+               </button>
+           )}
         </div>
 
         <div className="w-full h-[45vh] bg-black relative shrink-0 group flex items-center justify-center">
@@ -583,7 +589,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, onBack, screensa
                           setShowGalleryModal(false);
                           setShowEnlargedMedia(true); // Open enlarged view immediately from grid
                       }}
-                      className={`group relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${currentMediaIndex === idx ? 'border-blue-500 ring-4 ring-blue-500/20' : 'border-slate-700 hover:border-slate-500'}`}
+                      className={`group relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${currentMediaIndex === idx ? 'border-blue-500 ring-4 ring-blue-500/20' : 'border-slate-700 hover:border-slate-50'}`}
                     >
                       {media.type === 'image' ? (
                           <img 

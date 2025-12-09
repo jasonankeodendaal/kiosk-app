@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Category, Product, Brand, Catalogue } from '../types';
 import { ChevronLeft, ArrowRight, MonitorPlay, MonitorStop, Search, X, Tag, Package } from 'lucide-react';
@@ -11,9 +12,10 @@ interface ProductListProps {
   onViewCatalog: (pages: string[]) => void;
   screensaverEnabled: boolean;
   onToggleScreensaver: () => void;
+  showScreensaverButton?: boolean;
 }
 
-const ProductList: React.FC<ProductListProps> = ({ category, onSelectProduct, onBack, screensaverEnabled, onToggleScreensaver }) => {
+const ProductList: React.FC<ProductListProps> = ({ category, onSelectProduct, onBack, screensaverEnabled, onToggleScreensaver, showScreensaverButton = true }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Search & Sort Logic
@@ -44,13 +46,15 @@ const ProductList: React.FC<ProductListProps> = ({ category, onSelectProduct, on
                     >
                         <ChevronLeft size={24} />
                     </button>
-                    <button 
-                        onClick={onToggleScreensaver}
-                        className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors shadow-sm border ${screensaverEnabled ? 'bg-green-100 text-green-600 border-green-200' : 'bg-slate-100 text-slate-400 border-slate-200'}`}
-                        title="Toggle Screensaver"
-                    >
-                        {screensaverEnabled ? <MonitorPlay size={20} /> : <MonitorStop size={20} />}
-                    </button>
+                    {showScreensaverButton && (
+                        <button 
+                            onClick={onToggleScreensaver}
+                            className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors shadow-sm border ${screensaverEnabled ? 'bg-green-100 text-green-600 border-green-200' : 'bg-slate-100 text-slate-400 border-slate-200'}`}
+                            title="Toggle Screensaver"
+                        >
+                            {screensaverEnabled ? <MonitorPlay size={20} /> : <MonitorStop size={20} />}
+                        </button>
+                    )}
                 </div>
                 <div>
                     <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight">{category.name}</h2>

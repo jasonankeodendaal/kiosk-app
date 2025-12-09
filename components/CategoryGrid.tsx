@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useMemo, useState } from 'react';
 import { Brand, Category, Catalogue, Pricelist } from '../types';
 import { Smartphone, Laptop, Watch, Headphones, Monitor, Tablet, Box, ChevronLeft, ArrowRight, BookOpen, MonitorPlay, MonitorStop, Calendar, DollarSign, X, FileText } from 'lucide-react';
@@ -14,6 +16,7 @@ interface CategoryGridProps {
   onBack: () => void;
   screensaverEnabled: boolean;
   onToggleScreensaver: () => void;
+  showScreensaverButton?: boolean;
 }
 
 const IconMap: Record<string, React.ReactNode> = {
@@ -25,7 +28,7 @@ const IconMap: Record<string, React.ReactNode> = {
   'Tablet': <Tablet className="w-5 h-5 md:w-12 md:h-12" strokeWidth={1.5} />,
 };
 
-const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSelectCategory, onViewCatalog, onBack, screensaverEnabled, onToggleScreensaver }) => {
+const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSelectCategory, onViewCatalog, onBack, screensaverEnabled, onToggleScreensaver, showScreensaverButton = true }) => {
   // Filter catalogs for this brand ONLY
   const brandCatalogs = storeCatalogs?.filter(c => c.brandId === brand.id).sort((a, b) => {
       if (a.year && b.year && a.year !== b.year) return b.year - a.year; // Recent first
@@ -55,13 +58,15 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ brand, storeCatalogs, onSel
             >
                 <ChevronLeft size={16} className="mr-1" /> Back to Brands
             </button>
-            <button 
-                onClick={onToggleScreensaver}
-                className={`p-1.5 rounded-lg border transition-colors ${screensaverEnabled ? 'bg-green-100 text-green-600 border-green-200' : 'bg-slate-100 text-slate-400 border-slate-200'}`}
-                title="Toggle Screensaver"
-            >
-                {screensaverEnabled ? <MonitorPlay size={16} /> : <MonitorStop size={16} />}
-            </button>
+            {showScreensaverButton && (
+                <button 
+                    onClick={onToggleScreensaver}
+                    className={`p-1.5 rounded-lg border transition-colors ${screensaverEnabled ? 'bg-green-100 text-green-600 border-green-200' : 'bg-slate-100 text-slate-400 border-slate-200'}`}
+                    title="Toggle Screensaver"
+                >
+                    {screensaverEnabled ? <MonitorPlay size={16} /> : <MonitorStop size={16} />}
+                </button>
+            )}
           </div>
           <h1 className="text-2xl md:text-4xl font-extrabold text-slate-900 mt-2">{brand.name}</h1>
         </div>
