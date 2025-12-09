@@ -66,13 +66,21 @@ const fetchAssetAndAddToZip = async (zipFolder: JSZip | null, url: string, filen
 
 const downloadZip = async (storeData: StoreData) => {
     const zip = new JSZip();
-    
-    // UI Notification would be good here, but we are in a static function.
     console.log("Starting Backup Process...");
 
     // 1. Structure: Brand -> Category -> Product
     for (const brand of storeData.brands) {
         const brandFolder = zip.folder(brand.name.replace(/[^a-z0-9 ]/gi, '').trim() || 'Untitled Brand');
+        
+        if (brandFolder) {
+            // Save Brand Metadata
+            brandFolder.file("brand.json", JSON.stringify(brand, null, 2));
+            
+            // 2. Fetch & Pack Brand Logo
+            if (brand.logoUrl) {
+                await fetchAssetAndAddToZip(brandFolder, brand.logoUrl, "brand_logo");
+            }
+        }
         
         for (const category of brand.categories) {
             const catFolder = brandFolder?.folder(category.name.replace(/[^a-z0-9 ]/gi, '').trim() || 'Untitled Category');
@@ -81,7 +89,7 @@ const downloadZip = async (storeData: StoreData) => {
                 const prodFolder = catFolder?.folder(product.name.replace(/[^a-z0-9 ]/gi, '').trim() || 'Untitled Product');
                 
                 if (prodFolder) {
-                    // 1. Create Metadata JSON
+                    // 3. Create Metadata JSON
                     const metadata = {
                         name: product.name,
                         sku: product.sku,
@@ -91,26 +99,24 @@ const downloadZip = async (storeData: StoreData) => {
                         dimensions: product.dimensions,
                         terms: product.terms,
                         boxContents: product.boxContents,
-                        // We store original URLs in JSON as backup, 
-                        // but files will be alongside for the import to pick up.
                         originalImageUrl: product.imageUrl, 
                         originalVideoUrl: product.videoUrl
                     };
                     prodFolder.file("details.json", JSON.stringify(metadata, null, 2));
 
-                    // 2. Fetch & Pack Main Image
+                    // 4. Fetch & Pack Main Image
                     if (product.imageUrl) {
                         await fetchAssetAndAddToZip(prodFolder, product.imageUrl, "cover");
                     }
 
-                    // 3. Fetch & Pack Gallery Images
+                    // 5. Fetch & Pack Gallery Images
                     if (product.galleryUrls) {
                         for (let i = 0; i < product.galleryUrls.length; i++) {
                             await fetchAssetAndAddToZip(prodFolder, product.galleryUrls[i], `gallery_${i}`);
                         }
                     }
 
-                    // 4. Fetch & Pack Videos (Legacy + New)
+                    // 6. Fetch & Pack Videos
                     const videos = [...(product.videoUrls || [])];
                     if (product.videoUrl && !videos.includes(product.videoUrl)) videos.push(product.videoUrl);
                     
@@ -118,12 +124,11 @@ const downloadZip = async (storeData: StoreData) => {
                         await fetchAssetAndAddToZip(prodFolder, videos[i], `video_${i}`);
                     }
 
-                    // 5. Fetch & Pack Manuals
+                    // 7. Fetch & Pack Manuals
                     if (product.manuals) {
                          for (let i = 0; i < product.manuals.length; i++) {
                              const m = product.manuals[i];
                              if (m.pdfUrl) {
-                                 // Clean title for filename
                                  const safeTitle = m.title.replace(/[^a-z0-9]/gi, '_');
                                  await fetchAssetAndAddToZip(prodFolder, m.pdfUrl, safeTitle || `manual_${i}`);
                              }
@@ -170,16 +175,12 @@ const importZip = async (file: File): Promise<Brand[]> => {
         if (fileObj.dir) continue;
         if (path.includes('__MACOSX') || path.includes('.DS_Store')) continue;
 
-        // Path should be: Brand/Category/Product/File.ext
+        // Path: Brand/Category/Product/File.ext OR Brand/BrandFile.ext
         const parts = path.split('/');
         
-        // Ensure strictly structured depth
-        if (parts.length < 3) continue;
+        if (parts.length < 2) continue;
 
         const brandName = parts[0];
-        const categoryName = parts[1];
-        const productName = parts[2];
-        const fileName = parts.slice(3).join('/'); // In case of subfolders inside product (e.g. gallery)
 
         // Init Brand
         if (!newBrands[brandName]) {
@@ -189,6 +190,24 @@ const importZip = async (file: File): Promise<Brand[]> => {
                 categories: []
             };
         }
+
+        // Handle Brand Assets (Level 2: Brand/brand_logo.png)
+        if (parts.length === 2) {
+             const fileName = parts[1].toLowerCase();
+             // Parse brand logo
+             if (fileName.includes('brand_logo') || fileName.includes('logo')) {
+                  const b64 = await getBase64(fileObj);
+                  newBrands[brandName].logoUrl = b64;
+             }
+             continue;
+        }
+
+        // Require Product Depth for rest (Brand/Category/Product/File)
+        if (parts.length < 4) continue;
+
+        const categoryName = parts[1];
+        const productName = parts[2];
+        const fileName = parts.slice(3).join('/'); // In case of subfolders inside product (e.g. gallery)
 
         // Init Category
         let category = newBrands[brandName].categories.find(c => c.name === categoryName);
@@ -202,15 +221,12 @@ const importZip = async (file: File): Promise<Brand[]> => {
             newBrands[brandName].categories.push(category);
         }
 
-        // Init Product (We use folder name as initial product name)
-        // If file is directly in category folder (length 3), skip or handle as generic asset
-        if (parts.length === 3) continue; // Must be inside a product folder
-
+        // Init Product
         let product = category.products.find(p => p.name === productName);
         if (!product) {
             product = {
                 id: generateId('prod'),
-                name: productName, // Default name from folder
+                name: productName, 
                 description: '',
                 specs: {},
                 features: [],
@@ -226,12 +242,11 @@ const importZip = async (file: File): Promise<Brand[]> => {
 
         const lowerFile = fileName.toLowerCase();
         
-        // Handle Details JSON/TXT
+        // Handle Details JSON
         if (fileName.endsWith('.json') && fileName.includes('details')) {
              try {
                  const text = await fileObj.async("text");
                  const meta = JSON.parse(text);
-                 // Merge metadata
                  if (meta.name) product.name = meta.name;
                  if (meta.description) product.description = meta.description;
                  if (meta.sku) product.sku = meta.sku;
@@ -245,25 +260,24 @@ const importZip = async (file: File): Promise<Brand[]> => {
         // Handle Images
         else if (lowerFile.endsWith('.jpg') || lowerFile.endsWith('.jpeg') || lowerFile.endsWith('.png') || lowerFile.endsWith('.webp')) {
              const b64 = await getBase64(fileObj);
-             // Heuristic: If it's named 'cover' or 'main' or it's the first image found and no image set
              if (lowerFile.includes('cover') || lowerFile.includes('main') || !product.imageUrl) {
                  product.imageUrl = b64;
              } else {
                  product.galleryUrls = [...(product.galleryUrls || []), b64];
              }
         }
-        // Handle Videos (NEW)
+        // Handle Videos
         else if (lowerFile.endsWith('.mp4') || lowerFile.endsWith('.webm') || lowerFile.endsWith('.mov')) {
             const b64 = await getBase64(fileObj);
             product.videoUrls = [...(product.videoUrls || []), b64];
         }
-        // Handle PDF Manuals
+        // Handle Manuals
         else if (lowerFile.endsWith('.pdf')) {
              const b64 = await getBase64(fileObj);
              product.manuals?.push({
                  id: generateId('man'),
                  title: fileName.replace('.pdf', '').replace(/_/g, ' '),
-                 images: [], // No preview images generated automatically client-side easily
+                 images: [],
                  pdfUrl: b64,
                  thumbnailUrl: '' 
              });
@@ -428,7 +442,6 @@ const InputField = ({ label, val, onChange, placeholder, isArea = false, half = 
     </div>
 );
 
-// ... [CatalogueManager, MoveProductModal, PricelistManager, ProductEditor, KioskEditorModal, TVModelEditor, AdminManager components remain unchanged] ...
 const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalogue[], onSave: (c: Catalogue[]) => void, brandId?: string }) => {
     const [localList, setLocalList] = useState(catalogues || []);
     useEffect(() => setLocalList(catalogues || []), [catalogues]);
@@ -1332,6 +1345,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   const [localData, setLocalData] = useState<StoreData | null>(storeData);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [importProcessing, setImportProcessing] = useState(false);
+  const [exportProcessing, setExportProcessing] = useState(false);
 
   const availableTabs = [
       { id: 'inventory', label: 'Inventory', icon: Box },
@@ -1899,10 +1913,22 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                    <div className="mt-2 text-blue-600 font-bold">Use this to edit offline or migrate data.</div>
                                </div>
                                <button 
-                                   onClick={() => downloadZip(localData)}
-                                   className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold uppercase text-xs hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-blue-500/25"
+                                   onClick={async () => {
+                                       setExportProcessing(true);
+                                       try {
+                                           await downloadZip(localData);
+                                       } catch (e) {
+                                           console.error(e);
+                                           alert("Export Failed: " + (e as Error).message);
+                                       } finally {
+                                           setExportProcessing(false);
+                                       }
+                                   }}
+                                   disabled={exportProcessing}
+                                   className={`w-full py-4 ${exportProcessing ? 'bg-blue-800 cursor-wait' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-xl font-bold uppercase text-xs transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-blue-500/25`}
                                >
-                                   <Download size={16} /> Download Full Backup (.zip)
+                                   {exportProcessing ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} 
+                                   {exportProcessing ? 'Packaging Assets...' : 'Download Full Backup (.zip)'}
                                </button>
                            </div>
 
@@ -1935,6 +1961,11 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                                      newBrands.forEach(nb => {
                                                          const existingBrandIndex = mergedBrands.findIndex(b => b.name === nb.name);
                                                          if (existingBrandIndex > -1) {
+                                                             // Merge Brand Assets if present
+                                                             if (nb.logoUrl) {
+                                                                 mergedBrands[existingBrandIndex].logoUrl = nb.logoUrl;
+                                                             }
+
                                                              // Merge Categories
                                                              nb.categories.forEach(nc => {
                                                                  const existingCatIndex = mergedBrands[existingBrandIndex].categories.findIndex(c => c.name === nc.name);
