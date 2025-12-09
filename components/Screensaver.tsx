@@ -199,21 +199,20 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
   };
 
   const handleMediaError = () => {
-      console.warn("Media failed to load:", currentItem?.url);
+      console.warn("Media failed to load:", playlist[currentIndex]?.url);
+      if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = window.setTimeout(() => {
           nextSlide();
       }, 2000); 
   };
 
-  // 2. Playback Logic
   const currentItem = playlist[currentIndex];
 
+  // 2. Effect Selector (Separated to ensure state stability)
   useEffect(() => {
-    if (isSleepMode) return; 
-    if (!currentItem || playlist.length === 0) return;
+    if (!currentItem) return;
 
     // Pick a random animation effect for this slide
-    // 'circle-reveal' is only good for images, typically
     const imageEffects = ['effect-ken-burns', 'effect-pop-dynamic', 'effect-twist-enter', 'effect-circle-reveal', 'effect-pan-tilt'];
     const videoEffects = ['effect-fade-in', 'effect-zoom-soft']; // Videos get subtler effects
     
@@ -222,7 +221,13 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
     } else {
         setAnimationEffect(videoEffects[Math.floor(Math.random() * videoEffects.length)]);
     }
+  }, [currentItem?.id]);
 
+  // 3. Playback Logic
+  useEffect(() => {
+    if (isSleepMode || !currentItem || playlist.length === 0) return;
+
+    // Clear previous timer
     if (timerRef.current) clearTimeout(timerRef.current);
 
     if (currentItem.type === 'image') {
@@ -231,25 +236,43 @@ const Screensaver: React.FC<ScreensaverProps> = ({ products, ads, pamphlets = []
             nextSlide();
         }, duration);
     } else {
+        // Video Handling
         if (videoRef.current) {
+            // Reset to beginning
+            videoRef.current.currentTime = 0;
+            videoRef.current.muted = config.muteVideos;
+            
             const playPromise = videoRef.current.play();
             if (playPromise !== undefined) {
                 playPromise.catch(error => {
                     console.warn("Autoplay prevented:", error);
-                    nextSlide();
+                    
+                    // Fallback: Mute and try again if it wasn't muted
+                    if (!videoRef.current!.muted) {
+                         console.log("Retrying playback with Mute...");
+                         videoRef.current!.muted = true;
+                         videoRef.current!.play().catch(e => {
+                             console.error("Muted playback failed:", e);
+                             nextSlide(); // Skip
+                         });
+                    } else {
+                        nextSlide(); // Skip
+                    }
                 });
             }
         }
+        
+        // Safety timeout in case 'onEnded' doesn't fire
         timerRef.current = window.setTimeout(() => {
-            console.warn("Video timeout reached, skipping.");
+            console.warn("Video timeout reached (stuck?), skipping.");
             nextSlide();
-        }, 180000); 
+        }, 180000); // 3 minutes max per video
     }
 
     return () => {
         if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [currentIndex, currentItem, config.imageDuration, playlist.length, isSleepMode]);
+  }, [currentIndex, currentItem, animationEffect, config.imageDuration, playlist.length, isSleepMode]); // animationEffect added to deps to ensure ref is fresh
 
   // Sleep Mode Render
   if (isSleepMode) {
