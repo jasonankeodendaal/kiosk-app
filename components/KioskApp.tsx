@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist, PricelistBrand } from '../types';
 import { 
@@ -197,6 +189,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   const [isSetup, setIsSetup] = useState(isKioskConfigured());
   const [kioskId, setKioskId] = useState(getKioskId());
   const [deviceType, setDeviceTypeState] = useState(getDeviceType());
+  const [currentShopName, setCurrentShopName] = useState(getShopName());
   
   const [activeBrand, setActiveBrand] = useState<Brand | null>(null);
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
@@ -280,11 +273,17 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                   console.log("Command Received:", payload);
                   const newData = payload.new;
 
-                  // 2. Restart Command
+                  // 1. Restart Command
                   if (newData.restart_requested) {
                       console.log("Restart requested. Reloading...");
                       await supabase.from('kiosks').update({ restart_requested: false }).eq('id', kioskId);
                       window.location.reload();
+                  }
+                  
+                  // 2. Live Type Update (Backup for Heartbeat sync)
+                  if (newData.device_type && newData.device_type !== deviceType) {
+                      localStorage.setItem('kiosk_pro_device_type', newData.device_type);
+                      setDeviceTypeState(newData.device_type);
                   }
               }
           )
@@ -293,7 +292,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
       return () => {
           supabase.removeChannel(channel);
       };
-  }, [isSetup, kioskId]);
+  }, [isSetup, kioskId, deviceType]);
 
 
   // Network & Time & Heartbeat Loop
@@ -317,28 +316,22 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
 
     if (isSetup) {
       const performHeartbeat = async () => {
-         if (supabase && kioskId) {
-             try {
-                // Check pending flags (Robustness for offline/missed events)
-                const { data } = await supabase
-                    .from('kiosks')
-                    .select('restart_requested')
-                    .eq('id', kioskId)
-                    .maybeSingle();
-                
-                if (data) {
-                    if (data.restart_requested) {
-                        await supabase.from('kiosks').update({ restart_requested: false }).eq('id', kioskId);
-                        window.location.reload();
-                        return;
-                    }
-                }
-             } catch(err) {
-                 // Ignore network errors during poll
+         const syncResult = await sendHeartbeat();
+         
+         // --- SYNC CONFIGURATION ---
+         if (syncResult) {
+             if (syncResult.restart) window.location.reload();
+             
+             // Update Local State if config changed remotely
+             if (syncResult.deviceType && syncResult.deviceType !== deviceType) {
+                 console.log("Applying Remote Type Change:", syncResult.deviceType);
+                 setDeviceTypeState(syncResult.deviceType as any);
+             }
+             if (syncResult.name && syncResult.name !== currentShopName) {
+                 console.log("Applying Remote Name Change:", syncResult.name);
+                 setCurrentShopName(syncResult.name);
              }
          }
-
-         sendHeartbeat();
       };
       
       performHeartbeat();
@@ -366,7 +359,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
       clearInterval(cloudInterval);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [resetIdleTimer, isSetup, kioskId]); 
+  }, [resetIdleTimer, isSetup, kioskId, deviceType, currentShopName]); 
 
   useEffect(() => {
     if (!kioskId) {
@@ -416,6 +409,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   const handleSetupComplete = (name: string, type: 'kiosk' | 'mobile' | 'tv') => {
     completeKioskSetup(name, type).then(() => {
         setDeviceTypeState(type);
+        setCurrentShopName(name);
         setIsSetup(true);
     });
   };
@@ -424,6 +418,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
     setCustomKioskId(id);
     setKioskId(id);
     setDeviceTypeState(getDeviceType());
+    setCurrentShopName(getShopName());
     setIsSetup(true);
   };
 
@@ -489,7 +484,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                {/* Hide Shop Name on Small Screens */}
                <div className="hidden md:flex items-center gap-2 text-[10px] font-bold text-slate-400">
                   <MapPin size={12} />
-                  <span className="truncate max-w-[150px]">{getShopName()}</span>
+                  <span className="truncate max-w-[150px]">{currentShopName}</span>
                </div>
            </div>
            

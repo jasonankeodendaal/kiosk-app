@@ -218,51 +218,102 @@ export const completeKioskSetup = async (shopName: string, deviceType: 'kiosk' |
   return true;
 };
 
-// 7. Send Heartbeat (No snapshot logic)
-export const sendHeartbeat = async () => {
+// 7. Send Heartbeat with Config Sync
+// Returns the updated configuration if changed remotely, or null
+export const sendHeartbeat = async (): Promise<{ deviceType?: string, name?: string, restart?: boolean } | null> => {
   const id = getKioskId();
-  const name = getShopName();
-  const deviceType = getDeviceType();
-
-  if (!id || !name) return;
+  if (!id) return null;
 
   // Attempt init if not ready
   if (!supabase) initSupabase();
-  if (!supabase) return;
   
+  // Local Defaults (Will be overwritten if remote exists)
+  let currentName = getShopName() || "Unknown Device";
+  let currentDeviceType = getDeviceType();
+  let currentZone = "Unassigned";
+  let configChanged = false;
+
   try {
       // Estimate connection info
       const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
       let wifiStrength = 100;
+      let ipAddress = 'Unknown';
       
       if(connection) {
           if(connection.downlink < 1) wifiStrength = 20;
           else if(connection.downlink < 5) wifiStrength = 50;
           else if(connection.downlink < 10) wifiStrength = 80;
+          ipAddress = `${connection.effectiveType?.toUpperCase() || 'NET'} | ${connection.downlink}Mbps`;
       }
 
-      // 1. Telemetry Payload
-      const payload: any = {
-          id,
-          name, // Ensure name is always fresh
-          device_type: deviceType,
-          last_seen: new Date().toISOString(),
-          status: 'online',
-          wifi_strength: wifiStrength,
-          ip_address: connection ? `${connection.effectiveType} | ${connection.downlink}Mbps` : 'Unknown',
-      };
+      // 1. SYNC: Fetch Remote Config FIRST (The Source of Truth)
+      if (supabase) {
+          const { data: remoteData, error: fetchError } = await supabase
+              .from('kiosks')
+              .select('name, device_type, assigned_zone, restart_requested')
+              .eq('id', id)
+              .maybeSingle();
 
-      // Upsert to SQL table
-      const { error } = await supabase.from('kiosks').upsert(payload, { onConflict: 'id' });
-      
-      if (error) console.warn("Heartbeat Error:", error.message);
+          if (!fetchError && remoteData) {
+              // Check for Name Change
+              if (remoteData.name && remoteData.name !== currentName) {
+                  console.log(`Sync: Updating Name '${currentName}' -> '${remoteData.name}'`);
+                  localStorage.setItem(STORAGE_KEY_NAME, remoteData.name);
+                  currentName = remoteData.name;
+                  configChanged = true;
+              }
+
+              // Check for Device Type Change
+              if (remoteData.device_type && remoteData.device_type !== currentDeviceType) {
+                  console.log(`Sync: Updating Type '${currentDeviceType}' -> '${remoteData.device_type}'`);
+                  localStorage.setItem(STORAGE_KEY_TYPE, remoteData.device_type);
+                  currentDeviceType = remoteData.device_type;
+                  configChanged = true;
+              }
+
+              // Preserve Zone
+              if (remoteData.assigned_zone) {
+                  currentZone = remoteData.assigned_zone;
+              }
+
+              // Check for Restart
+              if (remoteData.restart_requested) {
+                  return { restart: true };
+              }
+          }
+      }
+
+      // 2. TELEMETRY: Push Status Update
+      // Important: We use the `current...` variables which are now synced with remote.
+      // This prevents overwriting the admin's changes with stale local data.
+      if (supabase) {
+          const payload = {
+              id,
+              name: currentName,
+              device_type: currentDeviceType,
+              assigned_zone: currentZone,
+              last_seen: new Date().toISOString(),
+              status: 'online',
+              wifi_strength: wifiStrength,
+              ip_address: ipAddress,
+          };
+
+          const { error } = await supabase.from('kiosks').upsert(payload, { onConflict: 'id' });
+          if (error) console.warn("Heartbeat Write Error:", error.message);
+      }
+
+      if (configChanged) {
+          return { deviceType: currentDeviceType, name: currentName };
+      }
 
   } catch (e) {
-      console.warn("Heartbeat failed", e);
+      console.warn("Heartbeat/Sync Failed:", e);
   }
+
+  return null;
 };
 
-// 8. NEW: Upload File to Supabase Storage Bucket
+// 8. Upload File to Supabase Storage Bucket
 export const uploadFileToStorage = async (file: File): Promise<string> => {
     if (!supabase) initSupabase();
     if (!supabase) {
