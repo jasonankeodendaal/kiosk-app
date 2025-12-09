@@ -183,7 +183,7 @@ const BrandGrid: React.FC<BrandGridProps> = ({ brands, heroConfig, allCatalogs, 
         <div className="relative z-10 flex-1 flex flex-row items-center justify-center p-2 md:p-8 gap-2 md:gap-8 max-w-7xl mx-auto w-full">
             <div className="flex-1 flex flex-col justify-center text-left space-y-0.5 md:space-y-4 max-w-[55%] md:max-w-2xl shrink-0 h-full">
                 {heroConfig?.logoUrl && (
-                    <img src={heroConfig.logoUrl} alt="Logo" className="h-6 md:h-16 object-contain mb-0.5 md:mb-2 mr-auto drop-shadow-md" />
+                    <img src={heroConfig.logoUrl} alt="Logo" className="h-10 md:h-28 object-contain mb-1 md:mb-4 mr-auto drop-shadow-md" />
                 )}
                 <div>
                    <h1 className="text-lg md:text-5xl font-black tracking-tight leading-none md:leading-tight mb-0.5">

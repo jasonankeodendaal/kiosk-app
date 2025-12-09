@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -1966,12 +1960,14 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                            <div key={kiosk.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:shadow-lg transition-all duration-300">
                                                {/* Card Header */}
                                                <div className="p-4 border-b border-slate-100 bg-slate-50/30 flex justify-between items-start">
-                                                   <div>
-                                                       <div className="flex items-center gap-2 mb-1">
-                                                           {type === 'kiosk' && <Tablet size={14} className="text-blue-500"/>}
-                                                           {type === 'mobile' && <Smartphone size={14} className="text-purple-500"/>}
-                                                           {type === 'tv' && <Tv size={14} className="text-indigo-500"/>}
-                                                           <h4 className="font-bold text-slate-900 uppercase text-sm truncate max-w-[140px]" title={kiosk.name}>
+                                                   <div className="flex-1 min-w-0 pr-2">
+                                                       <div className="flex items-start gap-2 mb-1">
+                                                           <div className="mt-0.5 shrink-0">
+                                                               {type === 'kiosk' && <Tablet size={14} className="text-blue-500"/>}
+                                                               {type === 'mobile' && <Smartphone size={14} className="text-purple-500"/>}
+                                                               {type === 'tv' && <Tv size={14} className="text-indigo-500"/>}
+                                                           </div>
+                                                           <h4 className="font-bold text-slate-900 uppercase text-sm leading-tight break-words" title={kiosk.name}>
                                                                {kiosk.name}
                                                            </h4>
                                                        </div>
@@ -1979,7 +1975,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                                             <span>ID: {kiosk.id}</span>
                                                        </div>
                                                    </div>
-                                                   <div className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border flex items-center gap-1.5 ${isOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                                   <div className={`shrink-0 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border flex items-center gap-1.5 ${isOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
                                                        <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
                                                        {isOnline ? 'Online' : 'Offline'}
                                                    </div>

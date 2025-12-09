@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist, PricelistBrand } from '../types';
 import { 
@@ -236,8 +237,8 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
     setIsIdle(false);
     if (timerRef.current) clearTimeout(timerRef.current);
     
-    // Only set idle timer if screensaver is enabled AND device is a Kiosk
-    if (screensaverEnabled && deviceType === 'kiosk') {
+    // Only set idle timer if screensaver is enabled AND device is a Kiosk AND Setup is complete
+    if (screensaverEnabled && deviceType === 'kiosk' && isSetup) {
       timerRef.current = window.setTimeout(() => {
         setIsIdle(true);
         setActiveProduct(null);
@@ -249,7 +250,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
         setShowPricelistModal(false);
       }, idleTimeout);
     }
-  }, [screensaverEnabled, idleTimeout, deviceType]);
+  }, [screensaverEnabled, idleTimeout, deviceType, isSetup]);
 
   // --- REALTIME SUBSCRIPTION FOR COMMANDS (Restart only) ---
   useEffect(() => {

@@ -69,8 +69,8 @@ const AppIconUpdater = ({ storeData }: { storeData: StoreData }) => {
                     const sizes = "192x192"; 
                     const largeSizes = "512x512";
 
-                    // Force orientation to portrait for mobile devices as requested
-                    manifest.orientation = "portrait";
+                    // Allow 'any' orientation so TV setup can be landscape
+                    manifest.orientation = "any";
 
                     // Force update icons array with comprehensive definitions based on the single source
                     manifest.icons = [
