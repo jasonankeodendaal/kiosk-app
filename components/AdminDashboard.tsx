@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, ChevronLeft, Wifi, WifiOff, 
-  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv, UserCog, Key, Move, FileInput, Lock, Unlock, Calendar, Filter
+  Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv, UserCog, Key, Move, FileInput, Lock, Unlock, Calendar, Filter, Zap, Activity, Network
 } from 'lucide-react';
 import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig, TVModel, AdminUser, AdminPermissions, Pricelist, PricelistBrand } from '../types';
 import { resetStoreData } from '../services/geminiService';
@@ -20,6 +20,255 @@ const RIcon = (props: any) => (
     <path d="M7 5h5.5a4.5 4.5 0 0 1 0 9H7" />
     <path d="M11.5 14L17 19" />
   </svg>
+);
+
+// --- SYSTEM DOCUMENTATION COMPONENT ---
+const SystemDocumentation = () => {
+    const [activeSection, setActiveSection] = useState('architecture');
+
+    const sections = [
+        { id: 'architecture', label: 'Core Architecture', icon: <CpuIcon /> },
+        { id: 'inventory', label: 'Inventory Logic', icon: <Box size={16}/> },
+        { id: 'screensaver', label: 'Screensaver Automation', icon: <Zap size={16}/> },
+        { id: 'fleet', label: 'Fleet & Telemetry', icon: <Activity size={16}/> },
+        { id: 'tv', label: 'TV Mode Logic', icon: <Tv size={16}/> },
+    ];
+
+    return (
+        <div className="flex flex-col md:flex-row h-[calc(100vh-140px)] bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-fade-in">
+            {/* Sidebar */}
+            <div className="w-full md:w-64 bg-slate-50 border-r border-slate-200 p-4 shrink-0 overflow-y-auto">
+                <div className="mb-6 px-2">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">System Manual</h3>
+                    <p className="text-[10px] text-slate-500 font-medium">v2.4 Technical Reference</p>
+                </div>
+                <div className="space-y-1">
+                    {sections.map(section => (
+                        <button
+                            key={section.id}
+                            onClick={() => setActiveSection(section.id)}
+                            className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${
+                                activeSection === section.id 
+                                ? 'bg-blue-600 text-white shadow-md font-bold' 
+                                : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900 font-medium'
+                            }`}
+                        >
+                            {/* Icon Wrapper */}
+                            <span className={activeSection === section.id ? 'opacity-100' : 'opacity-70'}>
+                                {section.icon}
+                            </span>
+                            <span className="text-xs uppercase tracking-wide">{section.label}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="flex-1 overflow-y-auto p-8 bg-white">
+                {activeSection === 'architecture' && (
+                    <div className="space-y-8 max-w-3xl">
+                        <div>
+                            <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                <Network className="text-blue-600" size={32} /> Hybrid Cloud Architecture
+                            </h2>
+                            <p className="text-slate-600 leading-relaxed text-sm">
+                                Kiosk Pro utilizes a <strong>"Local-First, Cloud-Sync"</strong> architecture designed for retail environments where internet stability cannot be guaranteed.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                                <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2"><HardDrive size={18} /> Local Storage</h3>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    Every device maintains a complete copy of the database (Products, Settings, Fleet) in its browser's IndexedDB/LocalStorage. This ensures the kiosk works <strong>instantly</strong> and <strong>offline</strong> without loading spinners.
+                                </p>
+                            </div>
+                            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                                <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2"><Cloud size={18} /> Cloud Sync</h3>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    The system connects to Supabase (PostgreSQL). It performs a "Heartbeat" every 60 seconds to push local telemetry and pull global configuration changes. Changes made in the Admin Hub broadcast immediately via WebSockets.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                            <h4 className="text-blue-800 font-bold text-xs uppercase mb-2">Technical Specs</h4>
+                            <ul className="space-y-1 text-[11px] text-blue-700 font-mono">
+                                <li>• Framework: React 19 + TypeScript + Vite</li>
+                                <li>• State: React State + LocalStorage Persistence</li>
+                                <li>• Database: Supabase (Postgres) with Row Level Security</li>
+                                <li>• Asset Storage: Public Buckets (Images/Videos)</li>
+                                <li>• Deployment: Vercel Edge Network (Global CDN)</li>
+                            </ul>
+                        </div>
+                    </div>
+                )}
+
+                {activeSection === 'inventory' && (
+                    <div className="space-y-8 max-w-3xl">
+                        <div>
+                            <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                <Box className="text-blue-600" size={32} /> Inventory Management
+                            </h2>
+                            <p className="text-slate-600 leading-relaxed text-sm">
+                                The inventory system uses a strict hierarchy: <strong>Brand &gt; Category &gt; Product</strong>. This ensures navigation remains intuitive on touch screens.
+                            </p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex gap-4 items-start border-b border-slate-100 pb-4">
+                                <div className="bg-purple-100 p-2 rounded-lg text-purple-700"><Layers size={20}/></div>
+                                <div>
+                                    <h4 className="font-bold text-slate-900 text-sm">Data Inheritance</h4>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Deleting a Brand automatically archives all its Categories and Products. This is a "Cascading Soft Delete" — data is moved to the <strong>Archive</strong> tab, never permanently destroyed immediately.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-4 items-start border-b border-slate-100 pb-4">
+                                <div className="bg-orange-100 p-2 rounded-lg text-orange-700"><FileText size={20}/></div>
+                                <div>
+                                    <h4 className="font-bold text-slate-900 text-sm">PDF & Media Handling</h4>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        PDF Manuals and Pricelists are handled via a custom `pdf.js` viewer. Images are automatically compressed upon upload to Supabase Storage to ensure fast loading on mobile data connections.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeSection === 'screensaver' && (
+                    <div className="space-y-8 max-w-3xl">
+                        <div>
+                            <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                <Zap className="text-yellow-500" size={32} /> Automation Engine
+                            </h2>
+                            <p className="text-slate-600 leading-relaxed text-sm">
+                                The Screensaver is not just a slideshow; it is an intelligent marketing engine that decides what to show based on recency and configuration.
+                            </p>
+                        </div>
+
+                        <div className="bg-slate-900 text-white rounded-2xl p-6 relative overflow-hidden">
+                            <div className="relative z-10">
+                                <h3 className="text-lg font-black uppercase tracking-widest mb-4">The "Freshness" Algorithm</h3>
+                                <div className="space-y-4 text-sm font-light text-slate-300">
+                                    <p>
+                                        <strong className="text-white">1. Content Aggregation:</strong> Every time the screensaver starts, it gathers all enabled content: Product Images, Product Videos, Custom Ads, and Pamphlet Covers.
+                                    </p>
+                                    <p>
+                                        <strong className="text-white">2. Aging Logic:</strong> The system checks the `dateAdded` field of every item.
+                                        <ul className="list-disc pl-5 mt-2 space-y-1 text-slate-400">
+                                            <li><strong>&lt; 6 Months Old:</strong> Included in playlist 100% of the time.</li>
+                                            <li><strong>&gt; 6 Months Old:</strong> 25% chance to appear per cycle.</li>
+                                        </ul>
+                                    </p>
+                                    <p>
+                                        <strong className="text-white">3. Ad Injection:</strong> Custom Ads (uploaded in Marketing tab) are injected with <strong>3x weight</strong>, ensuring they appear more frequently than standard product images.
+                                    </p>
+                                </div>
+                            </div>
+                            <Zap size={200} className="absolute -right-10 -bottom-10 text-yellow-500/10 rotate-12" />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
+                                <h4 className="font-bold text-slate-900 text-xs uppercase mb-2 flex items-center gap-2"><Moon size={14}/> Sleep Mode Automation</h4>
+                                <p className="text-xs text-slate-500">
+                                    If enabled in Settings, the kiosk checks the time every minute. If outside `ActiveHours` (e.g., 8 PM - 8 AM), the screen turns completely black to save panel life, waking only on touch.
+                                </p>
+                            </div>
+                            <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
+                                <h4 className="font-bold text-slate-900 text-xs uppercase mb-2 flex items-center gap-2"><Calendar size={14}/> Pamphlet Expiry</h4>
+                                <p className="text-xs text-slate-500">
+                                    On app load, the system checks all Catalogues/Pamphlets. If the `endDate` has passed, the item is automatically moved to the Archive, preventing customers from seeing expired deals.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeSection === 'fleet' && (
+                    <div className="space-y-8 max-w-3xl">
+                        <div>
+                            <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                <Activity className="text-green-600" size={32} /> Fleet Telemetry
+                            </h2>
+                            <p className="text-slate-600 leading-relaxed text-sm">
+                                How the Admin Hub communicates with distributed devices in real-time.
+                            </p>
+                        </div>
+
+                        <div className="border-l-4 border-green-500 pl-6 py-2">
+                            <h3 className="font-bold text-slate-900 text-sm uppercase">The Heartbeat Protocol</h3>
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                                Every <strong>60 seconds</strong>, active Kiosks send a JSON payload to the database containing:
+                                <br/><code className="bg-slate-100 px-1 rounded">last_seen</code>, <code className="bg-slate-100 px-1 rounded">wifi_strength</code>, and <code className="bg-slate-100 px-1 rounded">ip_address</code>.
+                            </p>
+                            <p className="text-xs text-slate-500 mt-2">
+                                If a device hasn't pinged in <strong>5 minutes</strong>, the Admin Hub marks it as <span className="text-red-600 font-bold">OFFLINE</span>.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-slate-50 p-4 rounded-xl">
+                                <h4 className="font-bold text-slate-900 text-xs uppercase mb-1">Remote Restart</h4>
+                                <p className="text-[10px] text-slate-500">
+                                    When you click "Restart" in Fleet Manager, it sets a boolean flag `restart_requested` in the database. The Kiosk listens for this change via Realtime Subscription and triggers a `window.location.reload()`.
+                                </p>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-xl">
+                                <h4 className="font-bold text-slate-900 text-xs uppercase mb-1">Configuration Sync</h4>
+                                <p className="text-[10px] text-slate-500">
+                                    If you rename a device or change its type (Kiosk/TV) in the Admin Hub, the Kiosk detects this mismatch during its next heartbeat and auto-updates its local configuration to match the server.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeSection === 'tv' && (
+                    <div className="space-y-8 max-w-3xl">
+                        <div>
+                            <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                                <Tv className="text-indigo-600" size={32} /> TV Mode Logic
+                            </h2>
+                            <p className="text-slate-600 leading-relaxed text-sm">
+                                TV Mode transforms the application into a digital signage player, stripping away interactive elements like categories and search.
+                            </p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="p-4 rounded-xl border border-slate-200 flex gap-4">
+                                <div className="bg-indigo-100 text-indigo-700 p-3 rounded-full h-fit"><RotateCcw size={20}/></div>
+                                <div>
+                                    <h4 className="font-bold text-slate-900 text-sm">Auto-Looping Playlist</h4>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        When playing a Brand or Model loop, the system creates a playlist queue. When a video ends, the `onEnded` event fires.
+                                        <br/><strong>Safety Feature:</strong> If a video is corrupted or fails to load, a 2-second timeout auto-skips to the next video to prevent the screen from freezing on black.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="p-4 rounded-xl border border-slate-200 flex gap-4">
+                                <div className="bg-indigo-100 text-indigo-700 p-3 rounded-full h-fit"><MonitorSmartphone size={20}/></div>
+                                <div>
+                                    <h4 className="font-bold text-slate-900 text-sm">Orientation Lock</h4>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        TV Mode applies a CSS class `.allow-landscape` to the body. Unlike Kiosk Mode (which forces Portrait on phones), TV Mode allows Landscape orientation to fill 16:9 screens properly.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Helper Icon for CPU
+const CpuIcon = (props: any) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
 );
 
 // --- ZIP IMPORT/EXPORT UTILS ---
@@ -534,6 +783,7 @@ const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalog
     );
 };
 
+// ... [Truncated: MoveProductModal, PricelistManager, ProductEditor, KioskEditorModal, TVModelEditor, AdminManager components remain unchanged] ...
 const MoveProductModal = ({ 
   product, 
   allBrands, 
@@ -1457,7 +1707,8 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       { id: 'fleet', label: 'Fleet', icon: Tablet },
       { id: 'history', label: 'History', icon: History },
       { id: 'settings', label: 'Settings', icon: Settings },
-  ].filter(tab => currentUser?.permissions[tab.id as keyof AdminPermissions]);
+      { id: 'guide', label: 'System Guide', icon: BookOpen } // New Tab
+  ].filter(tab => tab.id === 'guide' || currentUser?.permissions[tab.id as keyof AdminPermissions]);
 
   useEffect(() => {
       if (currentUser && availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
@@ -1720,6 +1971,9 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
         )}
 
         <main className="flex-1 overflow-y-auto p-2 md:p-8 relative pb-40 md:pb-8">
+            {/* Guide Tab */}
+            {activeTab === 'guide' && <SystemDocumentation />}
+
             {/* Inventory Tab */}
             {activeTab === 'inventory' && (
                 !selectedBrand ? (
