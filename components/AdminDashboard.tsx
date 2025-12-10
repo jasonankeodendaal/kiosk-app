@@ -952,12 +952,13 @@ const PricelistManager = ({
     };
 
     return (
-        <div className="max-w-7xl mx-auto animate-fade-in flex flex-col md:flex-row gap-6 h-[calc(100vh-140px)]">
-             <div className="w-full md:w-1/3 flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                 <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto animate-fade-in flex flex-col md:flex-row gap-4 md:gap-6 h-[calc(100dvh-130px)] md:h-[calc(100vh-140px)]">
+             {/* Left Sidebar: Brands List */}
+             <div className="w-full md:w-1/3 h-[35%] md:h-full flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden shrink-0">
+                 <div className="p-3 md:p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center shrink-0">
                      <div>
-                        <h2 className="font-black text-slate-900 uppercase text-sm">Pricelist Brands</h2>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">Independent List</p>
+                        <h2 className="font-black text-slate-900 uppercase text-xs md:text-sm">Pricelist Brands</h2>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase hidden md:block">Independent List</p>
                      </div>
                      <button onClick={addBrand} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase flex items-center gap-1">
                         <Plus size={12} /> Add
@@ -968,27 +969,27 @@ const PricelistManager = ({
                          <div 
                             key={brand.id} 
                             onClick={() => setSelectedBrand(brand)}
-                            className={`p-3 rounded-xl border transition-all cursor-pointer relative group ${selectedBrand?.id === brand.id ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200' : 'bg-white border-slate-100 hover:border-blue-200'}`}
+                            className={`p-2 md:p-3 rounded-xl border transition-all cursor-pointer relative group ${selectedBrand?.id === brand.id ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200' : 'bg-white border-slate-100 hover:border-blue-200'}`}
                          >
-                             <div className="flex items-center gap-3">
-                                 <div className="w-10 h-10 bg-white rounded-lg border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                             <div className="flex items-center gap-2 md:gap-3">
+                                 <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-lg border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
                                      {brand.logoUrl ? (
                                          <img src={brand.logoUrl} className="w-full h-full object-contain" />
                                      ) : (
-                                         <span className="font-black text-slate-300 text-lg">{brand.name.charAt(0)}</span>
+                                         <span className="font-black text-slate-300 text-sm md:text-lg">{brand.name.charAt(0)}</span>
                                      )}
                                  </div>
                                  <div className="flex-1 min-w-0">
-                                     <div className="font-bold text-slate-900 text-xs uppercase truncate">{brand.name}</div>
-                                     <div className="text-[10px] text-slate-400 font-mono truncate">{pricelists.filter(p => p.brandId === brand.id).length} Pricelists</div>
+                                     <div className="font-bold text-slate-900 text-[10px] md:text-xs uppercase truncate">{brand.name}</div>
+                                     <div className="text-[9px] md:text-[10px] text-slate-400 font-mono truncate">{pricelists.filter(p => p.brandId === brand.id).length} Lists</div>
                                  </div>
                              </div>
                              {selectedBrand?.id === brand.id && (
-                                 <div className="mt-3 pt-3 border-t border-slate-200/50 space-y-2" onClick={e => e.stopPropagation()}>
+                                 <div className="mt-2 md:mt-3 pt-2 md:pt-3 border-t border-slate-200/50 space-y-2" onClick={e => e.stopPropagation()}>
                                      <input 
                                          value={brand.name} 
                                          onChange={(e) => updateBrand(brand.id, { name: e.target.value })}
-                                         className="w-full text-xs font-bold p-1 border-b border-slate-200 focus:border-blue-500 outline-none bg-transparent"
+                                         className="w-full text-[10px] md:text-xs font-bold p-1 border-b border-slate-200 focus:border-blue-500 outline-none bg-transparent"
                                          placeholder="Brand Name"
                                      />
                                      <FileUpload 
@@ -1013,53 +1014,55 @@ const PricelistManager = ({
                      )}
                  </div>
              </div>
-             <div className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col shadow-inner">
-                 <div className="flex justify-between items-center mb-6 shrink-0">
-                     <h3 className="font-bold text-slate-700 uppercase text-xs tracking-wider">
-                         {selectedBrand ? `Pricelists for ${selectedBrand.name}` : 'Select a Brand'}
+             
+             {/* Right Content: Pricelist Grid */}
+             <div className="flex-1 h-[65%] md:h-full bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col shadow-inner min-h-0">
+                 <div className="flex justify-between items-center mb-4 shrink-0">
+                     <h3 className="font-bold text-slate-700 uppercase text-xs tracking-wider truncate mr-2 max-w-[60%]">
+                         {selectedBrand ? selectedBrand.name : 'Select Brand'}
                      </h3>
                      <button 
                         onClick={addPricelist} 
                         disabled={!selectedBrand}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-green-600 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-xs uppercase flex items-center gap-1 md:gap-2 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                     >
-                        <Plus size={14} /> Add Pricelist
+                        <Plus size={12} /> Add <span className="hidden md:inline">Pricelist</span>
                     </button>
                  </div>
-                 <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 content-start pb-20">
+                 <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 content-start pb-10">
                      {sortedLists.map((item) => (
-                         <div key={item.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col p-4 gap-3 h-fit">
+                         <div key={item.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col p-3 md:p-4 gap-2 md:gap-3 h-fit">
                              <div>
-                                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Title</label>
+                                 <label className="block text-[9px] md:text-[10px] font-bold text-slate-400 uppercase mb-1">Title</label>
                                  <input 
                                      value={item.title} 
                                      onChange={(e) => updatePricelist(item.id, { title: e.target.value })}
-                                     className="w-full font-bold text-slate-900 border-b border-slate-100 focus:border-blue-500 outline-none pb-1 text-sm" 
+                                     className="w-full font-bold text-slate-900 border-b border-slate-100 focus:border-blue-500 outline-none pb-1 text-xs md:text-sm" 
                                      placeholder="e.g. Retail Price List"
                                  />
                              </div>
                              <div className="grid grid-cols-2 gap-2">
                                  <div>
-                                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Month</label>
+                                     <label className="block text-[9px] md:text-[10px] font-bold text-slate-400 uppercase mb-1">Month</label>
                                      <select 
                                          value={item.month} 
                                          onChange={(e) => updatePricelist(item.id, { month: e.target.value })}
-                                         className="w-full text-xs font-bold p-1 bg-slate-50 rounded border border-slate-200"
+                                         className="w-full text-[10px] md:text-xs font-bold p-1 bg-slate-50 rounded border border-slate-200"
                                      >
                                          {months.map(m => <option key={m} value={m}>{m}</option>)}
                                      </select>
                                  </div>
                                  <div>
-                                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Year</label>
+                                     <label className="block text-[9px] md:text-[10px] font-bold text-slate-400 uppercase mb-1">Year</label>
                                      <input 
                                          type="number"
                                          value={item.year} 
                                          onChange={(e) => updatePricelist(item.id, { year: e.target.value })}
-                                         className="w-full text-xs font-bold p-1 bg-slate-50 rounded border border-slate-200"
+                                         className="w-full text-[10px] md:text-xs font-bold p-1 bg-slate-50 rounded border border-slate-200"
                                      />
                                  </div>
                              </div>
-                             <div className="mt-2 grid grid-cols-2 gap-2">
+                             <div className="mt-1 md:mt-2 grid grid-cols-2 gap-2">
                                 <FileUpload 
                                     label="Thumbnail" 
                                     accept="image/*"
@@ -1076,14 +1079,14 @@ const PricelistManager = ({
                              </div>
                              <button 
                                 onClick={() => handleDeletePricelist(item.id)}
-                                className="mt-auto pt-3 border-t border-slate-100 text-red-500 hover:text-red-600 text-[10px] font-bold uppercase flex items-center justify-center gap-1"
+                                className="mt-auto pt-2 md:pt-3 border-t border-slate-100 text-red-500 hover:text-red-600 text-[10px] font-bold uppercase flex items-center justify-center gap-1"
                              >
                                  <Trash2 size={12} /> Delete
                              </button>
                          </div>
                      ))}
                      {sortedLists.length === 0 && selectedBrand && (
-                         <div className="col-span-full py-12 text-center text-slate-400 text-xs italic border-2 border-dashed border-slate-200 rounded-xl">
+                         <div className="col-span-full py-8 md:py-12 text-center text-slate-400 text-xs italic border-2 border-dashed border-slate-200 rounded-xl">
                              No pricelists found for this brand.
                          </div>
                      )}
