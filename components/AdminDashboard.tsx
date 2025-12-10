@@ -2612,24 +2612,8 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                        </div>
                    </div>
 
-                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                       <h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2"><Smartphone size={20} className="text-blue-500"/> App Identity</h3>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                           <div className="space-y-4">
-                               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-xs leading-relaxed"><strong>Kiosk Icon:</strong> Upload a square image (PNG). This icon will appear on the device home screen when installed as a PWA, and in the browser tab.</div>
-                               <FileUpload label="Kiosk App Icon" currentUrl={localData.appConfig?.kioskIconUrl} onUpload={(url: any) => handleLocalUpdate({...localData, appConfig: { ...localData.appConfig, kioskIconUrl: url }})} />
-                           </div>
-                           <div className="space-y-4">
-                               <div className="bg-slate-100 p-4 rounded-xl border border-slate-200 text-slate-600 text-xs leading-relaxed"><strong>Admin Icon:</strong> Upload a square image (PNG). This allows you to distinguish the Admin Hub when saved to your personal device.</div>
-                               <FileUpload label="Admin App Icon" currentUrl={localData.appConfig?.adminIconUrl} onUpload={(url: any) => handleLocalUpdate({...localData, appConfig: { ...localData.appConfig, adminIconUrl: url }})} />
-                           </div>
-                       </div>
-                   </div>
-
                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2"><UserCog size={20} className="text-blue-500"/> Admin Access Control</h3><AdminManager admins={localData.admins || []} onUpdate={(admins) => handleLocalUpdate({ ...localData, admins })} currentUser={currentUser} /></div>
 
-                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm"><h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2"><Info size={20} className="text-blue-500"/> About Page Configuration</h3><div className="space-y-4"><InputField label="About Title" val={localData.about?.title || ''} onChange={(e: any) => handleLocalUpdate({...localData, about: {...localData.about, title: e.target.value}})} placeholder="e.g. About Our Vision" /><InputField label="About Text" isArea val={localData.about?.text || ''} onChange={(e: any) => handleLocalUpdate({...localData, about: {...localData.about, text: e.target.value}})} placeholder="Enter company description..." /><FileUpload label="Audio Guide (MP3)" accept="audio/*" icon={<Volume2 />} currentUrl={localData.about?.audioUrl} onUpload={(url: any) => handleLocalUpdate({...localData, about: {...localData.about, audioUrl: url}})} /></div></div>
-                   
                    <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg text-white">
                         <div className="flex items-center gap-3 mb-6"><CloudLightning size={24} className="text-yellow-400" /><h3 className="font-black uppercase text-sm tracking-wider">System Operations</h3></div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
