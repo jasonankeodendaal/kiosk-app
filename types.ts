@@ -185,6 +185,10 @@ export interface AppConfig {
     adminIconUrl?: string;
 }
 
+export interface SystemSettings {
+    setupPin?: string;
+}
+
 export interface AdminPermissions {
     inventory: boolean;
     marketing: boolean;
@@ -219,7 +223,7 @@ export interface StoreData {
   about?: AboutConfig;
   admins: AdminUser[]; // New Admin Management
   appConfig?: AppConfig; // New App Icon Configuration
-  setupPin?: string; // Added setupPin
+  systemSettings?: SystemSettings; // New System Configuration (PIN)
 }
 
 export interface FlatProduct extends Product {

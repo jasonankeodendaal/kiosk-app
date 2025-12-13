@@ -27,7 +27,7 @@ import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
 import PdfViewer from './PdfViewer';
 import TVMode from './TVMode';
-import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv, FileText, Monitor } from 'lucide-react';
+import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv, FileText, Monitor, Lock } from 'lucide-react';
 
 const DEFAULT_IDLE_TIMEOUT = 60000;
 
@@ -110,9 +110,13 @@ export const SetupScreen = ({
 }) => {
   const [shopName, setShopName] = useState('');
   const [deviceType, setDeviceType] = useState<'kiosk' | 'mobile' | 'tv'>('kiosk');
+  const [inputPin, setInputPin] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRestoreMode, setIsRestoreMode] = useState(false);
   const [customId, setCustomId] = useState('');
+  const [globalPin, setGlobalPin] = useState<string>('0000'); // Default fallback
+  const [pinError, setPinError] = useState(false);
+  const [showCreator, setShowCreator] = useState(false);
 
   // Allow landscape during setup for easier typing/TV setup
   useEffect(() => {
@@ -120,9 +124,29 @@ export const SetupScreen = ({
     return () => document.body.classList.remove('allow-landscape');
   }, []);
 
+  // Fetch Global PIN on Mount
+  useEffect(() => {
+      const fetchGlobalPin = async () => {
+          initSupabase();
+          if (supabase) {
+              const { data, error } = await supabase.from('store_config').select('data').eq('id', 1).single();
+              if (!error && data?.data?.systemSettings?.setupPin) {
+                  setGlobalPin(data.data.systemSettings.setupPin);
+              }
+          }
+      };
+      fetchGlobalPin();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!shopName.trim()) return;
+    
+    // VALIDATE PIN
+    if (inputPin !== globalPin) {
+        setPinError(true);
+        return;
+    }
     
     setIsSubmitting(true);
 
@@ -190,12 +214,45 @@ export const SetupScreen = ({
                <span className="font-mono font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 text-lg block text-center" aria-label="Current Kiosk ID">{kioskId}</span>
              )}
           </div>
-          <div className="mb-6"><label htmlFor="shop-name" className="block text-sm font-bold text-slate-700 mb-2 ml-1">Shop / Location Name</label><input type="text" id="shop-name" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g. Downtown Mall - Entrance 1" className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none font-bold text-lg text-slate-900" autoFocus aria-required="true" /></div>
+          
+          <div className="mb-4">
+              <label htmlFor="shop-name" className="block text-sm font-bold text-slate-700 mb-2 ml-1">Shop / Location Name</label>
+              <input type="text" id="shop-name" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g. Downtown Mall - Entrance 1" className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none font-bold text-lg text-slate-900" autoFocus aria-required="true" />
+          </div>
+
+          <div className="mb-6 relative">
+              <label htmlFor="setup-pin" className="block text-sm font-bold text-slate-700 mb-2 ml-1 flex items-center gap-1">
+                  Setup Security PIN <Lock size={12} className="text-slate-400"/>
+              </label>
+              <input 
+                  type="password" 
+                  id="setup-pin" 
+                  value={inputPin} 
+                  onChange={(e) => { setInputPin(e.target.value); setPinError(false); }} 
+                  placeholder="####" 
+                  maxLength={8}
+                  className={`w-full p-4 bg-white border-2 rounded-xl outline-none font-bold text-lg tracking-widest text-center ${pinError ? 'border-red-500 text-red-600 focus:border-red-600' : 'border-slate-200 focus:border-blue-500 text-slate-900'}`} 
+                  aria-required="true" 
+              />
+              {pinError && <p className="text-red-500 text-xs font-bold mt-1 text-center">Incorrect PIN. Contact Admin.</p>}
+          </div>
+
           <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 text-white p-4 rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
              {isSubmitting ? <Loader2 className="animate-spin" aria-label="Submitting" /> : 'Complete Setup'}
           </button>
         </form>
+        
+        {/* Tiny Creator Button */}
+        <button 
+            onClick={() => setShowCreator(true)}
+            className="absolute bottom-4 left-4 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors opacity-50 hover:opacity-100"
+            title="System Info"
+        >
+            <img src="https://i.ibb.co/ZR8bZRSp/JSTYP-me-Logo.png" className="w-4 h-4 object-contain grayscale" alt="" />
+        </button>
       </div>
+      
+      <CreatorPopup isOpen={showCreator} onClose={() => setShowCreator(false)} />
     </div>
   );
 };
@@ -266,7 +323,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
     }
   }, [screensaverEnabled, idleTimeout, deviceType, isSetup]);
 
-  // --- REALTIME SUBSCRIPTION FOR COMMANDS (Restart & Delete) ---
+  // --- REALTIME SUBSCRIPTION FOR COMMANDS (Restart only) ---
   useEffect(() => {
       if (!isSetup || !kioskId) return;
 
@@ -279,40 +336,26 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
           .on(
               'postgres_changes',
               { 
-                  event: '*', // Listen to All Events (UPDATE, DELETE)
+                  event: 'UPDATE', 
                   schema: 'public', 
                   table: 'kiosks', 
                   filter: `id=eq.${kioskId}` 
               },
               async (payload: any) => {
                   console.log("Command Received:", payload);
-                  
-                  // 1. DELETE Command (Reset Device)
-                  if (payload.eventType === 'DELETE') {
-                      console.log("Device deleted from Fleet. Resetting...");
-                      localStorage.removeItem('kiosk_pro_device_id');
-                      localStorage.removeItem('kiosk_pro_shop_name');
-                      localStorage.removeItem('kiosk_pro_device_type');
-                      window.location.reload(); // Will reload into Setup Screen
-                      return;
+                  const newData = payload.new;
+
+                  // 1. Restart Command
+                  if (newData.restart_requested) {
+                      console.log("Restart requested. Reloading...");
+                      await supabase.from('kiosks').update({ restart_requested: false }).eq('id', kioskId);
+                      window.location.reload();
                   }
-
-                  // 2. UPDATE Commands
-                  if (payload.eventType === 'UPDATE') {
-                      const newData = payload.new;
-
-                      // Restart Command
-                      if (newData.restart_requested) {
-                          console.log("Restart requested. Reloading...");
-                          await supabase.from('kiosks').update({ restart_requested: false }).eq('id', kioskId);
-                          window.location.reload();
-                      }
-                      
-                      // Live Type Update
-                      if (newData.device_type && newData.device_type !== deviceType) {
-                          localStorage.setItem('kiosk_pro_device_type', newData.device_type);
-                          setDeviceTypeState(newData.device_type);
-                      }
+                  
+                  // 2. Live Type Update (Backup for Heartbeat sync)
+                  if (newData.device_type && newData.device_type !== deviceType) {
+                      localStorage.setItem('kiosk_pro_device_type', newData.device_type);
+                      setDeviceTypeState(newData.device_type);
                   }
               }
           )

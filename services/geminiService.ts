@@ -62,6 +62,9 @@ const DEFAULT_DATA: StoreData = {
   appConfig: {
       kioskIconUrl: "https://i.ibb.co/S7Nxv1dD/android-launchericon-512-512.png",
       adminIconUrl: "https://i.ibb.co/qYDggwHs/android-launchericon-512-512.png"
+  },
+  systemSettings: {
+      setupPin: "0000"
   }
 };
 
@@ -125,6 +128,11 @@ const migrateData = (data: any): StoreData => {
     // TV Config
     if (!data.tv) data.tv = { brands: [] };
     if (data.tv && !data.tv.brands) data.tv.brands = [];
+
+    // System Settings Config
+    if (!data.systemSettings) {
+        data.systemSettings = { ...DEFAULT_DATA.systemSettings };
+    }
 
     // 3. Migrate Deep Structures
     if (data.brands) {
@@ -247,6 +255,7 @@ const handleExpiration = async (data: StoreData): Promise<StoreData> => {
             brands: data.archive?.brands || [],
             products: data.archive?.products || [],
             catalogues: [...(data.archive?.catalogues || []), ...expiredCatalogues],
+            deletedItems: data.archive?.deletedItems || [],
             deletedAt: {
                 ...(data.archive?.deletedAt || {}),
                 ...expiredCatalogues.reduce((acc, curr) => ({ ...acc, [curr.id]: new Date().toISOString() }), {})
