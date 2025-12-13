@@ -219,7 +219,7 @@ export interface StoreData {
   about?: AboutConfig;
   admins: AdminUser[]; // New Admin Management
   appConfig?: AppConfig; // New App Icon Configuration
-  setupPin?: string; // New: PIN required for device setup
+  setupPin?: string; // Added setupPin
 }
 
 export interface FlatProduct extends Product {

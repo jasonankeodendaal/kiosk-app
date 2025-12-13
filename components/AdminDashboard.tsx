@@ -1,3 +1,6 @@
+
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -37,39 +40,37 @@ const SystemDocumentation = () => {
     ];
 
     return (
-        <div className="flex flex-col md:flex-row h-[calc(100vh-140px)] bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-fade-in">
-            {/* Sidebar */}
-            <div className="w-full md:w-64 bg-slate-50 border-r border-slate-200 p-4 shrink-0 overflow-y-auto">
-                <div className="mb-6 px-2">
+        <div className="flex flex-col md:flex-row h-[calc(100vh-180px)] md:h-[calc(100vh-140px)] bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-fade-in">
+            {/* Sidebar (Top Tabs on Mobile) */}
+            <div className="w-full md:w-64 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 p-2 md:p-4 shrink-0 overflow-x-auto md:overflow-y-auto flex md:flex-col gap-2 no-scrollbar">
+                <div className="mb-2 md:mb-6 px-2 hidden md:block">
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">System Manual</h3>
                     <p className="text-[10px] text-slate-500 font-medium">v2.4 Technical Reference</p>
                 </div>
-                <div className="space-y-1">
-                    {sections.map(section => (
-                        <button
-                            key={section.id}
-                            onClick={() => setActiveSection(section.id)}
-                            className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${
-                                activeSection === section.id 
-                                ? 'bg-blue-600 text-white shadow-md font-bold' 
-                                : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900 font-medium'
-                            }`}
-                        >
-                            <span className={activeSection === section.id ? 'opacity-100' : 'opacity-70'}>
-                                {section.icon}
-                            </span>
-                            <span className="text-xs uppercase tracking-wide">{section.label}</span>
-                        </button>
-                    ))}
-                </div>
+                {sections.map(section => (
+                    <button
+                        key={section.id}
+                        onClick={() => setActiveSection(section.id)}
+                        className={`md:w-full text-left px-4 py-2 md:py-3 rounded-xl flex items-center gap-2 md:gap-3 transition-all shrink-0 whitespace-nowrap ${
+                            activeSection === section.id 
+                            ? 'bg-blue-600 text-white shadow-md font-bold' 
+                            : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900 font-medium'
+                        }`}
+                    >
+                        <span className={activeSection === section.id ? 'opacity-100' : 'opacity-70'}>
+                            {section.icon}
+                        </span>
+                        <span className="text-[10px] md:text-xs uppercase tracking-wide">{section.label}</span>
+                    </button>
+                ))}
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto p-8 bg-white">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-white">
                 {activeSection === 'architecture' && (
                     <div className="space-y-8 max-w-3xl">
                         <div>
-                            <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center gap-3">
+                            <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-4 flex items-center gap-3">
                                 <Network className="text-blue-600" size={32} /> Hybrid Cloud Architecture
                             </h2>
                             <p className="text-slate-600 leading-relaxed text-sm">
@@ -77,7 +78,7 @@ const SystemDocumentation = () => {
                             </p>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
                                 <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2"><HardDrive size={18} /> Local Storage</h3>
                                 <p className="text-xs text-slate-500 leading-relaxed">
@@ -93,6 +94,11 @@ const SystemDocumentation = () => {
                         </div>
                     </div>
                 )}
+                {/* Placeholder for other sections to make it complete if user navigates */}
+                {activeSection === 'inventory' && <div className="p-4 text-slate-400 font-bold uppercase text-xs">Inventory logic details...</div>}
+                {activeSection === 'screensaver' && <div className="p-4 text-slate-400 font-bold uppercase text-xs">Screensaver logic details...</div>}
+                {activeSection === 'fleet' && <div className="p-4 text-slate-400 font-bold uppercase text-xs">Fleet logic details...</div>}
+                {activeSection === 'tv' && <div className="p-4 text-slate-400 font-bold uppercase text-xs">TV Mode logic details...</div>}
             </div>
         </div>
     );
@@ -604,7 +610,7 @@ const KioskEditorModal = ({ kiosk, onSave, onClose }: any) => {
                  <h3 className="text-xl font-black uppercase mb-6">Edit Kiosk Details</h3>
                  <div className="space-y-4">
                      <InputField label="Device Name" value={data.name} onChange={(v: string) => setData({...data, name: v})} />
-                     <InputField label="Assigned Zone" value={data.assigned_zone} onChange={(v: string) => setData({...data, assigned_zone: v})} placeholder="e.g. Entrance, aisle 4" />
+                     <InputField label="Assigned Zone" value={data.assignedZone} onChange={(v: string) => setData({...data, assignedZone: v})} placeholder="e.g. Entrance, aisle 4" />
                      <div>
                          <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Notes</label>
                          <textarea className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl" value={data.notes || ''} onChange={e => setData({...data, notes: e.target.value})} />
@@ -753,7 +759,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
     if (supabase) {
         const { error } = await supabase.from('kiosks').update({
             name: updatedKiosk.name,
-            assigned_zone: updatedKiosk.assigned_zone,
+            assigned_zone: updatedKiosk.assignedZone,
             notes: updatedKiosk.notes
         }).eq('id', updatedKiosk.id);
         

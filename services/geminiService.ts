@@ -62,8 +62,7 @@ const DEFAULT_DATA: StoreData = {
   appConfig: {
       kioskIconUrl: "https://i.ibb.co/S7Nxv1dD/android-launchericon-512-512.png",
       adminIconUrl: "https://i.ibb.co/qYDggwHs/android-launchericon-512-512.png"
-  },
-  setupPin: "0000" // Default Setup PIN
+  }
 };
 
 // Helper to migrate legacy data structures and Hydrate empty DB responses
@@ -81,9 +80,6 @@ const migrateData = (data: any): StoreData => {
     if (!data.screensaverSettings) data.screensaverSettings = { ...DEFAULT_DATA.screensaverSettings };
     if (!data.about) data.about = { ...DEFAULT_DATA.about };
     
-    // Setup PIN migration
-    if (!data.setupPin) data.setupPin = "0000";
-
     // Admin Config & Migration
     if (!data.admins || !Array.isArray(data.admins) || data.admins.length === 0) {
         data.admins = [DEFAULT_ADMIN];

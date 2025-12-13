@@ -3,8 +3,6 @@
 
 
 
-
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist, PricelistBrand } from '../types';
 import { 
@@ -29,7 +27,7 @@ import Screensaver from './Screensaver';
 import Flipbook from './Flipbook';
 import PdfViewer from './PdfViewer';
 import TVMode from './TVMode';
-import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv, FileText, Monitor, Lock, Unlock } from 'lucide-react';
+import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv, FileText, Monitor } from 'lucide-react';
 
 const DEFAULT_IDLE_TIMEOUT = 60000;
 
@@ -104,21 +102,17 @@ export const CreatorPopup = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
 export const SetupScreen = ({ 
   kioskId, 
   onComplete,
-  onRestoreId,
-  setupPin
+  onRestoreId
 }: { 
   kioskId: string, 
   onComplete: (name: string, type: 'kiosk' | 'mobile' | 'tv') => void,
-  onRestoreId: (id: string) => void,
-  setupPin: string
+  onRestoreId: (id: string) => void
 }) => {
   const [shopName, setShopName] = useState('');
   const [deviceType, setDeviceType] = useState<'kiosk' | 'mobile' | 'tv'>('kiosk');
-  const [inputPin, setInputPin] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRestoreMode, setIsRestoreMode] = useState(false);
   const [customId, setCustomId] = useState('');
-  const [pinError, setPinError] = useState(false);
 
   // Allow landscape during setup for easier typing/TV setup
   useEffect(() => {
@@ -128,15 +122,7 @@ export const SetupScreen = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setPinError(false);
-
     if (!shopName.trim()) return;
-    
-    // SECURITY CHECK
-    if (inputPin !== setupPin) {
-        setPinError(true);
-        return;
-    }
     
     setIsSubmitting(true);
 
@@ -204,29 +190,9 @@ export const SetupScreen = ({
                <span className="font-mono font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 text-lg block text-center" aria-label="Current Kiosk ID">{kioskId}</span>
              )}
           </div>
-          
-          <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="col-span-2">
-                  <label htmlFor="shop-name" className="block text-xs font-bold text-slate-400 uppercase mb-2 ml-1">Location Name</label>
-                  <input type="text" id="shop-name" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g. Mall Entrance 1" className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none font-bold text-lg text-slate-900" autoFocus aria-required="true" />
-              </div>
-              <div className="col-span-1 relative">
-                  <label htmlFor="setup-pin" className="block text-xs font-bold text-slate-400 uppercase mb-2 ml-1">Setup PIN</label>
-                  <input 
-                    type="password" 
-                    id="setup-pin" 
-                    value={inputPin} 
-                    onChange={(e) => { setInputPin(e.target.value); setPinError(false); }} 
-                    placeholder="####" 
-                    className={`w-full p-4 bg-white border-2 rounded-xl focus:border-blue-500 outline-none font-mono font-bold text-lg text-slate-900 text-center tracking-widest ${pinError ? 'border-red-500 text-red-500' : 'border-slate-200'}`}
-                    maxLength={6}
-                  />
-                  {pinError && <div className="absolute -bottom-5 left-0 right-0 text-center text-[10px] font-bold text-red-500 uppercase">Incorrect PIN</div>}
-              </div>
-          </div>
-
+          <div className="mb-6"><label htmlFor="shop-name" className="block text-sm font-bold text-slate-700 mb-2 ml-1">Shop / Location Name</label><input type="text" id="shop-name" value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g. Downtown Mall - Entrance 1" className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none font-bold text-lg text-slate-900" autoFocus aria-required="true" /></div>
           <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 text-white p-4 rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-             {isSubmitting ? <Loader2 className="animate-spin" aria-label="Submitting" /> : <><Unlock size={18} /> Authenticate & Setup</>}
+             {isSubmitting ? <Loader2 className="animate-spin" aria-label="Submitting" /> : 'Complete Setup'}
           </button>
         </form>
       </div>
@@ -498,7 +464,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
   };
   
   if (!isSetup && kioskId) {
-    return <SetupScreen kioskId={kioskId} onComplete={handleSetupComplete} onRestoreId={handleRestore} setupPin={storeData?.setupPin || '0000'} />;
+    return <SetupScreen kioskId={kioskId} onComplete={handleSetupComplete} onRestoreId={handleRestore} />;
   }
   
   if (!storeData) return null;
