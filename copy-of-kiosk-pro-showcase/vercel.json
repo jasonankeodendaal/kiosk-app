@@ -1,0 +1,21 @@
+
+{
+  "rewrites": [
+    {
+      "source": "/manifest-kiosk.json",
+      "destination": "/manifest-kiosk.json"
+    },
+    {
+      "source": "/manifest-admin.json",
+      "destination": "/manifest-admin.json"
+    },
+    {
+      "source": "/sw.js",
+      "destination": "/sw.js"
+    },
+    {
+      "source": "/((?!.*\\.).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
