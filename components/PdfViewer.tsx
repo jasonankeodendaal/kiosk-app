@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertCircle, Maximize } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -100,23 +102,25 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
         let renderScale = scale;
         
         if (renderScale <= 0) {
-            const viewportUnscaled = page.getViewport({ scale: 1.0 });
+            // Subtract padding (32px = p-4) to prevent scrollbars in "Fit Mode"
             const containerWidth = containerRef.current.clientWidth - 40; 
             const containerHeight = containerRef.current.clientHeight - 40;
             
+            const viewportUnscaled = page.getViewport({ scale: 1.0 });
+            
+            // Calculate scale to CONTAIN the page within viewport
             const scaleX = containerWidth / viewportUnscaled.width;
             const scaleY = containerHeight / viewportUnscaled.height;
             
             renderScale = Math.min(scaleX, scaleY);
             
             // Just render immediately with calculated scale, don't trigger re-effect loop
-            // We set state after render start to update UI controls
             if (scale === 0) setScale(renderScale); 
         }
 
         // --- HIGH QUALITY RENDER LOGIC ---
         const outputScale = window.devicePixelRatio || 1;
-        const viewport = page.getViewport({ scale: renderScale || 1.0 }); // Fallback
+        const viewport = page.getViewport({ scale: renderScale || 1.0 }); 
         
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
@@ -164,6 +168,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
   const handleFit = () => setScale(0);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Only allow drag if we are NOT in auto-fit mode (aka scaled up)
+    // In "Fit Mode" (scale 0 initially set to calculated), dragging isn't needed usually
     if (e.button !== 0 || !containerRef.current) return;
     setIsDragging(true);
     setStartPos({ x: e.pageX, y: e.pageY });
@@ -211,10 +217,10 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
           </button>
        </div>
 
-       {/* Content Container */}
+       {/* Content Container - "Slide Mode" Logic enforced by overflow-hidden unless zoomed */}
        <div 
          ref={containerRef}
-         className={`flex-1 w-full h-full bg-slate-100/5 relative overflow-auto flex p-4 md:p-8 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`} 
+         className={`flex-1 w-full h-full bg-slate-100/5 relative flex items-center justify-center p-4 md:p-8 ${scale > 0 ? 'overflow-auto' : 'overflow-hidden'} ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`} 
          onClick={e => e.stopPropagation()}
          onMouseDown={handleMouseDown}
          onMouseMove={handleMouseMove}
@@ -239,9 +245,9 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, onClose }) => {
               </div>
           )}
 
-          {/* Canvas Wrapper - m-auto handles centering in the flex container */}
-          <div className={`relative transition-opacity duration-300 m-auto ${loading ? 'opacity-0' : 'opacity-100'}`}>
-               <canvas ref={canvasRef} className="bg-white rounded shadow-2xl block" />
+          {/* Canvas Wrapper - shadow and rounded corners for "Card" feel */}
+          <div className={`relative transition-opacity duration-300 shadow-2xl ${loading ? 'opacity-0' : 'opacity-100'}`}>
+               <canvas ref={canvasRef} className="bg-white rounded block" />
           </div>
        </div>
        

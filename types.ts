@@ -110,6 +110,7 @@ export interface Pricelist {
   thumbnailUrl?: string; // New: Cover Image
   month: string;
   year: string;
+  dateAdded?: string; // New: For "New" flag logic
 }
 
 export interface AdItem {

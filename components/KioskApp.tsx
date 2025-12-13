@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { StoreData, Brand, Category, Product, FlatProduct, Catalogue, Pricelist, PricelistBrand } from '../types';
 import { 
@@ -26,6 +28,16 @@ import TVMode from './TVMode';
 import { Store, RotateCcw, X, Loader2, Wifi, WifiOff, Clock, MapPin, ShieldCheck, MonitorPlay, MonitorStop, Tablet, Smartphone, Check, Cloud, HardDrive, RefreshCw, ZoomIn, ZoomOut, Tv, FileText, Monitor } from 'lucide-react';
 
 const DEFAULT_IDLE_TIMEOUT = 60000;
+
+// Helper to determine if item is "New" (< 7 days old)
+const isNew = (dateString?: string) => {
+    if (!dateString) return false;
+    const addedDate = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - addedDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+    return diffDays <= 7;
+};
 
 // Custom R Icon for Pricelists
 const RIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
@@ -640,21 +652,24 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                    <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
                        {/* Left Sidebar: Brands List */}
                        <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50 overflow-y-auto max-h-[25vh] md:max-h-full grid grid-cols-3 md:flex md:flex-col p-1 md:p-0 gap-1 md:gap-0">
-                           {pricelistBrands.map(brand => (
+                           {pricelistBrands.map(brand => {
+                               const hasNewLists = storeData.pricelists?.some(p => p.brandId === brand.id && isNew(p.dateAdded));
+                               return (
                                <button 
                                    key={brand.id} 
                                    onClick={() => setSelectedBrandForPricelist(brand.id)}
-                                   className={`w-full text-left md:p-4 p-2 transition-colors flex flex-col md:flex-row items-center justify-center md:justify-between group gap-2 md:gap-3 rounded-lg md:rounded-none border md:border-0 md:border-b border-slate-100 ${selectedBrandForPricelist === brand.id ? 'bg-white border-green-500 ring-2 ring-green-500 md:ring-0 md:border-l-4 md:border-l-green-500 shadow-sm md:shadow-none' : 'hover:bg-white bg-white/50 md:bg-transparent'}`}
+                                   className={`w-full text-left md:p-4 p-2 transition-colors flex flex-col md:flex-row items-center justify-center md:justify-between group gap-2 md:gap-3 rounded-lg md:rounded-none border md:border-0 md:border-b border-slate-100 relative ${selectedBrandForPricelist === brand.id ? 'bg-white border-green-500 ring-2 ring-green-500 md:ring-0 md:border-l-4 md:border-l-green-500 shadow-sm md:shadow-none' : 'hover:bg-white bg-white/50 md:bg-transparent'}`}
                                >
                                    <div className="flex flex-col md:flex-row items-center gap-1 md:gap-3">
-                                       <div className="w-8 h-8 md:w-8 md:h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center p-1 shrink-0">
+                                       <div className="w-8 h-8 md:w-8 md:h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center p-1 shrink-0 relative">
                                             {brand.logoUrl ? <img src={brand.logoUrl} className="w-full h-full object-contain" /> : <span className="font-black text-slate-300">{brand.name.charAt(0)}</span>}
+                                            {hasNewLists && <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[6px] font-bold px-1 rounded-full animate-bounce">NEW</div>}
                                        </div>
                                        <span className={`font-bold text-[8px] md:text-sm uppercase text-center md:text-left leading-tight line-clamp-2 md:line-clamp-1 ${selectedBrandForPricelist === brand.id ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-700'}`}>{brand.name}</span>
                                    </div>
                                    {selectedBrandForPricelist === brand.id && <div className="hidden md:block w-2 h-2 rounded-full bg-green-500"></div>}
                                </button>
-                           ))}
+                           )})}
                        </div>
                        
                        {/* Right Content: Pricelist Grid */}
@@ -674,7 +689,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                                        <button 
                                           key={pl.id}
                                           onClick={() => setViewingPdf({ url: pl.url, title: pl.title })}
-                                          className="bg-white rounded-lg md:rounded-xl overflow-hidden shadow-sm hover:shadow-lg border border-slate-200 hover:border-green-400 transition-all group text-left flex flex-col h-full"
+                                          className="bg-white rounded-lg md:rounded-xl overflow-hidden shadow-sm hover:shadow-lg border border-slate-200 hover:border-green-400 transition-all group text-left flex flex-col h-full relative"
                                        >
                                            <div className="aspect-[3/4] bg-white relative overflow-hidden border-b border-slate-100 p-2">
                                                {pl.thumbnailUrl ? (
@@ -686,6 +701,7 @@ export const KioskApp = ({ storeData, lastSyncTime }: { storeData: StoreData | n
                                                    </div>
                                                )}
                                                <div className="absolute top-1 right-1 md:top-2 md:right-2 bg-red-500 text-white text-[6px] md:text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">PDF</div>
+                                               {isNew(pl.dateAdded) && <div className="absolute top-1 left-1 md:top-2 md:left-2 bg-blue-600 text-white text-[6px] md:text-[8px] font-black px-1.5 py-0.5 rounded shadow-sm uppercase tracking-wider animate-pulse">NEW</div>}
                                            </div>
                                            <div className="p-2 md:p-4 flex flex-col flex-1">
                                                {/* UPDATED: Name wraps and fits container */}

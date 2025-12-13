@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
@@ -936,7 +938,8 @@ const PricelistManager = ({
             title: 'New Pricelist',
             url: '',
             month: 'January',
-            year: new Date().getFullYear().toString()
+            year: new Date().getFullYear().toString(),
+            dateAdded: new Date().toISOString() // Set dateAdded to now for "New" flag
         };
         onSavePricelists([...pricelists, newItem]);
     };
@@ -2013,7 +2016,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                 </button>
                             ))}
                        </div>
-                       <div className="mt-8 border-t border-slate-200 pt-8"><h3 className="font-bold text-slate-900 uppercase text-sm mb-4">Brand Catalogues</h3><CatalogueManager catalogues={localData.catalogues?.filter(c => c.brandId === selectedBrand.id) || []} brandId={selectedBrand.id} onSave={(c) => handleLocalUpdate({ ...localData, catalogues: [...(localData.catalogues?.filter(x => x.brandId !== selectedBrand.id) || []), ...c] })} /></div>
+                       <div className="mt-8 border-t border-slate-200 pt-8"><h3 className="font-bold text-slate-900 uppercase text-sm mb-4">Brand Catalogues</h3><CatalogueManager catalogues={localData.catalogues?.filter(c => c.brandId === selectedBrand.id) || []} brandId={selectedBrand.id} onSave={(c) => { const brandCatalogues = (localData.catalogues || []).filter(c => c.brandId); handleLocalUpdate({ ...localData, catalogues: [...brandCatalogues, ...c] }); }} /></div>
                    </div>
                ) : (
                    <div className="animate-fade-in h-full flex flex-col">
