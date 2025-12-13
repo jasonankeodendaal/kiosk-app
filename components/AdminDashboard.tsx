@@ -1,13 +1,10 @@
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   LogOut, ArrowLeft, Save, Trash2, Plus, Edit2, Upload, Box, 
   Monitor, Grid, Image as ImageIcon, ChevronRight, ChevronLeft, Wifi, WifiOff, 
   Signal, Video, FileText, BarChart3, Search, RotateCcw, FolderInput, FileArchive, FolderArchive, Check, BookOpen, LayoutTemplate, Globe, Megaphone, Play, Download, MapPin, Tablet, Eye, X, Info, Menu, Map as MapIcon, HelpCircle, File, PlayCircle, ToggleLeft, ToggleRight, Clock, Volume2, VolumeX, Settings, Loader2, ChevronDown, Layout, Book, Camera, RefreshCw, Database, Power, CloudLightning, Folder, Smartphone, Cloud, HardDrive, Package, History, Archive, AlertCircle, FolderOpen, Layers, ShieldCheck, Ruler, SaveAll, Pencil, Moon, Sun, MonitorSmartphone, LayoutGrid, Music, Share2, Rewind, Tv, UserCog, Key, Move, FileInput, Lock, Unlock, Calendar, Filter, Zap, Activity, Network
 } from 'lucide-react';
-import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig, TVModel, AdminUser, AdminPermissions, Pricelist, PricelistBrand } from '../types';
+import { KioskRegistry, StoreData, Brand, Category, Product, AdConfig, AdItem, Catalogue, HeroConfig, ScreensaverSettings, ArchiveData, DimensionSet, Manual, TVBrand, TVConfig, TVModel, AdminUser, AdminPermissions, Pricelist, PricelistBrand, ArchivedItem } from '../types';
 import { resetStoreData } from '../services/geminiService';
 import { uploadFileToStorage, supabase, checkCloudConnection } from '../services/kioskService';
 import SetupGuide from './SetupGuide';
@@ -24,7 +21,10 @@ const RIcon = (props: any) => (
   </svg>
 );
 
-// --- SYSTEM DOCUMENTATION COMPONENT ---
+const CpuIcon = (props: any) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
+);
+
 const SystemDocumentation = () => {
     const [activeSection, setActiveSection] = useState('architecture');
 
@@ -55,7 +55,6 @@ const SystemDocumentation = () => {
                                 : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900 font-medium'
                             }`}
                         >
-                            {/* Icon Wrapper */}
                             <span className={activeSection === section.id ? 'opacity-100' : 'opacity-70'}>
                                 {section.icon}
                             </span>
@@ -92,175 +91,6 @@ const SystemDocumentation = () => {
                                 </p>
                             </div>
                         </div>
-
-                        <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                            <h4 className="text-blue-800 font-bold text-xs uppercase mb-2">Technical Specs</h4>
-                            <ul className="space-y-1 text-[11px] text-blue-700 font-mono">
-                                <li>• Framework: React 19 + TypeScript + Vite</li>
-                                <li>• State: React State + LocalStorage Persistence</li>
-                                <li>• Database: Supabase (Postgres) with Row Level Security</li>
-                                <li>• Asset Storage: Public Buckets (Images/Videos)</li>
-                                <li>• Deployment: Vercel Edge Network (Global CDN)</li>
-                            </ul>
-                        </div>
-                    </div>
-                )}
-
-                {activeSection === 'inventory' && (
-                    <div className="space-y-8 max-w-3xl">
-                        <div>
-                            <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center gap-3">
-                                <Box className="text-blue-600" size={32} /> Inventory Management
-                            </h2>
-                            <p className="text-slate-600 leading-relaxed text-sm">
-                                The inventory system uses a strict hierarchy: <strong>Brand &gt; Category &gt; Product</strong>. This ensures navigation remains intuitive on touch screens.
-                            </p>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="flex gap-4 items-start border-b border-slate-100 pb-4">
-                                <div className="bg-purple-100 p-2 rounded-lg text-purple-700"><Layers size={20}/></div>
-                                <div>
-                                    <h4 className="font-bold text-slate-900 text-sm">Data Inheritance</h4>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        Deleting a Brand automatically archives all its Categories and Products. This is a "Cascading Soft Delete" — data is moved to the <strong>Archive</strong> tab, never permanently destroyed immediately.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex gap-4 items-start border-b border-slate-100 pb-4">
-                                <div className="bg-orange-100 p-2 rounded-lg text-orange-700"><FileText size={20}/></div>
-                                <div>
-                                    <h4 className="font-bold text-slate-900 text-sm">PDF & Media Handling</h4>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        PDF Manuals and Pricelists are handled via a custom `pdf.js` viewer. Images are automatically compressed upon upload to Supabase Storage to ensure fast loading on mobile data connections.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {activeSection === 'screensaver' && (
-                    <div className="space-y-8 max-w-3xl">
-                        <div>
-                            <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center gap-3">
-                                <Zap className="text-yellow-500" size={32} /> Automation Engine
-                            </h2>
-                            <p className="text-slate-600 leading-relaxed text-sm">
-                                The Screensaver is not just a slideshow; it is an intelligent marketing engine that decides what to show based on recency and configuration.
-                            </p>
-                        </div>
-
-                        <div className="bg-slate-900 text-white rounded-2xl p-6 relative overflow-hidden">
-                            <div className="relative z-10">
-                                <h3 className="text-lg font-black uppercase tracking-widest mb-4">The "Freshness" Algorithm</h3>
-                                <div className="space-y-4 text-sm font-light text-slate-300">
-                                    <p>
-                                        <strong className="text-white">1. Content Aggregation:</strong> Every time the screensaver starts, it gathers all enabled content: Product Images, Product Videos, Custom Ads, and Pamphlet Covers.
-                                    </p>
-                                    <p>
-                                        <strong className="text-white">2. Aging Logic:</strong> The system checks the `dateAdded` field of every item.
-                                        <ul className="list-disc pl-5 mt-2 space-y-1 text-slate-400">
-                                            <li><strong>&lt; 6 Months Old:</strong> Included in playlist 100% of the time.</li>
-                                            <li><strong>&gt; 6 Months Old:</strong> 25% chance to appear per cycle.</li>
-                                        </ul>
-                                    </p>
-                                    <p>
-                                        <strong className="text-white">3. Ad Injection:</strong> Custom Ads (uploaded in Marketing tab) are injected with <strong>3x weight</strong>, ensuring they appear more frequently than standard product images.
-                                    </p>
-                                </div>
-                            </div>
-                            <Zap size={200} className="absolute -right-10 -bottom-10 text-yellow-500/10 rotate-12" />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
-                                <h4 className="font-bold text-slate-900 text-xs uppercase mb-2 flex items-center gap-2"><Moon size={14}/> Sleep Mode Automation</h4>
-                                <p className="text-xs text-slate-500">
-                                    If enabled in Settings, the kiosk checks the time every minute. If outside `ActiveHours` (e.g., 8 PM - 8 AM), the screen turns completely black to save panel life, waking only on touch.
-                                </p>
-                            </div>
-                            <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
-                                <h4 className="font-bold text-slate-900 text-xs uppercase mb-2 flex items-center gap-2"><Calendar size={14}/> Pamphlet Expiry</h4>
-                                <p className="text-xs text-slate-500">
-                                    On app load, the system checks all Catalogues/Pamphlets. If the `endDate` has passed, the item is automatically moved to the Archive, preventing customers from seeing expired deals.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {activeSection === 'fleet' && (
-                    <div className="space-y-8 max-w-3xl">
-                        <div>
-                            <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center gap-3">
-                                <Activity className="text-green-600" size={32} /> Fleet Telemetry
-                            </h2>
-                            <p className="text-slate-600 leading-relaxed text-sm">
-                                How the Admin Hub communicates with distributed devices in real-time.
-                            </p>
-                        </div>
-
-                        <div className="border-l-4 border-green-500 pl-6 py-2">
-                            <h3 className="font-bold text-slate-900 text-sm uppercase">The Heartbeat Protocol</h3>
-                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                                Every <strong>60 seconds</strong>, active Kiosks send a JSON payload to the database containing:
-                                <br/><code className="bg-slate-100 px-1 rounded">last_seen</code>, <code className="bg-slate-100 px-1 rounded">wifi_strength</code>, and <code className="bg-slate-100 px-1 rounded">ip_address</code>.
-                            </p>
-                            <p className="text-xs text-slate-500 mt-2">
-                                If a device hasn't pinged in <strong>5 minutes</strong>, the Admin Hub marks it as <span className="text-red-600 font-bold">OFFLINE</span>.
-                            </p>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-slate-50 p-4 rounded-xl">
-                                <h4 className="font-bold text-slate-900 text-xs uppercase mb-1">Remote Restart</h4>
-                                <p className="text-[10px] text-slate-500">
-                                    When you click "Restart" in Fleet Manager, it sets a boolean flag `restart_requested` in the database. The Kiosk listens for this change via Realtime Subscription and triggers a `window.location.reload()`.
-                                </p>
-                            </div>
-                            <div className="bg-slate-50 p-4 rounded-xl">
-                                <h4 className="font-bold text-slate-900 text-xs uppercase mb-1">Configuration Sync</h4>
-                                <p className="text-[10px] text-slate-500">
-                                    If you rename a device or change its type (Kiosk/TV) in the Admin Hub, the Kiosk detects this mismatch during its next heartbeat and auto-updates its local configuration to match the server.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {activeSection === 'tv' && (
-                    <div className="space-y-8 max-w-3xl">
-                        <div>
-                            <h2 className="text-3xl font-black text-slate-900 mb-4 flex items-center gap-3">
-                                <Tv className="text-indigo-600" size={32} /> TV Mode Logic
-                            </h2>
-                            <p className="text-slate-600 leading-relaxed text-sm">
-                                TV Mode transforms the application into a digital signage player, stripping away interactive elements like categories and search.
-                            </p>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="p-4 rounded-xl border border-slate-200 flex gap-4">
-                                <div className="bg-indigo-100 text-indigo-700 p-3 rounded-full h-fit"><RotateCcw size={20}/></div>
-                                <div>
-                                    <h4 className="font-bold text-slate-900 text-sm">Auto-Looping Playlist</h4>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        When playing a Brand or Model loop, the system creates a playlist queue. When a video ends, the `onEnded` event fires.
-                                        <br/><strong>Safety Feature:</strong> If a video is corrupted or fails to load, a 2-second timeout auto-skips to the next video to prevent the screen from freezing on black.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="p-4 rounded-xl border border-slate-200 flex gap-4">
-                                <div className="bg-indigo-100 text-indigo-700 p-3 rounded-full h-fit"><MonitorSmartphone size={20}/></div>
-                                <div>
-                                    <h4 className="font-bold text-slate-900 text-sm">Orientation Lock</h4>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        TV Mode applies a CSS class `.allow-landscape` to the body. Unlike Kiosk Mode (which forces Portrait on phones), TV Mode allows Landscape orientation to fill 16:9 screens properly.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 )}
             </div>
@@ -268,14 +98,8 @@ const SystemDocumentation = () => {
     );
 };
 
-// Helper Icon for CPU
-const CpuIcon = (props: any) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
-);
-
 // --- ZIP IMPORT/EXPORT UTILS ---
 
-// Helper: Determine extension from MIME type or URL
 const getExtension = (blob: Blob, url: string): string => {
     if (blob.type === 'image/jpeg') return 'jpg';
     if (blob.type === 'image/png') return 'png';
@@ -284,7 +108,6 @@ const getExtension = (blob: Blob, url: string): string => {
     if (blob.type === 'video/mp4') return 'mp4';
     if (blob.type === 'video/webm') return 'webm';
     
-    // Fallback to URL extension
     const match = url.match(/\.([0-9a-z]+)(?:[?#]|$)/i);
     return match ? match[1] : 'dat';
 };
@@ -293,23 +116,18 @@ const fetchAssetAndAddToZip = async (zipFolder: JSZip | null, url: string, filen
     if (!zipFolder || !url) return;
     try {
         let blob: Blob;
-        
-        // Handle Base64 Data URLs
         if (url.startsWith('data:')) {
             const res = await fetch(url);
             blob = await res.blob();
         } else {
-            // Handle Remote URLs
             const response = await fetch(url, { mode: 'cors', cache: 'no-cache' });
             if (!response.ok) throw new Error(`Failed to fetch ${url}`);
             blob = await response.blob();
         }
-
         const ext = getExtension(blob, url);
         zipFolder.file(`${filenameBase}.${ext}`, blob);
     } catch (e) {
         console.warn(`Failed to pack asset: ${url}`, e);
-        // Create a placeholder error file so user knows it failed
         zipFolder.file(`${filenameBase}_FAILED.txt`, `Could not download: ${url}`);
     }
 };
@@ -318,15 +136,11 @@ const downloadZip = async (storeData: StoreData) => {
     const zip = new JSZip();
     console.log("Starting Backup Process...");
 
-    // 1. Structure: Brand -> Category -> Product
     for (const brand of storeData.brands) {
         const brandFolder = zip.folder(brand.name.replace(/[^a-z0-9 ]/gi, '').trim() || 'Untitled Brand');
         
         if (brandFolder) {
-            // Save Brand Metadata
             brandFolder.file("brand.json", JSON.stringify(brand, null, 2));
-            
-            // 2. Fetch & Pack Brand Logo
             if (brand.logoUrl) {
                 await fetchAssetAndAddToZip(brandFolder, brand.logoUrl, "brand_logo");
             }
@@ -339,7 +153,6 @@ const downloadZip = async (storeData: StoreData) => {
                 const prodFolder = catFolder?.folder(product.name.replace(/[^a-z0-9 ]/gi, '').trim() || 'Untitled Product');
                 
                 if (prodFolder) {
-                    // 3. Create Metadata JSON
                     const metadata = {
                         name: product.name,
                         sku: product.sku,
@@ -354,27 +167,20 @@ const downloadZip = async (storeData: StoreData) => {
                     };
                     prodFolder.file("details.json", JSON.stringify(metadata, null, 2));
 
-                    // 4. Fetch & Pack Main Image
                     if (product.imageUrl) {
                         await fetchAssetAndAddToZip(prodFolder, product.imageUrl, "cover");
                     }
-
-                    // 5. Fetch & Pack Gallery Images
                     if (product.galleryUrls) {
                         for (let i = 0; i < product.galleryUrls.length; i++) {
                             await fetchAssetAndAddToZip(prodFolder, product.galleryUrls[i], `gallery_${i}`);
                         }
                     }
-
-                    // 6. Fetch & Pack Videos
                     const videos = [...(product.videoUrls || [])];
                     if (product.videoUrl && !videos.includes(product.videoUrl)) videos.push(product.videoUrl);
                     
                     for (let i = 0; i < videos.length; i++) {
                         await fetchAssetAndAddToZip(prodFolder, videos[i], `video_${i}`);
                     }
-
-                    // 7. Fetch & Pack Manuals
                     if (product.manuals) {
                          for (let i = 0; i < product.manuals.length; i++) {
                              const m = product.manuals[i];
@@ -389,7 +195,6 @@ const downloadZip = async (storeData: StoreData) => {
         }
     }
 
-    // Generate
     const content = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(content);
     const a = document.createElement('a');
@@ -404,10 +209,8 @@ const downloadZip = async (storeData: StoreData) => {
 const importZip = async (file: File): Promise<Brand[]> => {
     const zip = new JSZip();
     const loadedZip = await zip.loadAsync(file);
-    
     const newBrands: Record<string, Brand> = {};
-    
-    // Helper to get Base64 from ZipObj
+
     const getBase64 = async (zipObj: any): Promise<string> => {
         const blob = await zipObj.async("blob");
         return new Promise(resolve => {
@@ -416,1265 +219,433 @@ const importZip = async (file: File): Promise<Brand[]> => {
             reader.readAsDataURL(blob);
         });
     };
+    const getDir = (path: string) => path.substring(0, path.lastIndexOf('/'));
+    const jsonFiles = Object.keys(loadedZip.files).filter(path => path.endsWith('.json') && !path.startsWith('__MACOSX'));
 
-    // Iterate files
-    const filePaths = Object.keys(loadedZip.files);
-    
-    for (const path of filePaths) {
+    for (const path of jsonFiles) {
         const fileObj = loadedZip.files[path];
         if (fileObj.dir) continue;
-        if (path.includes('__MACOSX') || path.includes('.DS_Store')) continue;
 
-        // Path: Brand/Category/Product/File.ext OR Brand/BrandFile.ext
-        const parts = path.split('/');
+        const content = await fileObj.async("text");
+        const json = JSON.parse(content);
         
-        if (parts.length < 2) continue;
-
-        const brandName = parts[0];
-
-        // Init Brand
-        if (!newBrands[brandName]) {
-            newBrands[brandName] = {
-                id: generateId('brand'),
-                name: brandName,
-                categories: []
-            };
+        if (path.toLowerCase().endsWith('brand.json')) {
+            const brandName = json.name || "Unknown Brand";
+            if (!newBrands[brandName]) {
+                newBrands[brandName] = {
+                    id: json.id || generateId('brand'),
+                    name: brandName,
+                    logoUrl: json.logoUrl || '',
+                    categories: []
+                };
+            }
         }
-
-        // Handle Brand Assets (Level 2: Brand/brand_logo.png)
-        if (parts.length === 2) {
-             const fileName = parts[1].toLowerCase();
-             // Parse brand logo
-             if (fileName.includes('brand_logo') || fileName.includes('logo')) {
-                  const b64 = await getBase64(fileObj);
-                  newBrands[brandName].logoUrl = b64;
-             }
-             continue;
-        }
-
-        // Require Product Depth for rest (Brand/Category/Product/File)
-        if (parts.length < 4) continue;
-
-        const categoryName = parts[1];
-        const productName = parts[2];
-        const fileName = parts.slice(3).join('/'); // In case of subfolders inside product (e.g. gallery)
-
-        // Init Category
-        let category = newBrands[brandName].categories.find(c => c.name === categoryName);
-        if (!category) {
-            category = {
-                id: generateId('cat'),
-                name: categoryName,
-                icon: 'Box',
-                products: []
-            };
-            newBrands[brandName].categories.push(category);
-        }
-
-        // Init Product
-        let product = category.products.find(p => p.name === productName);
-        if (!product) {
-            product = {
-                id: generateId('prod'),
-                name: productName, 
-                description: '',
-                specs: {},
-                features: [],
-                dimensions: [],
-                imageUrl: '',
-                galleryUrls: [],
-                videoUrls: [],
-                manuals: [],
-                dateAdded: new Date().toISOString()
-            };
-            category.products.push(product);
-        }
-
-        const lowerFile = fileName.toLowerCase();
         
-        // Handle Details JSON
-        if (fileName.endsWith('.json') && fileName.includes('details')) {
-             try {
-                 const text = await fileObj.async("text");
-                 const meta = JSON.parse(text);
-                 if (meta.name) product.name = meta.name;
-                 if (meta.description) product.description = meta.description;
-                 if (meta.sku) product.sku = meta.sku;
-                 if (meta.specs) product.specs = meta.specs;
-                 if (meta.features) product.features = meta.features;
-                 if (meta.dimensions) product.dimensions = meta.dimensions;
-                 if (meta.boxContents) product.boxContents = meta.boxContents;
-                 if (meta.terms) product.terms = meta.terms;
-             } catch(e) { console.warn("Failed to parse JSON for " + productName); }
-        }
-        // Handle Images
-        else if (lowerFile.endsWith('.jpg') || lowerFile.endsWith('.jpeg') || lowerFile.endsWith('.png') || lowerFile.endsWith('.webp')) {
-             const b64 = await getBase64(fileObj);
-             if (lowerFile.includes('cover') || lowerFile.includes('main') || !product.imageUrl) {
-                 product.imageUrl = b64;
-             } else {
-                 product.galleryUrls = [...(product.galleryUrls || []), b64];
-             }
-        }
-        // Handle Videos
-        else if (lowerFile.endsWith('.mp4') || lowerFile.endsWith('.webm') || lowerFile.endsWith('.mov')) {
-            const b64 = await getBase64(fileObj);
-            product.videoUrls = [...(product.videoUrls || []), b64];
-        }
-        // Handle Manuals
-        else if (lowerFile.endsWith('.pdf')) {
-             const b64 = await getBase64(fileObj);
-             product.manuals?.push({
-                 id: generateId('man'),
-                 title: fileName.replace('.pdf', '').replace(/_/g, ' '),
-                 images: [],
-                 pdfUrl: b64,
-                 thumbnailUrl: '' 
-             });
+        if (path.toLowerCase().endsWith('details.json')) {
+            const parts = path.split('/');
+            if (parts.length >= 3) {
+                const productFolder = parts[parts.length - 2];
+                const categoryFolder = parts[parts.length - 3];
+                const brandFolder = parts[parts.length - 4];
+
+                if (brandFolder && categoryFolder) {
+                    const brandName = brandFolder;
+                    if (!newBrands[brandName]) {
+                        newBrands[brandName] = {
+                            id: generateId('brand'),
+                            name: brandName,
+                            categories: []
+                        };
+                    }
+                    let category = newBrands[brandName].categories.find(c => c.name === categoryFolder);
+                    if (!category) {
+                        category = {
+                            id: generateId('cat'),
+                            name: categoryFolder,
+                            icon: 'Box',
+                            products: []
+                        };
+                        newBrands[brandName].categories.push(category);
+                    }
+                    const newProduct: Product = {
+                        id: generateId('prod'),
+                        name: json.name || productFolder,
+                        sku: json.sku,
+                        description: json.description || '',
+                        specs: json.specs || {},
+                        features: json.features || [],
+                        dimensions: json.dimensions || [],
+                        boxContents: json.boxContents || [],
+                        terms: json.terms || '',
+                        imageUrl: '',
+                        galleryUrls: [],
+                        videoUrls: [],
+                        manuals: [],
+                        dateAdded: new Date().toISOString()
+                    };
+                    category.products.push(newProduct);
+                }
+            }
         }
     }
 
+    const assetFiles = Object.keys(loadedZip.files).filter(path => !path.endsWith('.json') && !path.endsWith('/') && !path.startsWith('__MACOSX') && !path.includes('.DS_Store'));
+
+    for (const path of assetFiles) {
+        const fileObj = loadedZip.files[path];
+        const lowerName = path.toLowerCase();
+        
+        const brandMatch = Object.values(newBrands).find(b => path.includes(`${b.name}/brand_logo`) || path.includes(`${b.name}/logo`));
+        if (brandMatch) {
+            brandMatch.logoUrl = await getBase64(fileObj);
+            continue;
+        }
+
+        for (const brand of Object.values(newBrands)) {
+            for (const category of brand.categories) {
+                for (const product of category.products) {
+                    const pathSignature = `${brand.name}/${category.name}`;
+                    if (path.includes(pathSignature) && path.includes(product.name)) {
+                        const b64 = await getBase64(fileObj);
+                        if (lowerName.includes('cover') || lowerName.includes('main')) {
+                            product.imageUrl = b64;
+                        } else if (lowerName.match(/\.(jpg|jpeg|png|webp)$/)) {
+                            if (!product.imageUrl) product.imageUrl = b64;
+                            else product.galleryUrls?.push(b64);
+                        } else if (lowerName.match(/\.(mp4|webm|mov)$/)) {
+                            product.videoUrls?.push(b64);
+                        } else if (lowerName.endsWith('.pdf')) {
+                            product.manuals?.push({
+                                id: generateId('man'),
+                                title: path.split('/').pop()?.replace('.pdf', '') || 'Manual',
+                                images: [],
+                                pdfUrl: b64
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
     return Object.values(newBrands);
 };
 
+// --- HELPER COMPONENTS ---
 
-// Updated Auth Component with Name/PIN and Admin validation
-const Auth = ({ admins, onLogin }: { admins: AdminUser[], onLogin: (user: AdminUser) => void }) => {
-  const [name, setName] = useState('');
+const Auth = ({ admins, onLogin }: { admins: AdminUser[], onLogin: (u: AdminUser) => void }) => {
   const [pin, setPin] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(false);
 
-  const handleAuth = (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    if (!name.trim() || !pin.trim()) {
-        setError('Please enter both Name and PIN.');
-        return;
-    }
-
-    const admin = admins.find(a => 
-        a.name.toLowerCase().trim() === name.toLowerCase().trim() && 
-        a.pin === pin.trim()
-    );
-
-    if (admin) {
-        onLogin(admin);
+    const user = admins.find(a => a.pin === pin);
+    if (user) {
+      onLogin(user);
     } else {
-        setError('Invalid credentials.');
+      setError(true);
+      setPin('');
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-800 p-4 animate-fade-in">
-      <div className="bg-slate-100 p-8 rounded-3xl shadow-2xl max-w-md w-full relative overflow-hidden border border-slate-300">
-        <h1 className="text-4xl font-black mb-2 text-center text-slate-900 mt-4 tracking-tight">Admin Hub</h1>
-        <p className="text-center text-slate-500 text-sm mb-6 font-bold uppercase tracking-wide">Enter Name & PIN</p>
+    <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-white">
+      <div className="w-full max-w-md p-8 bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl">
+        <div className="flex flex-col items-center mb-8">
+            <div className="p-4 bg-blue-600 rounded-2xl mb-4 shadow-lg shadow-blue-900/50">
+                <ShieldCheck size={40} />
+            </div>
+            <h1 className="text-2xl font-black uppercase tracking-widest">System Access</h1>
+            <p className="text-slate-400 text-xs font-bold uppercase mt-2">Restricted Area</p>
+        </div>
         
-        <form onSubmit={handleAuth} className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-6">
           <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">Admin Name</label>
-              <input 
-                 className="w-full p-4 border border-slate-300 rounded-xl bg-white font-bold text-slate-900 outline-none focus:border-blue-500" 
-                 type="text" 
-                 placeholder="Name" 
-                 value={name} 
-                 onChange={(e) => setName(e.target.value)} 
-                 autoFocus 
-              />
-          </div>
-          <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">PIN Code</label>
-              <input 
-                 className="w-full p-4 border border-slate-300 rounded-xl bg-white font-bold text-slate-900 outline-none focus:border-blue-500" 
-                 type="password" 
-                 placeholder="####" 
-                 value={pin} 
-                 onChange={(e) => setPin(e.target.value)} 
-              />
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1">Access PIN</label>
+            <input 
+              type="password" 
+              value={pin}
+              onChange={(e) => { setPin(e.target.value); setError(false); }}
+              className="w-full bg-slate-900 border-2 border-slate-700 rounded-xl p-4 text-center font-mono text-2xl font-bold tracking-[1em] text-white focus:border-blue-500 focus:outline-none transition-colors"
+              placeholder="••••"
+              autoFocus
+              maxLength={6}
+            />
           </div>
           
-          {error && <div className="text-red-500 text-xs font-bold text-center bg-red-100 p-2 rounded-lg">{error}</div>}
-
-          <button type="submit" className="w-full p-4 font-black rounded-xl bg-slate-900 text-white uppercase hover:bg-slate-800 transition-colors shadow-lg">Login</button>
+          {error && <div className="text-red-400 text-xs font-bold text-center uppercase animate-pulse">Access Denied: Invalid Credentials</div>}
+          
+          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-xl font-black uppercase tracking-widest transition-all hover:scale-[1.02] shadow-lg">
+             Authenticate
+          </button>
         </form>
+        <div className="mt-8 text-center">
+            <p className="text-[10px] text-slate-600 font-mono">ID: {Math.random().toString(36).substr(2, 6).toUpperCase()}</p>
+        </div>
       </div>
     </div>
   );
 };
 
-// Updated FileUpload to always return Base64 for local processing if needed
-const FileUpload = ({ currentUrl, onUpload, label, accept = "image/*", icon = <ImageIcon />, allowMultiple = false }: any) => {
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setIsProcessing(true);
-      setUploadProgress(10); 
-      const files = Array.from(e.target.files) as File[];
-      let fileType = files[0].type.startsWith('video') ? 'video' : files[0].type === 'application/pdf' ? 'pdf' : files[0].type.startsWith('audio') ? 'audio' : 'image';
-
-      const readFileAsBase64 = (file: File): Promise<string> => {
-          return new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(file);
-          });
-      };
-
-      const uploadSingle = async (file: File) => {
-           // Always get local base64 first (useful for PDF conversion locally)
-           const localBase64 = await readFileAsBase64(file);
-           
-           try {
-              const url = await uploadFileToStorage(file);
-              return { url, base64: localBase64 };
-           } catch (e) {
-              return { url: localBase64, base64: localBase64 };
-           }
-      };
-
+const FileUpload = ({ label, currentUrl, onUpload }: { label: string, currentUrl?: string, onUpload: (url: string) => void }) => {
+  const [uploading, setUploading] = useState(false);
+  
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setUploading(true);
       try {
-          if (allowMultiple) {
-              const results: string[] = [];
-              const base64s: string[] = [];
-              for(let i=0; i<files.length; i++) {
-                  const res = await uploadSingle(files[i]);
-                  results.push(res.url);
-                  base64s.push(res.base64);
-                  setUploadProgress(((i+1)/files.length)*100);
-              }
-              // Pass back both URL list and Base64 list (last arg)
-              onUpload(results, fileType, base64s);
-          } else {
-              const res = await uploadSingle(files[0]);
-              setUploadProgress(100);
-              onUpload(res.url, fileType, res.base64);
-          }
-      } catch (err) { alert("Upload error"); } 
-      finally { setTimeout(() => { setIsProcessing(false); setUploadProgress(0); }, 500); }
+        const url = await uploadFileToStorage(e.target.files[0]);
+        onUpload(url);
+      } catch (err) {
+        alert("Upload Failed. Check Supabase connection.");
+        console.error(err);
+      } finally {
+        setUploading(false);
+      }
     }
   };
 
   return (
-    <div className="mb-4">
-      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">{label}</label>
-      <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-        {isProcessing && <div className="absolute bottom-0 left-0 h-1 bg-blue-500 transition-all" style={{ width: `${uploadProgress}%` }}></div>}
-        <div className="w-10 h-10 bg-slate-50 border border-slate-200 border-dashed rounded-lg flex items-center justify-center overflow-hidden shrink-0 text-slate-400">
-           {isProcessing ? (
-               <Loader2 className="animate-spin text-blue-500" /> 
-           ) : currentUrl && !allowMultiple ? (
-               accept.includes('video') ? <Video className="text-blue-500" size={16} /> : 
-               accept.includes('pdf') ? <FileText className="text-red-500" size={16} /> : 
-               accept.includes('audio') ? (
-                  <div className="flex flex-col items-center justify-center bg-green-50 w-full h-full text-green-600">
-                      <Music size={16} />
-                  </div>
-               ) : 
-               <img src={currentUrl} className="w-full h-full object-contain" />
-           ) : React.cloneElement(icon, { size: 16 })}
-        </div>
-        <label className={`flex-1 text-center cursor-pointer bg-slate-900 text-white px-2 py-2 rounded-lg font-bold text-[9px] uppercase whitespace-nowrap overflow-hidden text-ellipsis ${isProcessing ? 'opacity-50' : ''}`}>
-              <Upload size={10} className="inline mr-1" /> {isProcessing ? '...' : 'Select'}
-              <input type="file" className="hidden" accept={accept} onChange={handleFileChange} disabled={isProcessing} multiple={allowMultiple}/>
+    <div className="flex flex-col gap-2">
+      <span className="text-xs font-bold text-slate-500 uppercase">{label}</span>
+      <div className="flex items-center gap-3">
+        {currentUrl ? (
+          <div className="w-16 h-16 bg-white border border-slate-200 rounded-lg p-1 relative group">
+             {currentUrl.match(/\.(mp4|webm)$/) ? (
+                 <video src={currentUrl} className="w-full h-full object-cover rounded" />
+             ) : (
+                 <img src={currentUrl} alt="Preview" className="w-full h-full object-contain rounded" />
+             )}
+             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded">
+                 <button onClick={() => onUpload('')} className="text-white p-1 hover:text-red-400"><Trash2 size={16} /></button>
+             </div>
+          </div>
+        ) : (
+          <div className="w-16 h-16 bg-slate-100 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400">
+             <ImageIcon size={20} />
+          </div>
+        )}
+        
+        <label className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold uppercase text-[10px] cursor-pointer transition-colors ${uploading ? 'bg-slate-200 text-slate-500' : 'bg-slate-900 text-white hover:bg-blue-600'}`}>
+           {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+           {uploading ? 'Uploading...' : 'Upload Media'}
+           <input type="file" className="hidden" onChange={handleFile} disabled={uploading} accept="image/*,video/*,application/pdf" />
         </label>
       </div>
     </div>
   );
 };
 
-const InputField = ({ label, val, onChange, placeholder, isArea = false, half = false, type = 'text' }: any) => (
-    <div className={`mb-4 ${half ? 'w-full' : ''}`}>
-      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 ml-1">{label}</label>
-      {isArea ? <textarea value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl h-24 focus:ring-2 focus:ring-blue-500 outline-none resize-none text-sm" placeholder={placeholder} /> : <input type={type} value={val} onChange={onChange} className="w-full p-3 bg-white text-black border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" placeholder={placeholder} />}
-    </div>
+const InputField = ({ label, value, onChange, placeholder, type="text" }: any) => (
+  <div className="flex flex-col gap-1">
+     <label className="text-xs font-bold text-slate-500 uppercase">{label}</label>
+     <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 outline-none font-medium text-slate-900 transition-colors" />
+  </div>
 );
 
-const CatalogueManager = ({ catalogues, onSave, brandId }: { catalogues: Catalogue[], onSave: (c: Catalogue[]) => void, brandId?: string }) => {
-    const [localList, setLocalList] = useState(catalogues || []);
-    useEffect(() => setLocalList(catalogues || []), [catalogues]);
-
-    const handleUpdate = (newList: Catalogue[]) => {
-        setLocalList(newList);
-        onSave(newList); 
-    };
-
-    const addCatalogue = () => {
-        handleUpdate([...localList, {
-            id: generateId('cat'),
-            title: brandId ? 'New Brand Catalogue' : 'New Pamphlet',
-            brandId: brandId,
-            type: brandId ? 'catalogue' : 'pamphlet', 
-            pages: [],
-            year: new Date().getFullYear(),
-            startDate: '',
-            endDate: ''
-        }]);
-    };
-
-    const updateCatalogue = (id: string, updates: Partial<Catalogue>) => {
-        handleUpdate(localList.map(c => c.id === id ? { ...c, ...updates } : c));
-    };
-
+const CatalogueManager = ({ catalogues, brandId, onSave }: { catalogues: Catalogue[], brandId: string, onSave: (c: Catalogue[]) => void }) => {
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center mb-4">
-                 <h3 className="font-bold uppercase text-slate-500 text-xs tracking-wider">{brandId ? 'Brand Catalogues' : 'Global Pamphlets'}</h3>
-                 <button onClick={addCatalogue} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase flex items-center gap-2"><Plus size={14} /> Add New</button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {localList.map((cat) => (
-                    <div key={cat.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
-                        <div className="h-40 bg-slate-100 relative group flex items-center justify-center overflow-hidden">
-                            {cat.thumbnailUrl || (cat.pages && cat.pages[0]) ? (
-                                <img src={cat.thumbnailUrl || cat.pages[0]} className="w-full h-full object-contain" /> 
-                            ) : (
-                                <BookOpen size={32} className="text-slate-300" />
-                            )}
-                            {cat.pdfUrl && (
-                                <div className="absolute top-2 right-2 bg-red-500 text-white text-[8px] font-bold px-2 py-1 rounded shadow-sm">PDF</div>
-                            )}
-                        </div>
-                        <div className="p-4 space-y-3 flex-1 flex flex-col">
-                            <input value={cat.title} onChange={(e) => updateCatalogue(cat.id, { title: e.target.value })} className="w-full font-black text-slate-900 border-b border-transparent focus:border-blue-500 outline-none text-sm" placeholder="Title" />
-                            
-                            {cat.type === 'catalogue' || brandId ? (
-                                <div>
-                                    <label className="text-[8px] font-bold text-slate-400 uppercase">Catalogue Year</label>
-                                    <input type="number" value={cat.year || new Date().getFullYear()} onChange={(e) => updateCatalogue(cat.id, { year: parseInt(e.target.value) })} className="w-full text-xs border border-slate-200 rounded p-1" />
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-[8px] font-bold text-slate-400 uppercase">Start Date</label>
-                                        <input type="date" value={cat.startDate || ''} onChange={(e) => updateCatalogue(cat.id, { startDate: e.target.value })} className="w-full text-xs border border-slate-200 rounded p-1" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[8px] font-bold text-slate-400 uppercase">End Date</label>
-                                        <input type="date" value={cat.endDate || ''} onChange={(e) => updateCatalogue(cat.id, { endDate: e.target.value })} className="w-full text-xs border border-slate-200 rounded p-1" />
-                                    </div>
-                                </div>
-                            )}
-                            
-                            <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
-                                <FileUpload 
-                                    label="Thumbnail (Image)" 
-                                    accept="image/*" 
-                                    currentUrl={cat.thumbnailUrl || (cat.pages?.[0])}
-                                    onUpload={(url: any) => updateCatalogue(cat.id, { thumbnailUrl: url })} 
-                                />
-                                <FileUpload 
-                                    label="Document (PDF)" 
-                                    accept="application/pdf" 
-                                    currentUrl={cat.pdfUrl}
-                                    icon={<FileText />}
-                                    onUpload={(url: any) => updateCatalogue(cat.id, { pdfUrl: url })} 
-                                />
-                            </div>
-
-                            <div className="flex justify-between items-center pt-2 border-t border-slate-100 mt-2">
-                                <button onClick={() => handleUpdate(localList.filter(c => c.id !== cat.id))} className="text-red-400 hover:text-red-600 flex items-center gap-1 text-[10px] font-bold uppercase"><Trash2 size={12} /> Delete Catalogue</button>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
+        <div className="space-y-4">
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                 {catalogues.map(cat => (
+                     <div key={cat.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 relative group">
+                         <div className="aspect-[3/4] bg-white mb-2 rounded border border-slate-100 flex items-center justify-center overflow-hidden">
+                             {cat.thumbnailUrl || (cat.pages && cat.pages[0]) ? <img src={cat.thumbnailUrl || cat.pages[0]} className="w-full h-full object-cover" /> : <Book size={24} className="text-slate-300"/>}
+                         </div>
+                         <div className="font-bold text-xs truncate">{cat.title}</div>
+                         <div className="text-[10px] text-slate-500">{cat.year}</div>
+                         <button 
+                            onClick={() => onSave(catalogues.filter(c => c.id !== cat.id))}
+                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                         >
+                            <Trash2 size={12} />
+                         </button>
+                     </div>
+                 ))}
+                 <button onClick={() => {
+                     const title = prompt("Catalogue Title:");
+                     if(title) {
+                         const newCat: Catalogue = {
+                             id: generateId('cat'),
+                             brandId,
+                             title,
+                             type: 'catalogue',
+                             pages: [],
+                             year: new Date().getFullYear()
+                         };
+                         onSave([...catalogues, newCat]);
+                     }
+                 }} className="border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-colors aspect-[3/4]">
+                     <Plus size={24} />
+                     <span className="text-[10px] font-bold uppercase mt-2">Add New</span>
+                 </button>
+             </div>
         </div>
     );
 };
 
-// ... [Truncated: MoveProductModal, PricelistManager, ProductEditor, KioskEditorModal, TVModelEditor, AdminManager components remain unchanged] ...
-const MoveProductModal = ({ 
-  product, 
-  allBrands, 
-  currentBrandId,
-  currentCategoryId,
-  onMove, 
-  onClose 
-}: { 
-  product: Product, 
-  allBrands: Brand[], 
-  currentBrandId: string,
-  currentCategoryId: string,
-  onMove: (product: Product, targetBrandId: string, targetCategoryId: string) => void, 
-  onClose: () => void 
-}) => {
-  const [targetBrandId, setTargetBrandId] = useState(currentBrandId);
-  const [targetCategoryId, setTargetCategoryId] = useState(currentCategoryId);
-
-  const selectedTargetBrand = allBrands.find(b => b.id === targetBrandId);
-  const targetCategories = selectedTargetBrand ? selectedTargetBrand.categories : [];
-
-  return (
-    <div className="fixed inset-0 z-[80] bg-black/60 flex items-center justify-center backdrop-blur-sm p-4">
-       <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl flex flex-col">
-           <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-               <h3 className="font-black text-slate-900 uppercase text-sm">Move Product</h3>
-               <button onClick={onClose}><X size={20} className="text-slate-400" /></button>
-           </div>
-           <div className="p-6 space-y-4">
-               <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Select Brand</label>
-                  <select 
-                     value={targetBrandId} 
-                     onChange={(e) => {
-                         setTargetBrandId(e.target.value);
-                         const newBrand = allBrands.find(b => b.id === e.target.value);
-                         if (newBrand && newBrand.categories.length > 0) {
-                             setTargetCategoryId(newBrand.categories[0].id);
-                         } else {
-                             setTargetCategoryId('');
-                         }
-                     }}
-                     className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm font-bold outline-none focus:border-blue-500"
-                  >
-                     {allBrands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
-               </div>
-               
-               <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Select Category</label>
-                  <select 
-                     value={targetCategoryId} 
-                     onChange={(e) => setTargetCategoryId(e.target.value)}
-                     className="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm font-bold outline-none focus:border-blue-500"
-                     disabled={targetCategories.length === 0}
-                  >
-                     {targetCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  {targetCategories.length === 0 && <p className="text-xs text-red-500 mt-1">No categories in this brand.</p>}
-               </div>
-           </div>
-           <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
-               <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold uppercase text-xs">Cancel</button>
-               <button 
-                  onClick={() => {
-                      if (targetBrandId && targetCategoryId) {
-                          onMove(product, targetBrandId, targetCategoryId);
-                      }
-                  }}
-                  disabled={!targetBrandId || !targetCategoryId} 
-                  className="px-4 py-2 bg-blue-600 text-white font-bold uppercase text-xs rounded-lg disabled:opacity-50"
-               >
-                  Confirm Move
-               </button>
-           </div>
-       </div>
-    </div>
-  );
-};
-
-const PricelistManager = ({ 
-    pricelists, 
-    pricelistBrands, 
-    onSavePricelists,
-    onSaveBrands,
-    onDeletePricelist
-}: { 
-    pricelists: Pricelist[], 
-    pricelistBrands: PricelistBrand[], 
-    onSavePricelists: (p: Pricelist[]) => void,
-    onSaveBrands: (b: PricelistBrand[]) => void,
-    onDeletePricelist: (id: string) => void
-}) => {
-    // Sort Brands Alphabetically for Display
-    const sortedBrands = useMemo(() => {
-        return [...pricelistBrands].sort((a, b) => a.name.localeCompare(b.name));
-    }, [pricelistBrands]);
-
-    const [selectedBrand, setSelectedBrand] = useState<PricelistBrand | null>(sortedBrands.length > 0 ? sortedBrands[0] : null);
-    
-    useEffect(() => {
-        if (selectedBrand && !sortedBrands.find(b => b.id === selectedBrand.id)) {
-            setSelectedBrand(sortedBrands.length > 0 ? sortedBrands[0] : null);
-        }
-    }, [sortedBrands]);
-
-    const filteredLists = selectedBrand ? pricelists.filter(p => p.brandId === selectedBrand.id) : [];
-
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-    const sortedLists = [...filteredLists].sort((a, b) => {
-        const yearA = parseInt(a.year) || 0;
-        const yearB = parseInt(b.year) || 0;
-        // Date Descending (Closest date first)
-        if (yearA !== yearB) return yearB - yearA;
-        return months.indexOf(b.month) - months.indexOf(a.month);
-    });
-
-    const addBrand = () => {
-        const name = prompt("Enter Brand Name for Pricelists:");
-        if (!name) return;
-        const newBrand: PricelistBrand = {
-            id: generateId('plb'),
-            name: name,
-            logoUrl: ''
-        };
-        onSaveBrands([...pricelistBrands, newBrand]);
-        setSelectedBrand(newBrand);
-    };
-
-    const updateBrand = (id: string, updates: Partial<PricelistBrand>) => {
-        const updatedBrands = pricelistBrands.map(b => b.id === id ? { ...b, ...updates } : b);
-        onSaveBrands(updatedBrands);
-        if (selectedBrand?.id === id) {
-            setSelectedBrand({ ...selectedBrand, ...updates });
-        }
-    };
-
-    const deleteBrand = (id: string) => {
-        if (confirm("Delete this brand? This will also hide associated pricelists.")) {
-            onSaveBrands(pricelistBrands.filter(b => b.id !== id));
-        }
-    };
-
-    const addPricelist = () => {
-        if (!selectedBrand) return;
-        const newItem: Pricelist = {
-            id: generateId('pl'),
-            brandId: selectedBrand.id,
-            title: 'New Pricelist',
-            url: '',
-            month: 'January',
-            year: new Date().getFullYear().toString(),
-            dateAdded: new Date().toISOString() // Set dateAdded to now for "New" flag
-        };
-        onSavePricelists([...pricelists, newItem]);
-    };
-
-    const updatePricelist = (id: string, updates: Partial<Pricelist>) => {
-        onSavePricelists(pricelists.map(p => p.id === id ? { ...p, ...updates } : p));
-    };
-
-    const handleDeletePricelist = (id: string) => {
-        if(confirm("Delete this pricelist? It will be moved to Archive.")) {
-            onDeletePricelist(id);
-        }
-    };
-
+const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], onUpdate: (a: AdminUser[]) => void, currentUser: AdminUser }) => {
     return (
-        <div className="max-w-7xl mx-auto animate-fade-in flex flex-col md:flex-row gap-4 md:gap-6 h-[calc(100dvh-130px)] md:h-[calc(100vh-140px)]">
-             {/* Left Sidebar: Brands List */}
-             <div className="w-full md:w-1/3 h-[35%] md:h-full flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden shrink-0">
-                 <div className="p-3 md:p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center shrink-0">
-                     <div>
-                        <h2 className="font-black text-slate-900 uppercase text-xs md:text-sm">Pricelist Brands</h2>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase hidden md:block">Independent List</p>
-                     </div>
-                     <button onClick={addBrand} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase flex items-center gap-1">
-                        <Plus size={12} /> Add
-                     </button>
-                 </div>
-                 <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                     {sortedBrands.map(brand => (
-                         <div 
-                            key={brand.id} 
-                            onClick={() => setSelectedBrand(brand)}
-                            className={`p-2 md:p-3 rounded-xl border transition-all cursor-pointer relative group ${selectedBrand?.id === brand.id ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200' : 'bg-white border-slate-100 hover:border-blue-200'}`}
-                         >
-                             <div className="flex items-center gap-2 md:gap-3">
-                                 <div className="w-8 h-8 md:w-10 md:h-10 bg-white rounded-lg border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
-                                     {brand.logoUrl ? (
-                                         <img src={brand.logoUrl} className="w-full h-full object-contain" />
-                                     ) : (
-                                         <span className="font-black text-slate-300 text-sm md:text-lg">{brand.name.charAt(0)}</span>
-                                     )}
-                                 </div>
-                                 <div className="flex-1 min-w-0">
-                                     <div className="font-bold text-slate-900 text-[10px] md:text-xs uppercase truncate">{brand.name}</div>
-                                     <div className="text-[9px] md:text-[10px] text-slate-400 font-mono truncate">{pricelists.filter(p => p.brandId === brand.id).length} Lists</div>
-                                 </div>
-                             </div>
-                             {selectedBrand?.id === brand.id && (
-                                 <div className="mt-2 md:mt-3 pt-2 md:pt-3 border-t border-slate-200/50 space-y-2" onClick={e => e.stopPropagation()}>
-                                     <input 
-                                         value={brand.name} 
-                                         onChange={(e) => updateBrand(brand.id, { name: e.target.value })}
-                                         className="w-full text-[10px] md:text-xs font-bold p-1 border-b border-slate-200 focus:border-blue-500 outline-none bg-transparent"
-                                         placeholder="Brand Name"
-                                     />
-                                     <FileUpload 
-                                         label="Brand Logo" 
-                                         currentUrl={brand.logoUrl} 
-                                         onUpload={(url: any) => updateBrand(brand.id, { logoUrl: url })} 
-                                     />
-                                     <button 
-                                         onClick={(e) => { e.stopPropagation(); deleteBrand(brand.id); }}
-                                         className="w-full text-center text-[10px] text-red-500 font-bold uppercase hover:bg-red-50 py-1 rounded"
-                                     >
-                                         Delete Brand
-                                     </button>
-                                 </div>
-                             )}
-                         </div>
-                     ))}
-                     {sortedBrands.length === 0 && (
-                         <div className="p-8 text-center text-slate-400 text-xs italic">
-                             No brands. Click "Add" to start.
-                         </div>
-                     )}
-                 </div>
-             </div>
-             
-             {/* Right Content: Pricelist Grid */}
-             <div className="flex-1 h-[65%] md:h-full bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col shadow-inner min-h-0">
-                 <div className="flex justify-between items-center mb-4 shrink-0">
-                     <h3 className="font-bold text-slate-700 uppercase text-xs tracking-wider truncate mr-2 max-w-[60%]">
-                         {selectedBrand ? selectedBrand.name : 'Select Brand'}
-                     </h3>
-                     <button 
-                        onClick={addPricelist} 
-                        disabled={!selectedBrand}
-                        className="bg-green-600 text-white px-3 py-2 md:px-4 md:py-2 rounded-lg font-bold text-[10px] md:text-xs uppercase flex items-center gap-1 md:gap-2 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                    >
-                        <Plus size={12} /> Add <span className="hidden md:inline">Pricelist</span>
-                    </button>
-                 </div>
-                 <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 content-start pb-10">
-                     {sortedLists.map((item) => (
-                         <div key={item.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col p-3 md:p-4 gap-2 md:gap-3 h-fit">
-                             <div>
-                                 <label className="block text-[9px] md:text-[10px] font-bold text-slate-400 uppercase mb-1">Title</label>
-                                 <input 
-                                     value={item.title} 
-                                     onChange={(e) => updatePricelist(item.id, { title: e.target.value })}
-                                     className="w-full font-bold text-slate-900 border-b border-slate-100 focus:border-blue-500 outline-none pb-1 text-xs md:text-sm" 
-                                     placeholder="e.g. Retail Price List"
-                                 />
-                             </div>
-                             <div className="grid grid-cols-2 gap-2">
-                                 <div>
-                                     <label className="block text-[9px] md:text-[10px] font-bold text-slate-400 uppercase mb-1">Month</label>
-                                     <select 
-                                         value={item.month} 
-                                         onChange={(e) => updatePricelist(item.id, { month: e.target.value })}
-                                         className="w-full text-[10px] md:text-xs font-bold p-1 bg-slate-50 rounded border border-slate-200"
-                                     >
-                                         {months.map(m => <option key={m} value={m}>{m}</option>)}
-                                     </select>
-                                 </div>
-                                 <div>
-                                     <label className="block text-[9px] md:text-[10px] font-bold text-slate-400 uppercase mb-1">Year</label>
-                                     <input 
-                                         type="number"
-                                         value={item.year} 
-                                         onChange={(e) => updatePricelist(item.id, { year: e.target.value })}
-                                         className="w-full text-[10px] md:text-xs font-bold p-1 bg-slate-50 rounded border border-slate-200"
-                                     />
-                                 </div>
-                             </div>
-                             <div className="mt-1 md:mt-2 grid grid-cols-2 gap-2">
-                                <FileUpload 
-                                    label="Thumbnail" 
-                                    accept="image/*"
-                                    currentUrl={item.thumbnailUrl}
-                                    onUpload={(url: any) => updatePricelist(item.id, { thumbnailUrl: url })} 
-                                />
-                                <FileUpload 
-                                    label="Upload PDF" 
-                                    accept="application/pdf" 
-                                    icon={<FileText />}
-                                    currentUrl={item.url}
-                                    onUpload={(url: any) => updatePricelist(item.id, { url: url })} 
-                                />
-                             </div>
-                             <button 
-                                onClick={() => handleDeletePricelist(item.id)}
-                                className="mt-auto pt-2 md:pt-3 border-t border-slate-100 text-red-500 hover:text-red-600 text-[10px] font-bold uppercase flex items-center justify-center gap-1"
-                             >
-                                 <Trash2 size={12} /> Delete
-                             </button>
-                         </div>
-                     ))}
-                     {sortedLists.length === 0 && selectedBrand && (
-                         <div className="col-span-full py-8 md:py-12 text-center text-slate-400 text-xs italic border-2 border-dashed border-slate-200 rounded-xl">
-                             No pricelists found for this brand.
-                         </div>
-                     )}
-                 </div>
-             </div>
+        <div className="space-y-4">
+            {admins.map(admin => (
+                <div key={admin.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <div>
+                        <div className="font-bold text-sm text-slate-900">{admin.name}</div>
+                        <div className="text-[10px] font-mono text-slate-500">{admin.isSuperAdmin ? 'SUPER ADMIN' : 'STAFF'}</div>
+                    </div>
+                    {currentUser.isSuperAdmin && admin.id !== currentUser.id && (
+                        <button onClick={() => onUpdate(admins.filter(a => a.id !== admin.id))} className="text-red-500 hover:bg-red-50 p-2 rounded"><Trash2 size={16}/></button>
+                    )}
+                </div>
+            ))}
+            {currentUser.isSuperAdmin && (
+                <button onClick={() => {
+                    const name = prompt("New Admin Name:");
+                    if(name) {
+                        const pin = prompt("Set PIN (4 digits):");
+                        if(pin) {
+                            onUpdate([...admins, {
+                                id: generateId('adm'),
+                                name,
+                                pin,
+                                isSuperAdmin: false,
+                                permissions: { inventory: true, marketing: false, tv: false, screensaver: false, fleet: false, history: false, settings: false, pricelists: false }
+                            }]);
+                        }
+                    }
+                }} className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold uppercase text-xs hover:border-blue-500 hover:text-blue-500">
+                    Add New Admin
+                </button>
+            )}
         </div>
     );
 };
 
 const ProductEditor = ({ product, onSave, onCancel }: { product: Product, onSave: (p: Product) => void, onCancel: () => void }) => {
-    const [draft, setDraft] = useState<Product>({ 
-        ...product, 
-        dimensions: Array.isArray(product.dimensions) 
-            ? product.dimensions 
-            : (product.dimensions ? [{label: "Device", ...(product.dimensions as any)}] : []),
-        videoUrls: product.videoUrls || (product.videoUrl ? [product.videoUrl] : []),
-        manuals: product.manuals || (product.manualUrl || (product.manualImages && product.manualImages.length > 0) ? [{
-            id: generateId('man'),
-            title: "User Manual",
-            images: product.manualImages || [],
-            pdfUrl: product.manualUrl
-        }] : []),
-        dateAdded: product.dateAdded || new Date().toISOString()
-    });
-    const [newFeature, setNewFeature] = useState('');
-    const [newBoxItem, setNewBoxItem] = useState('');
-    const [newSpecKey, setNewSpecKey] = useState('');
-    const [newSpecValue, setNewSpecValue] = useState('');
+    const [formData, setFormData] = useState<Product>({...product});
+    
+    return (
+        <div className="bg-white w-full max-w-4xl h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h2 className="text-xl font-black uppercase text-slate-900 flex items-center gap-2"><Edit2 size={20}/> Edit Product</h2>
+                <button onClick={onCancel}><X size={24} className="text-slate-400 hover:text-slate-600" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                <div className="grid grid-cols-2 gap-6">
+                    <InputField label="Product Name" value={formData.name} onChange={(v: string) => setFormData({...formData, name: v})} />
+                    <InputField label="SKU / Model Code" value={formData.sku || ''} onChange={(v: string) => setFormData({...formData, sku: v})} />
+                </div>
+                
+                <div>
+                     <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Description</label>
+                     <textarea className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl h-32 outline-none focus:border-blue-500" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                </div>
 
-    const addFeature = () => { if (newFeature.trim()) { setDraft({ ...draft, features: [...draft.features, newFeature.trim()] }); setNewFeature(''); } };
-    const addBoxItem = () => { if(newBoxItem.trim()) { setDraft({ ...draft, boxContents: [...(draft.boxContents || []), newBoxItem.trim()] }); setNewBoxItem(''); } };
-    const addSpec = () => { if (newSpecKey.trim() && newSpecValue.trim()) { setDraft({ ...draft, specs: { ...draft.specs, [newSpecKey.trim()]: newSpecValue.trim() } }); setNewSpecKey(''); setNewSpecValue(''); } };
+                <div className="grid grid-cols-2 gap-6">
+                    <FileUpload label="Main Image" currentUrl={formData.imageUrl} onUpload={url => setFormData({...formData, imageUrl: url})} />
+                    <FileUpload label="Video URL (Optional)" currentUrl={formData.videoUrl} onUpload={url => setFormData({...formData, videoUrl: url})} />
+                </div>
+            </div>
+            <div className="p-6 border-t border-slate-100 flex justify-end gap-4 bg-slate-50">
+                <button onClick={onCancel} className="px-6 py-3 rounded-xl font-bold uppercase text-xs text-slate-500 hover:bg-slate-200">Cancel</button>
+                <button onClick={() => onSave(formData)} className="px-6 py-3 rounded-xl font-bold uppercase text-xs bg-blue-600 text-white hover:bg-blue-700 shadow-lg">Save Changes</button>
+            </div>
+        </div>
+    );
+};
 
-    const addDimensionSet = () => {
-        setDraft({ 
-            ...draft, 
-            dimensions: [...draft.dimensions, { label: "New Set", width: "", height: "", depth: "", weight: "" }] 
-        });
-    };
-    const updateDimension = (index: number, field: keyof DimensionSet, value: string) => {
-        const newDims = [...draft.dimensions];
-        newDims[index] = { ...newDims[index], [field]: value };
-        setDraft({ ...draft, dimensions: newDims });
-    };
-    const removeDimension = (index: number) => {
-        const newDims = draft.dimensions.filter((_, i) => i !== index);
-        setDraft({ ...draft, dimensions: newDims });
-    };
-
-    const addManual = () => {
-        const newManual: Manual = {
-            id: generateId('man'),
-            title: "New Manual",
-            images: [],
-            pdfUrl: '',
-            thumbnailUrl: ''
-        };
-        setDraft({ ...draft, manuals: [...(draft.manuals || []), newManual] });
-    };
-
-    const removeManual = (id: string) => {
-        setDraft({ ...draft, manuals: (draft.manuals || []).filter(m => m.id !== id) });
-    };
-
-    const updateManual = (id: string, updates: Partial<Manual>) => {
-        setDraft({ 
-            ...draft, 
-            manuals: (draft.manuals || []).map(m => m.id === id ? { ...m, ...updates } : m) 
-        });
-    };
+const MoveProductModal = ({ product, allBrands, onClose, onMove }: any) => {
+    const [targetBrandId, setTargetBrandId] = useState(allBrands[0]?.id);
+    const [targetCategoryId, setTargetCategoryId] = useState('');
+    
+    const targetBrand = allBrands.find((b: Brand) => b.id === targetBrandId);
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-2xl overflow-hidden shadow-2xl">
-            <div className="bg-slate-900 text-white p-4 flex justify-between items-center shrink-0">
-                <h3 className="font-bold uppercase tracking-wide">Edit Product: {draft.name || 'New Product'}</h3>
-                <button onClick={onCancel} className="text-slate-400 hover:text-white"><X size={24} /></button>
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl">
+                 <h3 className="text-lg font-black uppercase mb-4">Move Product</h3>
+                 <p className="text-sm text-slate-600 mb-6">Select destination for <strong>{product.name}</strong>:</p>
+                 
+                 <div className="space-y-4 mb-8">
+                     <div>
+                         <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Target Brand</label>
+                         <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl" value={targetBrandId} onChange={e => setTargetBrandId(e.target.value)}>
+                             {allBrands.map((b: Brand) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                         </select>
+                     </div>
+                     <div>
+                         <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Target Category</label>
+                         <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl" value={targetCategoryId} onChange={e => setTargetCategoryId(e.target.value)}>
+                             <option value="">Select Category...</option>
+                             {targetBrand?.categories.map((c: Category) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                         </select>
+                     </div>
+                 </div>
+
+                 <div className="flex justify-end gap-3">
+                     <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold uppercase text-xs">Cancel</button>
+                     <button 
+                        disabled={!targetCategoryId}
+                        onClick={() => onMove(product, targetBrandId, targetCategoryId)}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold uppercase text-xs disabled:opacity-50"
+                     >
+                         Move Product
+                     </button>
+                 </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-8 pb-20">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                        <InputField label="Product Name" val={draft.name} onChange={(e: any) => setDraft({ ...draft, name: e.target.value })} />
-                        <InputField label="SKU" val={draft.sku || ''} onChange={(e: any) => setDraft({ ...draft, sku: e.target.value })} />
-                        <InputField label="Description" isArea val={draft.description} onChange={(e: any) => setDraft({ ...draft, description: e.target.value })} />
-                        <InputField label="Warranty & Terms" isArea val={draft.terms || ''} onChange={(e: any) => setDraft({ ...draft, terms: e.target.value })} placeholder="Enter warranty info or legal terms..." />
-                        
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                             <div className="flex justify-between items-center mb-4">
-                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Dimensions Sets</label>
-                                 <button onClick={addDimensionSet} className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded font-bold uppercase flex items-center gap-1"><Plus size={10}/> Add Set</button>
-                             </div>
-                             {draft.dimensions.map((dim, idx) => (
-                                 <div key={idx} className="mb-4 bg-white p-3 rounded-lg border border-slate-200 shadow-sm relative">
-                                     <button onClick={() => removeDimension(idx)} className="absolute top-2 right-2 text-red-400 hover:text-red-600"><Trash2 size={12}/></button>
-                                     <input value={dim.label || ''} onChange={(e) => updateDimension(idx, 'label', e.target.value)} placeholder="Label (e.g. Box 1)" className="w-full text-xs font-black uppercase mb-2 border-b border-transparent focus:border-blue-500 outline-none" />
-                                     <div className="grid grid-cols-2 gap-2">
-                                         <InputField label="Height" val={dim.height} onChange={(e:any) => updateDimension(idx, 'height', e.target.value)} half placeholder="10cm" />
-                                         <InputField label="Width" val={dim.width} onChange={(e:any) => updateDimension(idx, 'width', e.target.value)} half placeholder="10cm" />
-                                         <InputField label="Depth" val={dim.depth} onChange={(e:any) => updateDimension(idx, 'depth', e.target.value)} half placeholder="10cm" />
-                                         <InputField label="Weight" val={dim.weight} onChange={(e:any) => updateDimension(idx, 'weight', e.target.value)} half placeholder="1kg" />
-                                     </div>
+        </div>
+    );
+};
+
+const KioskEditorModal = ({ kiosk, onSave, onClose }: any) => {
+    const [data, setData] = useState({...kiosk});
+    return (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+             <div className="bg-white w-full max-w-lg rounded-2xl p-8 shadow-2xl">
+                 <h3 className="text-xl font-black uppercase mb-6">Edit Kiosk Details</h3>
+                 <div className="space-y-4">
+                     <InputField label="Device Name" value={data.name} onChange={(v: string) => setData({...data, name: v})} />
+                     <InputField label="Assigned Zone" value={data.assigned_zone} onChange={(v: string) => setData({...data, assigned_zone: v})} placeholder="e.g. Entrance, aisle 4" />
+                     <div>
+                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Notes</label>
+                         <textarea className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl" value={data.notes || ''} onChange={e => setData({...data, notes: e.target.value})} />
+                     </div>
+                 </div>
+                 <div className="flex justify-end gap-4 mt-8">
+                     <button onClick={onClose} className="text-slate-500 font-bold uppercase text-xs">Cancel</button>
+                     <button onClick={() => onSave(data)} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold uppercase text-xs">Save Updates</button>
+                 </div>
+             </div>
+        </div>
+    );
+};
+
+const TVModelEditor = ({ model, onSave, onClose }: any) => {
+    const [data, setData] = useState<TVModel>({...model});
+    return (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl rounded-2xl p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+                 <h3 className="text-xl font-black uppercase mb-6">Edit TV Model</h3>
+                 <div className="space-y-6">
+                     <InputField label="Model Name" value={data.name} onChange={(v: string) => setData({...data, name: v})} />
+                     <FileUpload label="Cover Image" currentUrl={data.imageUrl} onUpload={url => setData({...data, imageUrl: url})} />
+                     
+                     <div>
+                         <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Playlist Videos</label>
+                         <div className="space-y-2">
+                             {(data.videoUrls || []).map((url, i) => (
+                                 <div key={i} className="flex gap-2 items-center">
+                                     <input readOnly value={url} className="flex-1 p-2 bg-slate-50 border rounded text-xs text-slate-500" />
+                                     <button onClick={() => setData({...data, videoUrls: data.videoUrls.filter((_, idx) => idx !== i)})} className="text-red-500 p-2"><Trash2 size={16}/></button>
                                  </div>
                              ))}
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <FileUpload label="Main Image" currentUrl={draft.imageUrl} onUpload={(url: any) => setDraft({ ...draft, imageUrl: url as string })} />
-                        
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Image Gallery (Multiple)</label>
-                            <FileUpload 
-                                label="Add Images" 
-                                allowMultiple={true} 
-                                currentUrl="" 
-                                onUpload={(urls: any) => {
-                                    const newUrls = Array.isArray(urls) ? urls : [urls];
-                                    setDraft(prev => ({ ...prev, galleryUrls: [...(prev.galleryUrls || []), ...newUrls] }));
-                                }} 
-                            />
-                            {draft.galleryUrls && draft.galleryUrls.length > 0 && (
-                                <div className="grid grid-cols-4 gap-2 mt-2">
-                                    {draft.galleryUrls.map((url, idx) => (
-                                        <div key={idx} className="relative group aspect-square bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-                                            <img src={url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
-                                            <button 
-                                                onClick={() => setDraft(prev => ({...prev, galleryUrls: prev.galleryUrls?.filter((_, i) => i !== idx)}))}
-                                                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                                            >
-                                                <Trash2 size={12} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Product Videos</label>
-                            <FileUpload 
-                                label="Add Videos" 
-                                allowMultiple={true} 
-                                accept="video/*"
-                                icon={<Video />}
-                                currentUrl="" 
-                                onUpload={(urls: any) => {
-                                    const newUrls = Array.isArray(urls) ? urls : [urls];
-                                    setDraft(prev => ({ ...prev, videoUrls: [...(prev.videoUrls || []), ...newUrls] }));
-                                }} 
-                            />
-                            {draft.videoUrls && draft.videoUrls.length > 0 && (
-                                <div className="grid grid-cols-4 gap-2 mt-2">
-                                    {draft.videoUrls.map((url, idx) => (
-                                        <div key={idx} className="relative group aspect-square bg-slate-900 border border-slate-700 rounded-lg overflow-hidden shadow-sm flex items-center justify-center">
-                                            <video src={url} className="w-full h-full object-cover opacity-60" muted />
-                                            <Video size={20} className="absolute text-white" />
-                                            <button 
-                                                onClick={() => setDraft(prev => ({...prev, videoUrls: prev.videoUrls?.filter((_, i) => i !== idx)}))}
-                                                className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
-                                            >
-                                                <Trash2 size={12} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Key Features</label>
-                             <div className="flex gap-2 mb-2">
-                                 <input type="text" value={newFeature} onChange={(e) => setNewFeature(e.target.value)} className="flex-1 p-2 border border-slate-300 rounded-lg text-sm" placeholder="Add feature..." onKeyDown={(e) => e.key === 'Enter' && addFeature()} />
-                                 <button onClick={addFeature} className="p-2 bg-blue-600 text-white rounded-lg"><Plus size={16} /></button>
-                             </div>
-                             <ul className="space-y-1">{draft.features.map((f, i) => (<li key={i} className="flex justify-between bg-white p-2 rounded border border-slate-100 text-xs font-bold text-slate-700">{f}<button onClick={() => setDraft({...draft, features: draft.features.filter((_, ix) => ix !== i)})} className="text-red-400"><Trash2 size={12}/></button></li>))}</ul>
-                        </div>
-                        <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
-                             <label className="block text-[10px] font-black text-orange-600 uppercase tracking-wider mb-2">What's in the Box</label>
-                             <div className="flex gap-2 mb-2">
-                                 <input type="text" value={newBoxItem} onChange={(e) => setNewBoxItem(e.target.value)} className="flex-1 p-2 border border-slate-300 rounded-lg text-sm" placeholder="Add item..." onKeyDown={(e) => e.key === 'Enter' && addBoxItem()} />
-                                 <button onClick={addBoxItem} className="p-2 bg-orange-500 text-white rounded-lg"><Plus size={16} /></button>
-                             </div>
-                             <ul className="space-y-1">{(draft.boxContents || []).map((item, i) => (<li key={i} className="flex justify-between bg-white p-2 rounded border border-slate-100 text-xs font-bold text-slate-700">{item}<button onClick={() => setDraft({...draft, boxContents: (draft.boxContents || []).filter((_, ix) => ix !== i)})} className="text-red-400"><Trash2 size={12}/></button></li>))}</ul>
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="mt-8 border-t border-slate-100 pt-8">
-                     <h4 className="font-bold text-slate-900 uppercase text-sm mb-4">Manuals & Docs</h4>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                             <div className="flex justify-between items-center mb-4">
-                                <h5 className="text-xs font-black text-slate-500 uppercase tracking-wider">Product Manuals</h5>
-                                <button onClick={addManual} className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded font-bold uppercase flex items-center gap-1"><Plus size={10}/> Add Manual</button>
-                             </div>
-                             
-                             <div className="space-y-4">
-                                {(draft.manuals || []).map((manual, idx) => (
-                                    <div key={manual.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3 relative group">
-                                        <button onClick={() => removeManual(manual.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 p-1"><Trash2 size={16}/></button>
-                                        
-                                        <input 
-                                            value={manual.title} 
-                                            onChange={(e) => updateManual(manual.id, { title: e.target.value })} 
-                                            placeholder="Manual Title (e.g. User Guide)" 
-                                            className="w-full font-bold text-slate-900 border-b border-slate-100 pb-1 focus:border-blue-500 outline-none pr-8 text-sm" 
-                                        />
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <FileUpload 
-                                                label="Thumbnail (Image)" 
-                                                accept="image/*"
-                                                currentUrl={manual.thumbnailUrl} 
-                                                onUpload={(url: any) => updateManual(manual.id, { thumbnailUrl: url })} 
-                                            />
-                                            <FileUpload 
-                                                label="Document (PDF)" 
-                                                accept="application/pdf"
-                                                icon={<FileText />}
-                                                currentUrl={manual.pdfUrl} 
-                                                onUpload={(url: any) => updateManual(manual.id, { pdfUrl: url })} 
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                                {(draft.manuals || []).length === 0 && (
-                                    <div className="text-center text-slate-400 text-xs italic py-4 border-2 border-dashed border-slate-200 rounded-xl">
-                                        No manuals added. Click "Add Manual" above.
-                                    </div>
-                                )}
-                             </div>
-                        </div>
-
-                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                             <h5 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-4">Technical Specs</h5>
-                             <div className="flex flex-wrap gap-2 mb-4 items-end">
-                                <input value={newSpecKey} onChange={(e) => setNewSpecKey(e.target.value)} placeholder="Spec Name" className="flex-1 min-w-[80px] p-2 border border-slate-300 rounded-lg text-sm font-bold" />
-                                <input value={newSpecValue} onChange={(e) => setNewSpecValue(e.target.value)} placeholder="Value" className="flex-1 min-w-[80px] p-2 border border-slate-300 rounded-lg text-sm font-bold" onKeyDown={(e) => e.key === 'Enter' && addSpec()} />
-                                <button onClick={addSpec} className="bg-blue-600 text-white p-2.5 rounded-lg shrink-0"><Plus size={18} /></button>
-                             </div>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                 {Object.entries(draft.specs).map(([key, value]) => (<div key={key} className="flex justify-between bg-white p-3 rounded-lg border border-slate-200 shadow-sm"><div><span className="block text-[10px] font-bold text-slate-400 uppercase">{key}</span><span className="block text-sm font-black">{value}</span></div><button onClick={() => { const s = {...draft.specs}; delete s[key]; setDraft({...draft, specs: s}); }} className="text-red-400"><Trash2 size={16}/></button></div>))}
-                             </div>
-                        </div>
+                             <FileUpload label="Add Video" onUpload={url => setData({...data, videoUrls: [...(data.videoUrls || []), url]})} />
+                         </div>
                      </div>
-                </div>
-            </div>
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-4 shrink-0">
-                <button onClick={onCancel} className="px-6 py-3 font-bold text-slate-500 uppercase text-xs">Cancel</button>
-                <button onClick={() => onSave(draft)} className="px-6 py-3 bg-blue-600 text-white font-bold uppercase text-xs rounded-lg shadow-lg">Confirm Changes</button>
-            </div>
-        </div>
-    );
-};
-
-const KioskEditorModal = ({ kiosk, onSave, onClose }: { kiosk: KioskRegistry, onSave: (k: KioskRegistry) => void, onClose: () => void }) => {
-    const [draft, setDraft] = useState({ ...kiosk });
-    return (
-        <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <h3 className="font-black text-slate-900 uppercase">Edit Device</h3>
-                    <button onClick={onClose}><X size={20} className="text-slate-400" /></button>
-                </div>
-                <div className="p-6 space-y-4">
-                    <InputField label="Device Name" val={draft.name} onChange={(e:any) => setDraft({...draft, name: e.target.value})} />
-                    <InputField label="Assigned Zone" val={draft.assignedZone || ''} onChange={(e:any) => setDraft({...draft, assignedZone: e.target.value})} />
-                    
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Device Type</label>
-                        <div className="grid grid-cols-3 gap-2">
-                             <button onClick={() => setDraft({...draft, deviceType: 'kiosk'})} className={`p-3 rounded-lg border text-xs font-bold uppercase flex items-center justify-center gap-2 ${draft.deviceType === 'kiosk' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-500'}`}>
-                                 <Tablet size={16}/> Kiosk
-                             </button>
-                             <button onClick={() => setDraft({...draft, deviceType: 'mobile'})} className={`p-3 rounded-lg border text-xs font-bold uppercase flex items-center justify-center gap-2 ${draft.deviceType === 'mobile' ? 'bg-purple-50 border-purple-500 text-purple-700' : 'bg-white border-slate-200 text-slate-500'}`}>
-                                 <Smartphone size={16}/> Mobile
-                             </button>
-                             <button onClick={() => setDraft({...draft, deviceType: 'tv'})} className={`p-3 rounded-lg border text-xs font-bold uppercase flex items-center justify-center gap-2 ${draft.deviceType === 'tv' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-200 text-slate-500'}`}>
-                                 <Tv size={16}/> TV
-                             </button>
-                        </div>
-                    </div>
-                </div>
-                <div className="p-4 border-t border-slate-100 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold uppercase text-xs">Cancel</button>
-                    <button onClick={() => onSave(draft)} className="px-4 py-2 bg-blue-600 text-white font-bold uppercase text-xs rounded-lg">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const TVModelEditor = ({ model, onSave, onClose }: { model: TVModel, onSave: (m: TVModel) => void, onClose: () => void }) => {
-    const [draft, setDraft] = useState<TVModel>({ ...model });
-
-    return (
-        <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]">
-                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
-                    <h3 className="font-black text-slate-900 uppercase">Edit TV Model: {draft.name}</h3>
-                    <button onClick={onClose}><X size={20} className="text-slate-400" /></button>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <InputField label="Model Name" val={draft.name} onChange={(e: any) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. OLED G3" />
-                        <FileUpload 
-                            label="Cover Image (Optional)" 
-                            currentUrl={draft.imageUrl} 
-                            onUpload={(url: any) => setDraft({ ...draft, imageUrl: url })} 
-                        />
-                    </div>
-
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <div className="flex justify-between items-center mb-4">
-                            <h4 className="font-bold text-slate-900 uppercase text-xs">Videos for this Model</h4>
-                            <span className="text-[10px] font-bold bg-white text-slate-500 px-2 py-1 rounded border border-slate-200 uppercase">{draft.videoUrls.length} Videos</span>
-                        </div>
-                        
-                        <FileUpload 
-                            label="Upload Videos" 
-                            accept="video/*" 
-                            allowMultiple={true}
-                            icon={<Video />}
-                            currentUrl="" 
-                            onUpload={(urls: any) => {
-                                const newUrls = Array.isArray(urls) ? urls : [urls];
-                                setDraft(prev => ({ ...prev, videoUrls: [...prev.videoUrls, ...newUrls] }));
-                            }} 
-                        />
-                        
-                        <div className="grid grid-cols-1 gap-3 mt-4">
-                            {draft.videoUrls.map((url, idx) => (
-                                <div key={idx} className="flex items-center gap-4 bg-white p-3 rounded-lg border border-slate-200 group">
-                                    <div className="w-16 h-10 bg-slate-900 rounded flex items-center justify-center shrink-0">
-                                        <Video size={16} className="text-white opacity-50" />
-                                    </div>
-                                    <div className="flex-1 overflow-hidden">
-                                        <div className="text-[10px] font-bold text-slate-500 uppercase">Video {idx + 1}</div>
-                                        <div className="text-xs font-mono truncate text-slate-700">{url.split('/').pop()}</div>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        {idx > 0 && <button onClick={() => {
-                                            const newUrls = [...draft.videoUrls];
-                                            [newUrls[idx], newUrls[idx-1]] = [newUrls[idx-1], newUrls[idx]];
-                                            setDraft({ ...draft, videoUrls: newUrls });
-                                        }} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><ChevronDown size={14} className="rotate-180"/></button>}
-                                        
-                                        {idx < draft.videoUrls.length - 1 && <button onClick={() => {
-                                            const newUrls = [...draft.videoUrls];
-                                            [newUrls[idx], newUrls[idx+1]] = [newUrls[idx+1], newUrls[idx]];
-                                            setDraft({ ...draft, videoUrls: newUrls });
-                                        }} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600"><ChevronDown size={14} /></button>}
-                                        
-                                        <button onClick={() => {
-                                            setDraft({ ...draft, videoUrls: draft.videoUrls.filter((_, i) => i !== idx) });
-                                        }} className="p-1.5 bg-red-50 border border-red-100 text-red-500 hover:bg-red-100 rounded ml-2"><Trash2 size={14} /></button>
-                                    </div>
-                                </div>
-                            ))}
-                            {draft.videoUrls.length === 0 && (
-                                <div className="text-center py-6 text-slate-400 text-xs italic">No videos uploaded for this model yet.</div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-white shrink-0">
-                    <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold uppercase text-xs">Cancel</button>
-                    <button onClick={() => onSave(draft)} className="px-4 py-2 bg-blue-600 text-white font-bold uppercase text-xs rounded-lg">Save Model</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], onUpdate: (admins: AdminUser[]) => void, currentUser: AdminUser }) => {
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [newName, setNewName] = useState('');
-    const [newPin, setNewPin] = useState('');
-    const [newPermissions, setNewPermissions] = useState<AdminPermissions>({
-        inventory: true,
-        marketing: true,
-        tv: false,
-        screensaver: false,
-        fleet: false,
-        history: false,
-        settings: false,
-        pricelists: true
-    });
-
-    const PERMISSION_GROUPS = [
-        {
-            title: "Inventory & Products",
-            icon: <Box size={14} />,
-            color: "blue",
-            items: [
-                { key: 'inventory', label: 'Inventory Management', desc: 'Create brands, categories, products and upload media.' }
-            ]
-        },
-        {
-            title: "Marketing & Content",
-            icon: <Megaphone size={14} />,
-            color: "purple",
-            items: [
-                { key: 'marketing', label: 'Marketing Hub', desc: 'Edit Hero banner, Ad zones, and Pamphlets.' },
-                { key: 'pricelists', label: 'Pricelists', desc: 'Manage PDF pricelists and brand documents.' },
-                { key: 'screensaver', label: 'Screensaver Control', desc: 'Configure screensaver timing and display rules.' }
-            ]
-        },
-        {
-            title: "System & Devices",
-            icon: <Settings size={14} />,
-            color: "slate",
-            items: [
-                { key: 'fleet', label: 'Fleet Management', desc: 'Monitor active devices and remote restart.' },
-                { key: 'tv', label: 'TV Mode Config', desc: 'Manage TV video loops and brand channels.' },
-                { key: 'settings', label: 'Global Settings', desc: 'System backups, app icons, and admin users.' },
-                { key: 'history', label: 'Archive History', desc: 'View logs and restore deleted items.' }
-            ]
-        }
-    ];
-
-    const resetForm = () => {
-        setEditingId(null);
-        setNewName('');
-        setNewPin('');
-        setNewPermissions({
-            inventory: true,
-            marketing: true,
-            tv: false,
-            screensaver: false,
-            fleet: false,
-            history: false,
-            settings: false,
-            pricelists: true
-        });
-    };
-
-    const handleAddOrUpdate = () => {
-        if (!newName || !newPin) return alert("Name and PIN required");
-        
-        let updatedList = [...admins];
-
-        if (editingId) {
-            updatedList = updatedList.map(a => a.id === editingId ? { ...a, name: newName, pin: newPin, permissions: newPermissions } : a);
-        } else {
-            updatedList.push({
-                id: generateId('adm'),
-                name: newName,
-                pin: newPin,
-                isSuperAdmin: false,
-                permissions: newPermissions
-            });
-        }
-        
-        onUpdate(updatedList);
-        resetForm();
-    };
-
-    const handleDelete = (id: string) => {
-        if (confirm("Remove this admin?")) {
-             onUpdate(admins.filter(a => a.id !== id));
-        }
-    };
-
-    const startEdit = (admin: AdminUser) => {
-        setEditingId(admin.id);
-        setNewName(admin.name);
-        setNewPin(admin.pin);
-        setNewPermissions(admin.permissions);
-    };
-
-    const toggleAll = (enable: boolean) => {
-        const p = { ...newPermissions };
-        (Object.keys(p) as Array<keyof AdminPermissions>).forEach(k => p[k] = enable);
-        setNewPermissions(p);
-    };
-
-    const isEditingSuperAdmin = editingId && admins.find(a => a.id === editingId)?.isSuperAdmin;
-
-    return (
-        <div className="space-y-8">
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                {/* Form Column */}
-                <div className="xl:col-span-2 bg-slate-50 p-6 rounded-xl border border-slate-200">
-                    <div className="flex justify-between items-center mb-6">
-                         <h4 className="font-bold text-slate-900 uppercase text-xs flex items-center gap-2">
-                             <UserCog size={16} className="text-blue-600"/> {editingId ? 'Edit Admin Profile' : 'Create New Admin'}
-                         </h4>
-                         {isEditingSuperAdmin && <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-[10px] font-black uppercase">Super Admin (Full Access)</span>}
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <InputField label="Admin Name" val={newName} onChange={(e:any) => setNewName(e.target.value)} placeholder="e.g. John Doe" />
-                        <InputField label="4-Digit PIN" val={newPin} onChange={(e:any) => setNewPin(e.target.value)} placeholder="####" type="text" />
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Access Permissions</label>
-                            {!isEditingSuperAdmin && (
-                                <div className="flex gap-2">
-                                    <button onClick={() => toggleAll(true)} className="text-[10px] font-bold text-blue-600 hover:bg-blue-50 px-2 py-1 rounded">Select All</button>
-                                    <button onClick={() => toggleAll(false)} className="text-[10px] font-bold text-slate-400 hover:bg-slate-100 px-2 py-1 rounded">Clear All</button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {PERMISSION_GROUPS.map(group => (
-                                <div key={group.title} className={`bg-white rounded-xl border border-${group.color}-100 overflow-hidden shadow-sm`}>
-                                    <div className={`bg-${group.color}-50 p-3 border-b border-${group.color}-100 flex items-center gap-2`}>
-                                        <span className={`text-${group.color}-600`}>{group.icon}</span>
-                                        <span className={`text-[10px] font-black uppercase text-${group.color}-800`}>{group.title}</span>
-                                    </div>
-                                    <div className="p-3 space-y-3">
-                                        {group.items.map(item => (
-                                            <label key={item.key} className={`flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isEditingSuperAdmin ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50'}`}>
-                                                <div className="pt-0.5">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={(newPermissions as any)[item.key]} 
-                                                        onChange={(e) => setNewPermissions({...newPermissions, [item.key]: e.target.checked})}
-                                                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                                                        disabled={isEditingSuperAdmin}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <div className="text-xs font-bold text-slate-800">{item.label}</div>
-                                                    <div className="text-[10px] text-slate-500 leading-tight mt-0.5">{item.desc}</div>
-                                                </div>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="flex gap-3 pt-4 border-t border-slate-200 mt-4">
-                            {editingId && <button onClick={resetForm} className="px-6 py-3 bg-white border border-slate-300 text-slate-600 rounded-xl text-xs font-bold uppercase hover:bg-slate-50">Cancel Edit</button>}
-                            <button onClick={handleAddOrUpdate} className="flex-1 px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase hover:bg-slate-800 shadow-lg flex items-center justify-center gap-2">
-                                <Check size={16} /> {editingId ? 'Update Admin Permissions' : 'Create Admin User'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* List Column */}
-                <div className="space-y-4">
-                    <h4 className="font-bold text-slate-900 uppercase text-xs mb-2">Active Admins ({admins.length})</h4>
-                    <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 pb-20">
-                        {admins.map(admin => (
-                            <div key={admin.id} className={`p-4 rounded-xl border transition-all ${editingId === admin.id ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-100' : 'bg-white border-slate-200 hover:border-blue-300'}`}>
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${admin.isSuperAdmin ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-500'}`}>
-                                            <UserCog size={16} />
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-slate-900 text-sm">{admin.name}</div>
-                                            <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono">
-                                                <Lock size={10} /> {admin.pin}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <button onClick={() => startEdit(admin)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Permissions"><Edit2 size={14} /></button>
-                                        {admin.id !== 'super-admin' && currentUser.name === 'Admin' && currentUser.pin === '1723' && (
-                                            <button onClick={() => handleDelete(admin.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Admin"><Trash2 size={14} /></button>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                    {admin.isSuperAdmin ? (
-                                        <span className="text-[9px] font-bold uppercase bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded border border-yellow-100">Full Access</span>
-                                    ) : (
-                                        Object.entries(admin.permissions).filter(([_, v]) => v).map(([k]) => (
-                                            <span key={k} className="text-[9px] font-bold uppercase bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">{k}</span>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                 </div>
+                 <div className="flex justify-end gap-4 mt-8">
+                     <button onClick={onClose} className="text-slate-500 font-bold uppercase text-xs">Cancel</button>
+                     <button onClick={() => onSave(data)} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold uppercase text-xs">Save Model</button>
+                 </div>
             </div>
         </div>
     );
@@ -1682,9 +653,7 @@ const AdminManager = ({ admins, onUpdate, currentUser }: { admins: AdminUser[], 
 
 export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeData: StoreData | null, onUpdateData: (d: StoreData) => void, onRefresh: () => void }) => {
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
-  
   const [activeTab, setActiveTab] = useState<string>('inventory');
-  const [activeSubTab, setActiveSubTab] = useState<string>('brands'); 
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -1694,15 +663,109 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
   const [showGuide, setShowGuide] = useState(false);
   const [selectedTVBrand, setSelectedTVBrand] = useState<TVBrand | null>(null);
   const [editingTVModel, setEditingTVModel] = useState<TVModel | null>(null);
-  
-  // History State
-  const [historyTab, setHistoryTab] = useState<'brands' | 'catalogues' | 'deletedItems'>('deletedItems');
   const [historySearch, setHistorySearch] = useState('');
-  
   const [localData, setLocalData] = useState<StoreData | null>(storeData);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [importProcessing, setImportProcessing] = useState(false);
   const [exportProcessing, setExportProcessing] = useState(false);
+
+  useEffect(() => { checkCloudConnection().then(setIsCloudConnected); }, []);
+  useEffect(() => { if (!hasUnsavedChanges && storeData) setLocalData(storeData); }, [storeData]);
+
+  const handleLocalUpdate = (newData: StoreData) => {
+      setLocalData(newData);
+      setHasUnsavedChanges(true);
+  };
+  const handleGlobalSave = () => { if (localData) { onUpdateData(localData); setHasUnsavedChanges(false); } };
+
+  const addToArchive = (type: 'product' | 'pricelist' | 'tv_model' | 'other', name: string, data: any): ArchiveData => {
+      const currentArchive = localData?.archive || { brands: [], products: [], catalogues: [], deletedItems: [], deletedAt: {} };
+      const newItem: ArchivedItem = {
+          id: generateId('arch'),
+          type,
+          name,
+          data,
+          deletedAt: new Date().toISOString()
+      };
+      
+      return {
+          ...currentArchive,
+          deletedItems: [...(currentArchive.deletedItems || []), newItem],
+          deletedAt: { ...currentArchive.deletedAt, [newItem.id]: newItem.deletedAt }
+      };
+  };
+
+  const checkSkuDuplicate = (sku: string, currentId: string) => {
+    if (!localData) return false;
+    for (const b of localData.brands) {
+        for (const c of b.categories) {
+            for (const p of c.products) {
+                if (p.id !== currentId && p.sku && p.sku.toLowerCase() === sku.toLowerCase()) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+  };
+
+  const handleMoveProduct = (product: Product, targetBrandId: string, targetCategoryId: string) => {
+    if (!localData || !selectedBrand || !selectedCategory) return;
+    
+    const sourceBrand = localData.brands.find(b => b.id === selectedBrand.id);
+    if(!sourceBrand) return;
+    const sourceCat = sourceBrand.categories.find(c => c.id === selectedCategory.id);
+    if(!sourceCat) return;
+
+    const updatedSourceCat = { ...sourceCat, products: sourceCat.products.filter(p => p.id !== product.id) };
+    
+    let newBrands = localData.brands.map(b => {
+        if (b.id === sourceBrand.id) {
+             return { ...b, categories: b.categories.map(c => c.id === updatedSourceCat.id ? updatedSourceCat : c) };
+        }
+        return b;
+    });
+
+    newBrands = newBrands.map(b => {
+        if (b.id === targetBrandId) {
+             const targetCat = b.categories.find(c => c.id === targetCategoryId);
+             if (targetCat) {
+                 const updatedTargetCat = { ...targetCat, products: [...targetCat.products, product] };
+                 return { ...b, categories: b.categories.map(c => c.id === targetCategoryId ? updatedTargetCat : c) };
+             }
+        }
+        return b;
+    });
+
+    handleLocalUpdate({ ...localData, brands: newBrands });
+    setMovingProduct(null);
+    setSelectedCategory(null);
+  };
+
+  const updateFleetMember = async (updatedKiosk: KioskRegistry) => {
+    if (localData) {
+        handleLocalUpdate({ 
+            ...localData, 
+            fleet: localData.fleet?.map(k => k.id === updatedKiosk.id ? updatedKiosk : k) || [] 
+        });
+    }
+
+    if (supabase) {
+        const { error } = await supabase.from('kiosks').update({
+            name: updatedKiosk.name,
+            assigned_zone: updatedKiosk.assigned_zone,
+            notes: updatedKiosk.notes
+        }).eq('id', updatedKiosk.id);
+        
+        if (error) console.error("Fleet update failed", error);
+    }
+  };
+
+  if (!localData) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /> Loading...</div>;
+  if (!currentUser) return <Auth admins={localData.admins || []} onLogin={setCurrentUser} />;
+
+  const brands = Array.isArray(localData.brands) ? [...localData.brands].sort((a, b) => a.name.localeCompare(b.name)) : [];
+  const tvBrands = Array.isArray(localData.tv?.brands) ? [...localData.tv!.brands].sort((a, b) => a.name.localeCompare(b.name)) : [];
 
   const availableTabs = [
       { id: 'inventory', label: 'Inventory', icon: Box },
@@ -1713,214 +776,8 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
       { id: 'fleet', label: 'Fleet', icon: Tablet },
       { id: 'history', label: 'History', icon: History },
       { id: 'settings', label: 'Settings', icon: Settings },
-      { id: 'guide', label: 'System Guide', icon: BookOpen } // New Tab
+      { id: 'guide', label: 'System Guide', icon: BookOpen } 
   ].filter(tab => tab.id === 'guide' || currentUser?.permissions[tab.id as keyof AdminPermissions]);
-
-  useEffect(() => {
-      if (currentUser && availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
-          setActiveTab(availableTabs[0].id);
-      }
-  }, [currentUser]);
-
-  useEffect(() => {
-      checkCloudConnection().then(setIsCloudConnected);
-      const interval = setInterval(() => checkCloudConnection().then(setIsCloudConnected), 30000);
-      return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-      if (!hasUnsavedChanges && storeData) {
-          setLocalData(storeData);
-      }
-  }, [storeData]);
-
-  useEffect(() => {
-      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-          if (hasUnsavedChanges) {
-              e.preventDefault();
-              e.returnValue = '';
-          }
-      };
-      window.addEventListener('beforeunload', handleBeforeUnload);
-      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges]);
-
-  const handleLocalUpdate = (newData: StoreData) => {
-      setLocalData(newData);
-      setHasUnsavedChanges(true);
-      
-      if (selectedBrand) {
-          const updatedBrand = newData.brands.find(b => b.id === selectedBrand.id);
-          if (updatedBrand) setSelectedBrand(updatedBrand);
-      }
-      if (selectedCategory && selectedBrand) {
-          const updatedBrand = newData.brands.find(b => b.id === selectedBrand.id);
-          const updatedCat = updatedBrand?.categories.find(c => c.id === selectedCategory.id);
-          if (updatedCat) setSelectedCategory(updatedCat);
-      }
-      if (selectedTVBrand && newData.tv) {
-          const updatedTVBrand = newData.tv.brands.find(b => b.id === selectedTVBrand.id);
-          if (updatedTVBrand) setSelectedTVBrand(updatedTVBrand);
-      }
-  };
-
-  const checkSkuDuplicate = (sku: string, currentId: string) => {
-    if (!sku || !localData) return false;
-    for (const b of localData.brands) {
-        for (const c of b.categories) {
-            for (const p of c.products) {
-                if (p.sku && p.sku.toLowerCase() === sku.toLowerCase() && p.id !== currentId) return true;
-            }
-        }
-    }
-    return false;
-  };
-
-  const handleGlobalSave = () => {
-      if (localData) {
-          onUpdateData(localData);
-          setHasUnsavedChanges(false);
-      }
-  };
-
-  const updateFleetMember = async (kiosk: KioskRegistry) => {
-      if(supabase) {
-          const payload = {
-              id: kiosk.id,
-              name: kiosk.name,
-              device_type: kiosk.deviceType,
-              assigned_zone: kiosk.assignedZone
-          };
-          await supabase.from('kiosks').upsert(payload);
-          onRefresh(); 
-      }
-  };
-
-  const removeFleetMember = async (id: string) => {
-      if(confirm("Remove device from fleet? This cannot be undone.") && supabase) {
-          await supabase.from('kiosks').delete().eq('id', id);
-          onRefresh();
-      }
-  };
-
-  // ARCHIVE HANDLERS
-  const addToArchive = (type: 'product' | 'pricelist' | 'tv_model' | 'other', name: string, data: any) => {
-      if (!localData) return;
-      const now = new Date().toISOString();
-      const newItem = {
-          id: generateId('arch'),
-          type,
-          name,
-          data,
-          deletedAt: now
-      };
-      
-      const currentArchive = localData.archive || { brands: [], products: [], catalogues: [], deletedItems: [], deletedAt: {} };
-      const newArchive = {
-          ...currentArchive,
-          deletedItems: [newItem, ...(currentArchive.deletedItems || [])]
-      };
-      
-      return newArchive;
-  };
-
-  const restoreBrand = (b: Brand) => {
-     if(!localData) return;
-     const newArchiveBrands = localData.archive?.brands.filter(x => x.id !== b.id) || [];
-     const newBrands = [...localData.brands, b];
-     handleLocalUpdate({
-         ...localData,
-         brands: newBrands,
-         archive: { ...localData.archive!, brands: newArchiveBrands }
-     });
-  };
-  
-  const restoreCatalogue = (c: Catalogue) => {
-     if(!localData) return;
-     const newArchiveCats = localData.archive?.catalogues.filter(x => x.id !== c.id) || [];
-     const newCats = [...(localData.catalogues || []), c];
-     handleLocalUpdate({
-         ...localData,
-         catalogues: newCats,
-         archive: { ...localData.archive!, catalogues: newArchiveCats }
-     });
-  };
-
-  const handleMoveProduct = (product: Product, targetBrandId: string, targetCategoryId: string) => {
-      if (!localData || !selectedBrand || !selectedCategory) return;
-      
-      const updatedSourceCat = {
-          ...selectedCategory,
-          products: selectedCategory.products.filter(p => p.id !== product.id)
-      };
-      
-      let newBrands = localData.brands.map(b => {
-          if (b.id === selectedBrand.id) {
-              return {
-                  ...b,
-                  categories: b.categories.map(c => c.id === selectedCategory.id ? updatedSourceCat : c)
-              };
-          }
-          return b;
-      });
-
-      newBrands = newBrands.map(b => {
-          if (b.id === targetBrandId) {
-              return {
-                  ...b,
-                  categories: b.categories.map(c => {
-                      if (c.id === targetCategoryId) {
-                          return { ...c, products: [...c.products, product] };
-                      }
-                      return c;
-                  })
-              };
-          }
-          return b;
-      });
-
-      handleLocalUpdate({ ...localData, brands: newBrands });
-      setMovingProduct(null);
-  };
-
-  const formatRelativeTime = (isoString: string) => {
-      if (!isoString) return 'Unknown';
-      const date = new Date(isoString);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      
-      if (diffDays === 0) return 'Today';
-      if (diffDays === 1) return 'Yesterday';
-      if (diffDays < 7) return `${diffDays} days ago`;
-      if (diffDays < 30) return `${Math.floor(diffDays/7)} weeks ago`;
-      return date.toLocaleDateString();
-  };
-
-  if (!localData) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /> Loading...</div>;
-  if (!currentUser) return <Auth admins={localData.admins || []} onLogin={setCurrentUser} />;
-
-  const brands = Array.isArray(localData.brands) 
-      ? [...localData.brands].sort((a, b) => a.name.localeCompare(b.name)) 
-      : [];
-
-  const tvBrands = Array.isArray(localData.tv?.brands)
-      ? [...localData.tv!.brands].sort((a, b) => a.name.localeCompare(b.name))
-      : [];
-
-  // Filter Logic for History
-  const archivedBrands = (localData.archive?.brands || []).filter(b => 
-      b.name.toLowerCase().includes(historySearch.toLowerCase()) || 
-      b.id.toLowerCase().includes(historySearch.toLowerCase())
-  );
-  
-  const archivedCatalogues = (localData.archive?.catalogues || []).filter(c => 
-      c.title.toLowerCase().includes(historySearch.toLowerCase())
-  );
-
-  const archivedGenericItems = (localData.archive?.deletedItems || []).filter(i =>
-      i.name.toLowerCase().includes(historySearch.toLowerCase())
-  );
 
   return (
     <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
@@ -1930,592 +787,50 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                      <Settings className="text-blue-500" size={24} />
                      <div><h1 className="text-lg font-black uppercase tracking-widest leading-none">Admin Hub</h1></div>
                  </div>
-                 
                  <div className="flex items-center gap-4">
-                     <div className="text-xs font-bold text-slate-400 uppercase hidden md:block">
-                         Hello, {currentUser.name}
-                     </div>
-                     <button 
-                         onClick={handleGlobalSave}
-                         disabled={!hasUnsavedChanges}
-                         className={`flex items-center gap-2 px-6 py-2 rounded-lg font-black uppercase tracking-widest text-xs transition-all ${
-                             hasUnsavedChanges 
-                             ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] animate-pulse' 
-                             : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                         }`}
-                     >
-                         <SaveAll size={16} />
-                         {hasUnsavedChanges ? 'Save Changes' : 'Saved'}
+                     <div className="text-xs font-bold text-slate-400 uppercase hidden md:block">Hello, {currentUser.name}</div>
+                     <button onClick={handleGlobalSave} disabled={!hasUnsavedChanges} className={`flex items-center gap-2 px-6 py-2 rounded-lg font-black uppercase tracking-widest text-xs transition-all ${hasUnsavedChanges ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)] animate-pulse' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
+                         <SaveAll size={16} />{hasUnsavedChanges ? 'Save Changes' : 'Saved'}
                      </button>
                  </div>
-
                  <div className="flex items-center gap-3">
-                     <div className={`flex items-center gap-2 px-3 py-1 rounded-lg ${isCloudConnected ? 'bg-blue-900/50 text-blue-300' : 'bg-orange-900/50 text-orange-300'}`}>
-                         {isCloudConnected ? <Cloud size={14} /> : <HardDrive size={14} />}
-                         <span className="text-[10px] font-bold uppercase">{isCloudConnected ? 'Cloud Online' : 'Local Mode'}</span>
-                     </div>
+                     <div className={`flex items-center gap-2 px-3 py-1 rounded-lg ${isCloudConnected ? 'bg-blue-900/50 text-blue-300' : 'bg-orange-900/50 text-orange-300'}`}>{isCloudConnected ? <Cloud size={14} /> : <HardDrive size={14} />}<span className="text-[10px] font-bold uppercase">{isCloudConnected ? 'Cloud Online' : 'Local Mode'}</span></div>
                      <button onClick={onRefresh} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-white"><RefreshCw size={16} /></button>
-                     <button onClick={() => setCurrentUser(null)} className="p-2 bg-red-900/50 hover:bg-red-900 text-red-400 hover:text-white rounded-lg flex items-center gap-2">
-                        <LogOut size={16} />
-                        <span className="text-[10px] font-bold uppercase hidden md:inline">Logout</span>
-                     </button>
+                     <button onClick={() => setCurrentUser(null)} className="p-2 bg-red-900/50 hover:bg-red-900 text-red-400 hover:text-white rounded-lg flex items-center gap-2"><LogOut size={16} /><span className="text-[10px] font-bold uppercase hidden md:inline">Logout</span></button>
                  </div>
             </div>
             <div className="flex overflow-x-auto no-scrollbar">
-                {availableTabs.map(tab => (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 min-w-[100px] py-4 text-center text-xs font-black uppercase tracking-wider border-b-4 transition-all ${activeTab === tab.id ? 'border-blue-500 text-white bg-slate-800' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>{tab.label}</button>
-                ))}
+                {availableTabs.map(tab => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 min-w-[100px] py-4 text-center text-xs font-black uppercase tracking-wider border-b-4 transition-all ${activeTab === tab.id ? 'border-blue-500 text-white bg-slate-800' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>{tab.label}</button>))}
             </div>
         </header>
 
-        {activeTab === 'marketing' && (
-            <div className="bg-white border-b border-slate-200 flex overflow-x-auto no-scrollbar shadow-sm z-10 shrink-0">
-                <button onClick={() => setActiveSubTab('hero')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'hero' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Hero Banner</button>
-                <button onClick={() => setActiveSubTab('ads')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'ads' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Ad Zones</button>
-                <button onClick={() => setActiveSubTab('catalogues')} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap ${activeSubTab === 'catalogues' ? 'text-purple-600 bg-purple-50' : 'text-slate-500'}`}>Pamphlets</button>
-            </div>
-        )}
-
         <main className="flex-1 overflow-y-auto p-2 md:p-8 relative pb-40 md:pb-8">
-            {/* Guide Tab */}
             {activeTab === 'guide' && <SystemDocumentation />}
-
-            {/* Inventory Tab */}
-            {activeTab === 'inventory' && (
-                !selectedBrand ? (
-                   <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 animate-fade-in">
-                       <button onClick={() => { const name = prompt("Brand Name:"); if(name) handleLocalUpdate({ ...localData, brands: [...brands, { id: generateId('b'), name, categories: [] }] }) }} className="bg-white border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-4 md:p-8 text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all group min-h-[120px] md:min-h-[200px]">
-                           <Plus size={24} className="mb-2" /><span className="font-bold uppercase text-[10px] md:text-xs tracking-wider text-center">Add Brand</span>
-                       </button>
-                       {brands.map(brand => (
-                           <div key={brand.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition-all group relative flex flex-col h-full">
-                               <div className="flex-1 bg-slate-50 flex items-center justify-center p-2 relative aspect-square">
-                                   {brand.logoUrl ? <img src={brand.logoUrl} className="max-h-full max-w-full object-contain" /> : <span className="text-4xl font-black text-slate-200">{brand.name.charAt(0)}</span>}
-                                   <button onClick={(e) => { e.stopPropagation(); if(confirm("Move to archive?")) { const now = new Date().toISOString(); handleLocalUpdate({...localData, brands: brands.filter(b=>b.id!==brand.id), archive: {...localData.archive!, brands: [...(localData.archive?.brands||[]), brand], deletedAt: {...localData.archive?.deletedAt, [brand.id]: now} }}); } }} className="absolute top-2 right-2 p-1.5 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button>
-                               </div>
-                               <div className="p-2 md:p-4">
-                                   <h3 className="font-black text-slate-900 text-xs md:text-lg uppercase tracking-tight mb-1 truncate">{brand.name}</h3>
-                                   <p className="text-[10px] md:text-xs text-slate-500 font-bold mb-2 md:mb-4">{brand.categories.length} Categories</p>
-                                   <button onClick={() => setSelectedBrand(brand)} className="w-full bg-slate-900 text-white py-1.5 md:py-2 rounded-lg font-bold text-[10px] md:text-xs uppercase hover:bg-blue-600 transition-colors">Manage</button>
-                               </div>
-                           </div>
-                       ))}
-                   </div>
-               ) : !selectedCategory ? (
-                   <div className="animate-fade-in">
-                       <div className="flex items-center gap-4 mb-6"><button onClick={() => setSelectedBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500"><ArrowLeft size={20} /></button><h2 className="text-xl md:text-2xl font-black uppercase text-slate-900 flex-1">{selectedBrand.name}</h2><FileUpload label="Brand Logo" currentUrl={selectedBrand.logoUrl} onUpload={(url: any) => { const updated = {...selectedBrand, logoUrl: url}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }} /></div>
-                       <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-                           <button onClick={() => { const name = prompt("Category Name:"); if(name) { const updated = {...selectedBrand, categories: [...selectedBrand.categories, { id: generateId('c'), name, icon: 'Box', products: [] }]}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); } }} className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-4 text-slate-400 hover:border-blue-500 hover:text-blue-500 aspect-square"><Plus size={24} /><span className="font-bold text-[10px] uppercase mt-2 text-center">New Category</span></button>
-                           {selectedBrand.categories.map(cat => (
-                               <button key={cat.id} onClick={() => setSelectedCategory(cat)} className="bg-white p-2 md:p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md text-left group relative aspect-square flex flex-col justify-center">
-                                   <Box size={20} className="mb-2 md:mb-4 text-slate-400 mx-auto md:mx-0" />
-                                   <h3 className="font-black text-slate-900 uppercase text-[10px] md:text-sm text-center md:text-left truncate w-full">{cat.name}</h3>
-                                   <p className="text-[9px] md:text-xs text-slate-500 font-bold text-center md:text-left">{cat.products.length} Products</p>
-                                   <div onClick={(e)=>{e.stopPropagation(); const newName = prompt("Rename Category:", cat.name); if(newName && newName.trim() !== "") { const updated = {...selectedBrand, categories: selectedBrand.categories.map(c => c.id === cat.id ? {...c, name: newName.trim()} : c)}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }}} className="absolute top-1 right-8 md:top-2 md:right-8 p-1 md:p-1.5 opacity-0 group-hover:opacity-100 hover:bg-blue-50 text-blue-500 rounded transition-all"><Edit2 size={12}/></div>
-                                   <div onClick={(e)=>{e.stopPropagation(); if(confirm("Delete?")){ const updated={...selectedBrand, categories: selectedBrand.categories.filter(c=>c.id!==cat.id)}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }}} className="absolute top-1 right-1 md:top-2 md:right-2 p-1 md:p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded"><Trash2 size={12}/></div>
-                                </button>
-                            ))}
-                       </div>
-                       <div className="mt-8 border-t border-slate-200 pt-8"><h3 className="font-bold text-slate-900 uppercase text-sm mb-4">Brand Catalogues</h3><CatalogueManager catalogues={localData.catalogues?.filter(c => c.brandId === selectedBrand.id) || []} brandId={selectedBrand.id} onSave={(c) => { const brandCatalogues = (localData.catalogues || []).filter(c => c.brandId); handleLocalUpdate({ ...localData, catalogues: [...brandCatalogues, ...c] }); }} /></div>
-                   </div>
-               ) : (
-                   <div className="animate-fade-in h-full flex flex-col">
-                       <div className="flex items-center gap-4 mb-6 shrink-0"><button onClick={() => setSelectedCategory(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500"><ArrowLeft size={20} /></button><h2 className="text-lg md:text-2xl font-black uppercase text-slate-900 flex-1 truncate">{selectedCategory.name}</h2><button onClick={() => setEditingProduct({ id: generateId('p'), name: '', description: '', specs: {}, features: [], dimensions: [], imageUrl: '' } as any)} className="bg-blue-600 text-white px-3 py-2 md:px-4 rounded-lg font-bold uppercase text-[10px] md:text-xs flex items-center gap-2 shrink-0"><Plus size={14} /> Add</button></div>
-                       <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 overflow-y-auto pb-20">
-                           {selectedCategory.products.map(product => (
-                               <div key={product.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col group hover:shadow-lg transition-all">
-                                   <div className="aspect-square bg-slate-50 relative flex items-center justify-center p-2 md:p-4">
-                                       {product.imageUrl ? <img src={product.imageUrl} className="max-w-full max-h-full object-contain" /> : <Box size={24} className="text-slate-300" />}
-                                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                                           <div className="flex gap-2">
-                                                <button onClick={() => setEditingProduct(product)} className="p-1.5 md:p-2 bg-white text-blue-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-blue-50">Edit</button>
-                                                <button onClick={() => setMovingProduct(product)} className="p-1.5 md:p-2 bg-white text-orange-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-orange-50" title="Move Category">Move</button>
-                                           </div>
-                                           <button onClick={() => { 
-                                               if(confirm(`Delete product "${product.name}"?`)) { 
-                                                   const updatedCat = {...selectedCategory, products: selectedCategory.products.filter(p => p.id !== product.id)}; 
-                                                   const updatedBrand = {...selectedBrand, categories: selectedBrand.categories.map(c => c.id === updatedCat.id ? updatedCat : c)}; 
-                                                   
-                                                   // Add to archive
-                                                   const newArchive = addToArchive('product', product.name, product);
-                                                   
-                                                   handleLocalUpdate({...localData, brands: brands.map(b => b.id === updatedBrand.id ? updatedBrand : b), archive: newArchive}); 
-                                               } 
-                                           }} className="p-1.5 md:p-2 bg-white text-red-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-red-50 w-[80%]">Delete</button>
-                                       </div>
-                                   </div>
-                                   <div className="p-2 md:p-4">
-                                       <h4 className="font-bold text-slate-900 text-[10px] md:text-sm truncate uppercase">{product.name}</h4>
-                                       <p className="text-[9px] md:text-xs text-slate-500 font-mono truncate">{product.sku || 'No SKU'}</p>
-                                   </div>
-                               </div>
-                            ))}
-                       </div>
-                   </div>
-               )
-            )}
-
-            {/* Other Tabs */}
-            {activeTab === 'pricelists' && (
-                <PricelistManager 
-                    pricelists={localData.pricelists || []} 
-                    pricelistBrands={localData.pricelistBrands || []}
-                    onSavePricelists={(p) => handleLocalUpdate({ ...localData, pricelists: p })}
-                    onSaveBrands={(b) => handleLocalUpdate({ ...localData, pricelistBrands: b })}
-                    onDeletePricelist={(id) => {
-                        const toDelete = localData.pricelists?.find(p => p.id === id);
-                        if (toDelete) {
-                            const newArchive = addToArchive('pricelist', toDelete.title, toDelete);
-                            handleLocalUpdate({ ...localData, pricelists: localData.pricelists?.filter(p => p.id !== id), archive: newArchive });
-                        }
-                    }}
-                />
-            )}
+            {activeTab === 'inventory' && ( !selectedBrand ? ( <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 animate-fade-in"><button onClick={() => { const name = prompt("Brand Name:"); if(name) handleLocalUpdate({ ...localData, brands: [...brands, { id: generateId('b'), name, categories: [] }] }) }} className="bg-white border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center p-4 md:p-8 text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all group min-h-[120px] md:min-h-[200px]"><Plus size={24} className="mb-2" /><span className="font-bold uppercase text-[10px] md:text-xs tracking-wider text-center">Add Brand</span></button>{brands.map(brand => (<div key={brand.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition-all group relative flex flex-col h-full"><div className="flex-1 bg-slate-50 flex items-center justify-center p-2 relative aspect-square">{brand.logoUrl ? <img src={brand.logoUrl} className="max-h-full max-w-full object-contain" /> : <span className="text-4xl font-black text-slate-200">{brand.name.charAt(0)}</span>}<button onClick={(e) => { e.stopPropagation(); if(confirm("Move to archive?")) { const now = new Date().toISOString(); handleLocalUpdate({...localData, brands: brands.filter(b=>b.id!==brand.id), archive: {...localData.archive!, brands: [...(localData.archive?.brands||[]), brand], deletedAt: {...localData.archive?.deletedAt, [brand.id]: now} }}); } }} className="absolute top-2 right-2 p-1.5 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button></div><div className="p-2 md:p-4"><h3 className="font-black text-slate-900 text-xs md:text-lg uppercase tracking-tight mb-1 truncate">{brand.name}</h3><p className="text-[10px] md:text-xs text-slate-500 font-bold mb-2 md:mb-4">{brand.categories.length} Categories</p><button onClick={() => setSelectedBrand(brand)} className="w-full bg-slate-900 text-white py-1.5 md:py-2 rounded-lg font-bold text-[10px] md:text-xs uppercase hover:bg-blue-600 transition-colors">Manage</button></div></div>))}</div> ) : !selectedCategory ? ( <div className="animate-fade-in"><div className="flex items-center gap-4 mb-6"><button onClick={() => setSelectedBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500"><ArrowLeft size={20} /></button><h2 className="text-xl md:text-2xl font-black uppercase text-slate-900 flex-1">{selectedBrand.name}</h2><FileUpload label="Brand Logo" currentUrl={selectedBrand.logoUrl} onUpload={(url: any) => { const updated = {...selectedBrand, logoUrl: url}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }} /></div><div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2"><button onClick={() => { const name = prompt("Category Name:"); if(name) { const updated = {...selectedBrand, categories: [...selectedBrand.categories, { id: generateId('c'), name, icon: 'Box', products: [] }]}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); } }} className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-4 text-slate-400 hover:border-blue-500 hover:text-blue-500 aspect-square"><Plus size={24} /><span className="font-bold text-[10px] uppercase mt-2 text-center">New Category</span></button>{selectedBrand.categories.map(cat => (<button key={cat.id} onClick={() => setSelectedCategory(cat)} className="bg-white p-2 md:p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md text-left group relative aspect-square flex flex-col justify-center"><Box size={20} className="mb-2 md:mb-4 text-slate-400 mx-auto md:mx-0" /><h3 className="font-black text-slate-900 uppercase text-[10px] md:text-sm text-center md:text-left truncate w-full">{cat.name}</h3><p className="text-[9px] md:text-xs text-slate-500 font-bold text-center md:text-left">{cat.products.length} Products</p><div onClick={(e)=>{e.stopPropagation(); const newName = prompt("Rename Category:", cat.name); if(newName && newName.trim() !== "") { const updated = {...selectedBrand, categories: selectedBrand.categories.map(c => c.id === cat.id ? {...c, name: newName.trim()} : c)}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }}} className="absolute top-1 right-8 md:top-2 md:right-8 p-1 md:p-1.5 opacity-0 group-hover:opacity-100 hover:bg-blue-50 text-blue-500 rounded transition-all"><Edit2 size={12}/></div><div onClick={(e)=>{e.stopPropagation(); if(confirm("Delete?")){ const updated={...selectedBrand, categories: selectedBrand.categories.filter(c=>c.id!==cat.id)}; handleLocalUpdate({...localData, brands: brands.map(b=>b.id===updated.id?updated:b)}); }}} className="absolute top-1 right-1 md:top-2 md:right-2 p-1 md:p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded"><Trash2 size={12}/></div></button>))}</div><div className="mt-8 border-t border-slate-200 pt-8"><h3 className="font-bold text-slate-900 uppercase text-sm mb-4">Brand Catalogues</h3><CatalogueManager catalogues={localData.catalogues?.filter(c => c.brandId === selectedBrand.id) || []} brandId={selectedBrand.id} onSave={(c) => { const brandCatalogues = (localData.catalogues || []).filter(c => c.brandId); handleLocalUpdate({ ...localData, catalogues: [...brandCatalogues, ...c] }); }} /></div></div> ) : ( <div className="animate-fade-in h-full flex flex-col"><div className="flex items-center gap-4 mb-6 shrink-0"><button onClick={() => setSelectedCategory(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500"><ArrowLeft size={20} /></button><h2 className="text-lg md:text-2xl font-black uppercase text-slate-900 flex-1 truncate">{selectedCategory.name}</h2><button onClick={() => setEditingProduct({ id: generateId('p'), name: '', description: '', specs: {}, features: [], dimensions: [], imageUrl: '' } as any)} className="bg-blue-600 text-white px-3 py-2 md:px-4 rounded-lg font-bold uppercase text-[10px] md:text-xs flex items-center gap-2 shrink-0"><Plus size={14} /> Add</button></div><div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 overflow-y-auto pb-20">{selectedCategory.products.map(product => (<div key={product.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col group hover:shadow-lg transition-all"><div className="aspect-square bg-slate-50 relative flex items-center justify-center p-2 md:p-4">{product.imageUrl ? <img src={product.imageUrl} className="max-w-full max-h-full object-contain" /> : <Box size={24} className="text-slate-300" />}<div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2"><div className="flex gap-2"><button onClick={() => setEditingProduct(product)} className="p-1.5 md:p-2 bg-white text-blue-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-blue-50">Edit</button><button onClick={() => setMovingProduct(product)} className="p-1.5 md:p-2 bg-white text-orange-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-orange-50" title="Move Category">Move</button></div><button onClick={() => { if(confirm(`Delete product "${product.name}"?`)) { const updatedCat = {...selectedCategory, products: selectedCategory.products.filter(p => p.id !== product.id)}; const updatedBrand = {...selectedBrand, categories: selectedBrand.categories.map(c => c.id === updatedCat.id ? updatedCat : c)}; const newArchive = addToArchive('product', product.name, product); handleLocalUpdate({...localData, brands: brands.map(b => b.id === updatedBrand.id ? updatedBrand : b), archive: newArchive}); } }} className="p-1.5 md:p-2 bg-white text-red-600 rounded-lg font-bold text-[10px] md:text-xs uppercase shadow-lg hover:bg-red-50 w-[80%]">Delete</button></div></div><div className="p-2 md:p-4"><h4 className="font-bold text-slate-900 text-[10px] md:text-sm truncate uppercase">{product.name}</h4><p className="text-[9px] md:text-xs text-slate-500 font-mono truncate">{product.sku || 'No SKU'}</p></div></div>))}</div></div> ) )}
             
-            {activeTab === 'tv' && (
-                !selectedTVBrand ? (
-                    <div className="animate-fade-in max-w-6xl mx-auto">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-black text-slate-900 uppercase">TV Video Management</h2>
-                        </div>
-                        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                            <button onClick={() => { const name = prompt("Brand Name:"); if(name) { const newBrand = { id: generateId('tvb'), name, models: [] }; handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: [...(localData.tv?.brands || []), newBrand] } as TVConfig }); }}} className="bg-indigo-50 border-2 border-dashed border-indigo-200 rounded-2xl flex flex-col items-center justify-center p-4 min-h-[160px] text-indigo-400 hover:border-indigo-500 hover:text-indigo-600 transition-all group">
-                                <Plus size={32} className="mb-2" /><span className="font-bold uppercase text-xs tracking-wider text-center">Add TV Brand</span>
-                            </button>
-                            {tvBrands.map(brand => (
-                                <div key={brand.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:shadow-lg transition-all relative">
-                                    <div className="flex-1 bg-slate-50 flex items-center justify-center p-4 aspect-square">
-                                        {brand.logoUrl ? <img src={brand.logoUrl} className="max-w-full max-h-full object-contain" /> : <Tv size={32} className="text-slate-300" />}
-                                    </div>
-                                    <div className="p-4 bg-white border-t border-slate-100">
-                                        <h3 className="font-black text-slate-900 text-sm uppercase truncate mb-1">{brand.name}</h3>
-                                        <p className="text-xs text-slate-500 font-bold">{brand.models?.length || 0} Models</p>
-                                    </div>
-                                    <button onClick={(e) => { e.stopPropagation(); if(confirm("Delete TV Brand?")) { handleLocalUpdate({...localData, tv: { ...localData.tv, brands: tvBrands.filter(b => b.id !== brand.id) } as TVConfig }); } }} className="absolute top-2 right-2 p-1.5 bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity z-20"><Trash2 size={14}/></button>
-                                    <button onClick={() => setSelectedTVBrand(brand)} className="absolute inset-0 w-full h-full opacity-0 z-10" />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ) : (
-                    <div className="animate-fade-in max-w-5xl mx-auto">
-                        <div className="flex items-center gap-4 mb-6"><button onClick={() => setSelectedTVBrand(null)} className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50"><ArrowLeft size={20} /></button><h2 className="text-2xl font-black uppercase text-slate-900 flex-1">{selectedTVBrand.name} <span className="text-slate-400 font-bold ml-2 text-lg">TV Config</span></h2></div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                            <div className="space-y-6">
-                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                    <h4 className="font-bold text-slate-900 uppercase text-xs mb-4">Brand Identity</h4>
-                                    <div className="space-y-4">
-                                        <InputField label="Brand Name" val={selectedTVBrand.name} onChange={(e: any) => { const updated = { ...selectedTVBrand, name: e.target.value }; handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig }); }} />
-                                        <FileUpload label="Brand Logo" currentUrl={selectedTVBrand.logoUrl} onUpload={(url: any) => { const updated = { ...selectedTVBrand, logoUrl: url }; handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig }); }} />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="md:col-span-2">
-                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                    <div className="flex justify-between items-center mb-6"><h4 className="font-bold text-slate-900 uppercase text-xs">TV Models</h4><button onClick={() => setEditingTVModel({ id: generateId('tvm'), name: '', videoUrls: [] })} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase flex items-center gap-1"><Plus size={12} /> Add Model</button></div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        {(selectedTVBrand.models || []).map((model) => (
-                                            <div key={model.id} className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden group">
-                                                <div className="p-4 flex items-center gap-4">
-                                                    <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shrink-0 border border-slate-200">{model.imageUrl ? <img src={model.imageUrl} className="w-full h-full object-cover rounded-lg" /> : <Monitor size={20} className="text-slate-300" />}</div>
-                                                    <div className="flex-1 min-w-0"><div className="font-bold text-slate-900 text-sm truncate">{model.name}</div><div className="text-[10px] font-bold text-slate-500 uppercase">{model.videoUrls?.length || 0} Videos</div></div>
-                                                </div>
-                                                <div className="flex border-t border-slate-200 divide-x divide-slate-200">
-                                                    <button onClick={() => setEditingTVModel(model)} className="flex-1 py-2 text-[10px] font-bold uppercase text-blue-600 hover:bg-blue-50 transition-colors">Edit / Videos</button>
-                                                    <button onClick={() => { if (confirm("Delete this model?")) { const updated = { ...selectedTVBrand, models: selectedTVBrand.models.filter(m => m.id !== model.id) }; handleLocalUpdate({ ...localData, tv: { ...localData.tv, brands: tvBrands.map(b => b.id === selectedTVBrand.id ? updated : b) } as TVConfig }); } }} className="flex-1 py-2 text-[10px] font-bold uppercase text-red-500 hover:bg-red-50 transition-colors">Delete</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )
-            )}
-
-            {activeTab === 'marketing' && (
-                <div className="max-w-5xl mx-auto">
-                    {activeSubTab === 'catalogues' && (
-                        <CatalogueManager catalogues={(localData.catalogues || []).filter(c => !c.brandId)} onSave={(c) => { const brandCatalogues = (localData.catalogues || []).filter(c => c.brandId); handleLocalUpdate({ ...localData, catalogues: [...brandCatalogues, ...c] }); }} />
-                    )}
-                    {activeSubTab === 'hero' && (
-                        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <InputField label="Title" val={localData.hero.title} onChange={(e:any) => handleLocalUpdate({...localData, hero: {...localData.hero, title: e.target.value}})} />
-                                    <InputField label="Subtitle" val={localData.hero.subtitle} onChange={(e:any) => handleLocalUpdate({...localData, hero: {...localData.hero, subtitle: e.target.value}})} />
-                                    <InputField label="Website URL" val={localData.hero.websiteUrl || ''} onChange={(e:any) => handleLocalUpdate({...localData, hero: {...localData.hero, websiteUrl: e.target.value}})} placeholder="https://example.com" />
-                                </div>
-                                <div className="space-y-4">
-                                    <FileUpload label="Background Image" currentUrl={localData.hero.backgroundImageUrl} onUpload={(url:any) => handleLocalUpdate({...localData, hero: {...localData.hero, backgroundImageUrl: url}})} />
-                                    <FileUpload label="Brand Logo" currentUrl={localData.hero.logoUrl} onUpload={(url:any) => handleLocalUpdate({...localData, hero: {...localData.hero, logoUrl: url}})} />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    {activeSubTab === 'ads' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {['homeBottomLeft', 'homeBottomRight', 'homeSideVertical', 'screensaver'].map(zone => (
-                                <div key={zone} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                    <h4 className="font-bold uppercase text-xs mb-1">{zone.replace('home', '')}</h4>
-                                    <p className="text-[10px] text-slate-400 mb-4 uppercase font-bold tracking-wide">{zone.includes('Side') ? 'Size: 1080x1920 (Portrait)' : zone.includes('screensaver') ? 'Mixed Media' : 'Size: 1920x1080 (Landscape)'}</p>
-                                    <FileUpload label="Upload Media" accept="image/*,video/*" allowMultiple onUpload={(urls:any, type:any) => { const newAds = (Array.isArray(urls)?urls:[urls]).map(u=>({id:generateId('ad'), type, url:u, dateAdded: new Date().toISOString()})); handleLocalUpdate({...localData, ads: {...localData.ads, [zone]: [...(localData.ads as any)[zone], ...newAds]} as any}); }} />
-                                    <div className="grid grid-cols-3 gap-2 mt-4">
-                                        {((localData.ads as any)[zone] || []).map((ad: any, idx: number) => (
-                                            <div key={ad.id} className="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                                                {ad.type === 'video' ? <video src={ad.url} className="w-full h-full object-cover opacity-60" /> : <img src={ad.url} alt="Ad" className="w-full h-full object-cover" />}
-                                                <button onClick={() => { const currentAds = (localData.ads as any)[zone]; const newAdsList = currentAds.filter((_: any, i: number) => i !== idx); handleLocalUpdate({ ...localData, ads: { ...localData.ads, [zone]: newAdsList } as any }); }} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"><Trash2 size={10} /></button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-            
-            {activeTab === 'fleet' && (
-                <div className="animate-fade-in max-w-6xl mx-auto pb-24">
-                   <div className="flex items-center justify-between mb-8">
-                       <h2 className="text-2xl font-black text-slate-900 uppercase">Device Fleet</h2>
-                       <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-xs font-bold text-slate-500">
-                           Total Devices: {localData.fleet?.length || 0}
-                       </div>
-                   </div>
-
-                   {/* Device Categories Loop */}
-                   {['kiosk', 'mobile', 'tv'].map((type) => {
-                       // Filter devices for this category
-                       // Default undefined deviceType to 'kiosk' for legacy compatibility
-                       const devices = localData.fleet?.filter(k => 
-                           k.deviceType === type || (type === 'kiosk' && !k.deviceType)
-                       ) || [];
-
-                       if (devices.length === 0) return null;
-
-                       // Config for Section Header
-                       const config = {
-                           kiosk: { label: 'Interactive Kiosks', icon: <Tablet size={20} className="text-blue-600" />, color: 'blue' },
-                           mobile: { label: 'Mobile Handhelds', icon: <Smartphone size={20} className="text-purple-600" />, color: 'purple' },
-                           tv: { label: 'TV Displays', icon: <Tv size={20} className="text-indigo-600" />, color: 'indigo' }
-                       }[type as 'kiosk' | 'mobile' | 'tv'];
-
-                       return (
-                           <div key={type} className="mb-10 last:mb-0">
-                               <div className="flex items-center gap-3 mb-4 border-b border-slate-200 pb-2">
-                                   <div className={`p-2 rounded-lg bg-${config.color}-50`}>
-                                       {config.icon}
-                                   </div>
-                                   <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">{config.label}</h3>
-                                   <span className="ml-auto text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-full border border-slate-200">
-                                       {devices.length} Devices
-                                   </span>
-                               </div>
-
-                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                   {devices.map(kiosk => {
-                                       const isOnline = (new Date().getTime() - new Date(kiosk.last_seen).getTime()) < 350000;
-                                       return (
-                                           <div key={kiosk.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:shadow-lg transition-all duration-300">
-                                               {/* Card Header */}
-                                               <div className="p-4 border-b border-slate-100 bg-slate-50/30 flex justify-between items-start">
-                                                   <div className="flex-1 min-w-0 pr-2">
-                                                       <div className="flex items-start gap-2 mb-1">
-                                                           <div className="mt-0.5 shrink-0">
-                                                               {type === 'kiosk' && <Tablet size={14} className="text-blue-500"/>}
-                                                               {type === 'mobile' && <Smartphone size={14} className="text-purple-500"/>}
-                                                               {type === 'tv' && <Tv size={14} className="text-indigo-500"/>}
-                                                           </div>
-                                                           <h4 className="font-bold text-slate-900 uppercase text-sm leading-tight break-words" title={kiosk.name}>
-                                                               {kiosk.name}
-                                                           </h4>
-                                                       </div>
-                                                       <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400">
-                                                            <span>ID: {kiosk.id}</span>
-                                                       </div>
-                                                   </div>
-                                                   <div className={`shrink-0 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border flex items-center gap-1.5 ${isOnline ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                                                       <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                                                       {isOnline ? 'Online' : 'Offline'}
-                                                   </div>
-                                               </div>
-                                               
-                                               {/* Card Body */}
-                                               <div className="p-4 flex-1">
-                                                   <div className="flex justify-between items-center text-xs mb-3">
-                                                       <span className="text-slate-400 font-bold uppercase text-[10px]">Zone</span>
-                                                       <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                                           {kiosk.assignedZone || 'Unassigned'}
-                                                       </span>
-                                                   </div>
-                                                   <div className="flex justify-between items-center text-xs">
-                                                       <span className="text-slate-400 font-bold uppercase text-[10px]">IP / Net</span>
-                                                       <span className="font-mono text-slate-500 text-[10px] flex items-center gap-1">
-                                                           <Signal size={10} /> {kiosk.ipAddress || 'Unknown'}
-                                                       </span>
-                                                   </div>
-                                               </div>
-
-                                               {/* Card Footer (Actions) */}
-                                               <div className="bg-slate-50 p-2 border-t border-slate-100 flex gap-2">
-                                                   <button 
-                                                       onClick={() => setEditingKiosk(kiosk)} 
-                                                       className="flex-1 py-2 bg-white text-slate-600 rounded-lg border border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-sm transition-all text-[10px] font-bold uppercase flex items-center justify-center gap-1.5"
-                                                   >
-                                                       <Edit2 size={12}/> Edit
-                                                   </button>
-                                                   
-                                                   {supabase && (
-                                                       <button 
-                                                           onClick={async () => { if(confirm("Restart Device?")) await supabase.from('kiosks').update({restart_requested: true}).eq('id', kiosk.id); }} 
-                                                           className="flex-1 py-2 bg-white text-orange-600 rounded-lg border border-slate-200 hover:border-orange-300 hover:bg-orange-50 hover:shadow-sm transition-all text-[10px] font-bold uppercase flex items-center justify-center gap-1.5" 
-                                                           title="Restart Device"
-                                                       >
-                                                           <Power size={12}/> Restart
-                                                       </button>
-                                                   )}
-                                                   
-                                                   <button 
-                                                       onClick={() => removeFleetMember(kiosk.id)} 
-                                                       className="w-10 py-2 bg-white text-red-500 rounded-lg border border-slate-200 hover:border-red-300 hover:bg-red-50 hover:shadow-sm transition-all flex items-center justify-center" 
-                                                       title="Remove Device"
-                                                   >
-                                                       <Trash2 size={12}/>
-                                                   </button>
-                                               </div>
-                                           </div>
-                                       );
-                                   })}
-                               </div>
-                           </div>
-                       );
-                   })}
-                   
-                   {localData.fleet?.length === 0 && (
-                       <div className="p-16 text-center text-slate-400 font-bold uppercase text-xs border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50 flex flex-col items-center gap-4">
-                           <Tablet size={48} className="opacity-20" />
-                           <div>No devices registered in fleet</div>
-                       </div>
-                   )}
-                </div>
-            )}
-            
-            {activeTab === 'screensaver' && (
-                <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-20">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100"><div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Clock size={20} /></div><h3 className="font-black text-slate-900 uppercase tracking-wider text-sm">Timing & Schedule</h3></div>
-                             <div className="grid grid-cols-2 gap-4 mb-6"><InputField label="Idle Wait (sec)" val={localData.screensaverSettings?.idleTimeout||60} onChange={(e:any)=>handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, idleTimeout: parseInt(e.target.value)}})} /><InputField label="Slide Duration (sec)" val={localData.screensaverSettings?.imageDuration||8} onChange={(e:any)=>handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, imageDuration: parseInt(e.target.value)}})} /></div>
-                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200"><div className="flex justify-between items-center mb-4"><label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Active Hours (Sleep Mode)</label><button onClick={() => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, enableSleepMode: !localData.screensaverSettings?.enableSleepMode}})} className={`w-8 h-4 rounded-full transition-colors relative ${localData.screensaverSettings?.enableSleepMode ? 'bg-green-500' : 'bg-slate-300'}`}><div className={`w-2 h-2 bg-white rounded-full absolute top-1 transition-all ${localData.screensaverSettings?.enableSleepMode ? 'left-5' : 'left-1'}`}></div></button></div><div className={`grid grid-cols-2 gap-4 transition-opacity ${localData.screensaverSettings?.enableSleepMode ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}><div><label className="block text-[10px] font-bold text-slate-400 mb-1">Start Time</label><input type="time" value={localData.screensaverSettings?.activeHoursStart || '08:00'} onChange={(e) => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, activeHoursStart: e.target.value}})} className="w-full p-2 border border-slate-300 rounded text-sm font-bold"/></div><div><label className="block text-[10px] font-bold text-slate-400 mb-1">End Time</label><input type="time" value={localData.screensaverSettings?.activeHoursEnd || '20:00'} onChange={(e) => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, activeHoursEnd: e.target.value}})} className="w-full p-2 border border-slate-300 rounded text-sm font-bold"/></div></div></div>
-                         </div>
-                         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100"><div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><Monitor size={20} /></div><h3 className="font-black text-slate-900 uppercase tracking-wider text-sm">Content & Behavior</h3></div>
-                             <div className="space-y-4">{[{ key: 'showProductImages', label: 'Show Products (Images)' }, { key: 'showProductVideos', label: 'Show Products (Videos)' }, { key: 'showPamphlets', label: 'Show Pamphlet Covers' }, { key: 'showCustomAds', label: 'Show Custom Ads' }, { key: 'muteVideos', label: 'Mute Videos' }, { key: 'showInfoOverlay', label: 'Show Title Overlay' }].map(opt => (<div key={opt.key} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-100"><label className="text-xs font-bold text-slate-700 uppercase">{opt.label}</label><button onClick={() => handleLocalUpdate({...localData, screensaverSettings: {...localData.screensaverSettings!, [opt.key]: !(localData.screensaverSettings as any)[opt.key]}})} className={`w-10 h-5 rounded-full transition-colors relative ${(localData.screensaverSettings as any)[opt.key] ? 'bg-blue-600' : 'bg-slate-300'}`}><div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all ${(localData.screensaverSettings as any)[opt.key] ? 'left-6' : 'left-1'}`}></div></button></div>))}</div>
-                         </div>
-                     </div>
-                </div>
-            )}
-            
-            {activeTab === 'history' && (
-               <div className="max-w-6xl mx-auto space-y-6">
-                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                       <h2 className="text-2xl font-black text-slate-900 uppercase">Archive Management</h2>
-                       <div className="flex gap-2">
-                            <button 
-                                onClick={() => { if(confirm("Permanently clear ALL archived history?")) handleLocalUpdate({...localData, archive: { brands: [], products: [], catalogues: [], deletedItems: [], deletedAt: {} }}) }} 
-                                className="text-red-500 font-bold uppercase text-xs flex items-center gap-2 bg-red-50 hover:bg-red-100 border border-red-100 px-4 py-2 rounded-lg transition-colors"
-                            >
-                                <Trash2 size={14}/> Wipe History
-                            </button>
-                       </div>
-                   </div>
-
-                   <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm min-h-[500px] flex flex-col">
-                       {/* Toolbar */}
-                       <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row justify-between gap-4">
-                           <div className="flex items-center gap-2 bg-slate-200/50 p-1 rounded-lg self-start overflow-x-auto max-w-full">
-                               <button onClick={() => setHistoryTab('deletedItems')} className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all whitespace-nowrap ${historyTab === 'deletedItems' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>All Items</button>
-                               <button onClick={() => setHistoryTab('brands')} className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all whitespace-nowrap ${historyTab === 'brands' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Deleted Brands</button>
-                               <button onClick={() => setHistoryTab('catalogues')} className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase transition-all whitespace-nowrap ${historyTab === 'catalogues' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Deleted Pamphlets</button>
-                           </div>
-                           <div className="relative">
-                               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                               <input 
-                                  type="text" 
-                                  placeholder="Search Archives..." 
-                                  className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold w-full md:w-64 focus:border-blue-500 outline-none"
-                                  value={historySearch}
-                                  onChange={(e) => setHistorySearch(e.target.value)}
-                               />
-                           </div>
-                       </div>
-
-                       {/* List Content */}
-                       <div className="flex-1 overflow-y-auto">
-                           {historyTab === 'deletedItems' ? (
-                               archivedGenericItems.length === 0 ? (
-                                   <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                                       <Archive size={48} className="mb-4 opacity-20" />
-                                       <span className="text-xs font-bold uppercase tracking-widest">No Deleted Items Found</span>
-                                   </div>
-                               ) : (
-                                   <table className="w-full text-left">
-                                       <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                                           <tr>
-                                               <th className="px-6 py-3">Type</th>
-                                               <th className="px-6 py-3">Name</th>
-                                               <th className="px-6 py-3">Deleted Date</th>
-                                               <th className="px-6 py-3 text-right">Data</th>
-                                           </tr>
-                                       </thead>
-                                       <tbody className="divide-y divide-slate-100 text-sm">
-                                           {archivedGenericItems.map(item => (
-                                               <tr key={item.id} className="hover:bg-slate-50 group">
-                                                   <td className="px-6 py-4">
-                                                       <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
-                                                           item.type === 'product' ? 'bg-blue-50 text-blue-700' :
-                                                           item.type === 'pricelist' ? 'bg-green-50 text-green-700' :
-                                                           'bg-slate-100 text-slate-600'
-                                                       }`}>
-                                                           {item.type}
-                                                       </span>
-                                                   </td>
-                                                   <td className="px-6 py-4">
-                                                       <div className="font-bold text-slate-900">{item.name}</div>
-                                                       <div className="text-[10px] text-slate-400 font-mono">{item.id}</div>
-                                                   </td>
-                                                   <td className="px-6 py-4">
-                                                       <div className="text-xs font-bold text-slate-600">
-                                                           {formatRelativeTime(item.deletedAt)}
-                                                       </div>
-                                                       <div className="text-[10px] text-slate-400">
-                                                           {new Date(item.deletedAt).toLocaleTimeString()}
-                                                       </div>
-                                                   </td>
-                                                   <td className="px-6 py-4 text-right">
-                                                       <button 
-                                                            onClick={() => {
-                                                                const json = JSON.stringify(item.data, null, 2);
-                                                                const blob = new Blob([json], {type: "application/json"});
-                                                                const url = URL.createObjectURL(blob);
-                                                                const a = document.createElement('a');
-                                                                a.href = url;
-                                                                a.download = `${item.name}-recovered.json`;
-                                                                a.click();
-                                                            }}
-                                                            className="text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase inline-flex items-center gap-1 transition-colors border border-slate-200"
-                                                       >
-                                                           <Download size={12} /> JSON
-                                                       </button>
-                                                   </td>
-                                               </tr>
-                                           ))}
-                                       </tbody>
-                                   </table>
-                               )
-                           ) : historyTab === 'brands' ? (
-                               archivedBrands.length === 0 ? (
-                                   <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                                       <Archive size={48} className="mb-4 opacity-20" />
-                                       <span className="text-xs font-bold uppercase tracking-widest">No Archived Brands Found</span>
-                                   </div>
-                               ) : (
-                                   <table className="w-full text-left">
-                                       <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                                           <tr>
-                                               <th className="px-6 py-3">Brand Name</th>
-                                               <th className="px-6 py-3">Metadata</th>
-                                               <th className="px-6 py-3">Deleted Date</th>
-                                               <th className="px-6 py-3 text-right">Actions</th>
-                                           </tr>
-                                       </thead>
-                                       <tbody className="divide-y divide-slate-100 text-sm">
-                                           {archivedBrands.map(b => (
-                                               <tr key={b.id} className="hover:bg-slate-50 group">
-                                                   <td className="px-6 py-4">
-                                                       <div className="font-bold text-slate-900">{b.name}</div>
-                                                       <div className="text-[10px] text-slate-400 font-mono">{b.id}</div>
-                                                   </td>
-                                                   <td className="px-6 py-4">
-                                                       <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">
-                                                           <Box size={12} /> {b.categories.length} Categories
-                                                       </div>
-                                                   </td>
-                                                   <td className="px-6 py-4">
-                                                       <div className="text-xs font-bold text-slate-600">
-                                                           {localData.archive?.deletedAt?.[b.id] ? formatRelativeTime(localData.archive.deletedAt[b.id]) : 'Unknown'}
-                                                       </div>
-                                                       <div className="text-[10px] text-slate-400">
-                                                           {localData.archive?.deletedAt?.[b.id] ? new Date(localData.archive.deletedAt[b.id]).toLocaleTimeString() : ''}
-                                                       </div>
-                                                   </td>
-                                                   <td className="px-6 py-4 text-right">
-                                                       <button onClick={() => restoreBrand(b)} className="text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-xs font-bold uppercase inline-flex items-center gap-1 transition-colors">
-                                                           <RotateCcw size={14} /> Restore
-                                                       </button>
-                                                   </td>
-                                               </tr>
-                                           ))}
-                                       </tbody>
-                                   </table>
-                               )
-                           ) : (
-                               archivedCatalogues.length === 0 ? (
-                                   <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                                       <Archive size={48} className="mb-4 opacity-20" />
-                                       <span className="text-xs font-bold uppercase tracking-widest">No Archived Pamphlets Found</span>
-                                   </div>
-                               ) : (
-                                   <table className="w-full text-left">
-                                       <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                                           <tr>
-                                               <th className="px-6 py-3">Title</th>
-                                               <th className="px-6 py-3">Type</th>
-                                               <th className="px-6 py-3">Expiration Info</th>
-                                               <th className="px-6 py-3 text-right">Actions</th>
-                                           </tr>
-                                       </thead>
-                                       <tbody className="divide-y divide-slate-100 text-sm">
-                                           {archivedCatalogues.map(c => (
-                                               <tr key={c.id} className="hover:bg-slate-50 group">
-                                                   <td className="px-6 py-4">
-                                                       <div className="font-bold text-slate-900">{c.title}</div>
-                                                       <div className="text-[10px] text-slate-400 font-mono">{c.id}</div>
-                                                   </td>
-                                                   <td className="px-6 py-4">
-                                                       <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${c.brandId ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
-                                                           {c.brandId ? 'Brand Catalogue' : 'Global Pamphlet'}
-                                                       </span>
-                                                   </td>
-                                                   <td className="px-6 py-4">
-                                                       <div className="text-xs font-bold text-slate-600">
-                                                           {c.endDate ? `Expired: ${new Date(c.endDate).toLocaleDateString()}` : 'Manual Delete'}
-                                                       </div>
-                                                       <div className="text-[10px] text-slate-400">
-                                                           Deleted: {localData.archive?.deletedAt?.[c.id] ? formatRelativeTime(localData.archive.deletedAt[c.id]) : 'N/A'}
-                                                       </div>
-                                                   </td>
-                                                   <td className="px-6 py-4 text-right">
-                                                       <button onClick={() => restoreCatalogue(c)} className="text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg text-xs font-bold uppercase inline-flex items-center gap-1 transition-colors">
-                                                           <RotateCcw size={14} /> Restore
-                                                       </button>
-                                                   </td>
-                                               </tr>
-                                           ))}
-                                       </tbody>
-                                   </table>
-                               )
-                           )}
-                       </div>
-                   </div>
-               </div>
-            )}
-
             {activeTab === 'settings' && (
                <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-20">
-                   {/* ZIP BACKUP SECTION */}
+                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                       <h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2">
+                           <Key size={20} className="text-blue-500"/> Device Security
+                       </h3>
+                       <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
+                           <div className="space-y-1">
+                               <label className="text-xs font-bold text-blue-800 uppercase block">Device Setup PIN</label>
+                               <p className="text-[10px] text-blue-600 max-w-sm">
+                                   Required to activate new devices or restore Kiosk ID. Keep this secure.
+                               </p>
+                           </div>
+                           <input 
+                               type="text" 
+                               value={localData.setupPin || '0000'} 
+                               onChange={(e) => handleLocalUpdate({ ...localData, setupPin: e.target.value })}
+                               className="w-32 p-2 rounded-lg border border-blue-200 font-mono font-bold text-center text-lg outline-none focus:border-blue-500"
+                               placeholder="0000"
+                           />
+                       </div>
+                   </div>
+
                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
                        <div className="absolute top-0 right-0 p-8 opacity-5 text-blue-500 pointer-events-none"><Database size={120} /></div>
                        <h3 className="font-black text-slate-900 uppercase text-sm mb-6 flex items-center gap-2"><Database size={20} className="text-blue-500"/> System Data & Backup</h3>
@@ -2552,7 +867,7 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                    <ul className="list-disc pl-4 mt-2 space-y-1 text-[10px] text-slate-500 font-bold">
                                        <li>Folder Structure: <code>Brand/Category/Product/</code></li>
                                        <li>Place images (.jpg/.png) & manuals (.pdf) inside product folders.</li>
-                                       <li>Images & PDFs are automatically converted.</li>
+                                       <li><strong>Smart Import:</strong> Uses `details.json` to accurately map data.</li>
                                    </ul>
                                </div>
                                <label className={`w-full py-4 ${importProcessing ? 'bg-slate-300 cursor-wait' : 'bg-slate-800 hover:bg-slate-900 cursor-pointer'} text-white rounded-xl font-bold uppercase text-xs transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl`}>
@@ -2569,24 +884,19 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                                  setImportProcessing(true);
                                                  try {
                                                      const newBrands = await importZip(e.target.files[0]);
-                                                     // Merge Logic: Add new brands, or merge categories if brand exists
                                                      let mergedBrands = [...localData.brands];
                                                      
                                                      newBrands.forEach(nb => {
                                                          const existingBrandIndex = mergedBrands.findIndex(b => b.name === nb.name);
                                                          if (existingBrandIndex > -1) {
-                                                             // Merge Brand Assets if present
                                                              if (nb.logoUrl) {
                                                                  mergedBrands[existingBrandIndex].logoUrl = nb.logoUrl;
                                                              }
 
-                                                             // Merge Categories
                                                              nb.categories.forEach(nc => {
                                                                  const existingCatIndex = mergedBrands[existingBrandIndex].categories.findIndex(c => c.name === nc.name);
                                                                  if (existingCatIndex > -1) {
-                                                                     // Merge Products
                                                                      const existingProducts = mergedBrands[existingBrandIndex].categories[existingCatIndex].products;
-                                                                     // Add only new products based on name
                                                                      const uniqueNewProducts = nc.products.filter(np => !existingProducts.find(ep => ep.name === np.name));
                                                                      mergedBrands[existingBrandIndex].categories[existingCatIndex].products = [...existingProducts, ...uniqueNewProducts];
                                                                  } else {
@@ -2599,10 +909,10 @@ export const AdminDashboard = ({ storeData, onUpdateData, onRefresh }: { storeDa
                                                      });
                                                      
                                                      handleLocalUpdate({ ...localData, brands: mergedBrands });
-                                                     alert("Import Successful!");
+                                                     alert("Import Successful! Items added.");
                                                  } catch(err) {
                                                      console.error(err);
-                                                     alert("Failed to read ZIP file. Ensure structure is correct.");
+                                                     alert("Failed to read ZIP file. Ensure it contains details.json files.");
                                                  } finally {
                                                      setImportProcessing(false);
                                                  }
